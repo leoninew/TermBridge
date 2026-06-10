@@ -1,0 +1,170 @@
+{
+  "app": {
+    "title": "TermBridge 会话工作台",
+    "nav": {
+      "sessions": "会话",
+      "environment": "环境管理",
+      "shortcuts": "快捷方式",
+      "terminals": "快捷方式"
+    },
+    "language": {
+      "label": "语言",
+      "zhCN": "中文",
+      "enUS": "English"
+    },
+    "settings": {
+      "trigger": "设置",
+      "navigation": "导航"
+    },
+    "errors": {
+      "loadSessions": "加载会话失败",
+      "createSession": "创建会话失败",
+      "restartSession": "重新启动会话失败",
+      "deleteSession": "删除会话失败"
+    },
+    "actions": {
+      "cancel": "取消",
+      "delete": "删除",
+      "edit": "编辑",
+      "save": "保存",
+      "close": "关闭"
+    },
+    "deleteSession": {
+      "title": "删除会话",
+      "description": "确认删除会话「{name}」？此操作只会删除管理记录。"
+    },
+    "sidebar": {
+      "expandLabel": "展开会话导航",
+      "resizeLabel": "调整会话管理宽度"
+    }
+  },
+  "api": {
+    "requestFailed": "请求失败：{status}"
+  },
+  "session": {
+    "create": {
+      "title": "创建会话",
+      "description": "选择快捷方式和工作目录来创建会话。",
+      "name": "名称",
+      "namePlaceholder": "例如：preflight",
+      "workspace": "目录",
+      "workspacePlaceholder": "输入路径或浏览选择",
+      "browse": "浏览",
+      "collapse": "收起",
+      "submit": "创建",
+      "shortcut": "快捷方式",
+      "loadShortcutsError": "加载快捷方式失败"
+    },
+    "list": {
+      "title": "会话管理",
+      "createLabel": "创建会话",
+      "loading": "正在加载会话...",
+      "empty": "暂无会话，先创建一个。",
+      "collapse": "收起"
+    },
+    "card": {
+      "restartLabel": "重新启动会话",
+      "deleteLabel": "删除会话",
+      "shortcut": "快捷方式：{shortcut}"
+    },
+    "terminal": {
+      "title": "终端",
+      "empty": "选择一个会话查看终端。",
+      "missingUrl": "当前会话没有可用终端 URL。",
+      "statusUnavailable": "当前状态为 {status}，终端暂不可用。",
+      "restart": "重新启动会话",
+      "iframeTitle": "{name} terminal"
+    },
+    "status": {
+      "running": "运行中",
+      "starting": "启动中",
+      "stopped": "已停止",
+      "failed": "失败"
+    }
+  },
+  "workspace": {
+    "errors": {
+      "loadRoots": "加载磁盘根目录失败",
+      "loadDirectory": "加载目录失败"
+    },
+    "loadingRoots": "正在加载磁盘根目录...",
+    "empty": "没有可访问的目录。"
+  },
+  "environmentManagement": {
+    "title": "环境管理",
+    "description": "管理 Windows、Cygwin、WSL 和终端运行环境配置。",
+    "mode": "模式",
+    "saved": "设置已保存。",
+    "actions": {
+      "check": "检测"
+    },
+    "status": {
+      "available": "可用",
+      "unavailable": "不可用"
+    },
+    "errors": {
+      "load": "加载环境配置失败",
+      "check": "检测环境失败",
+      "saveTtyd": "保存 ttyd 配置失败",
+      "saveCygwin": "保存 Cygwin 配置失败"
+    },
+    "tabs": {
+      "windows": "Windows",
+      "cygwin": "Cygwin",
+      "wsl": "WSL"
+    },
+    "windows": {
+      "title": "Windows",
+      "description": "检查 Windows 原生命令执行环境和常见 shell。"
+    },
+    "cygwin": {
+      "title": "Cygwin",
+      "description": "检查 Cygwin bash 与专属 tmux 能力。",
+      "bashPath": "bash 路径",
+      "tmuxPath": "tmux 路径",
+      "saved": "Cygwin 配置已保存。"
+    },
+    "wsl": {
+      "title": "WSL",
+      "description": "检查 WSL 基础可用性；本页暂不管理具体发行版。"
+    },
+    "ttyd": {
+      "title": "ttyd",
+      "description": "ttyd 是独立运行时依赖。点击检测会自动写入可用路径；也可手动填写路径后检测。",
+      "path": "ttyd 路径",
+      "saved": "ttyd 配置已保存。"
+    }
+  },
+  "shortcutManagement": {
+    "title": "快捷方式",
+    "description": "管理在 host 环境中启动的入口命令。",
+    "loading": "正在加载快捷方式...",
+    "actions": {
+      "create": "新建快捷方式"
+    },
+    "errors": {
+      "load": "加载快捷方式失败",
+      "save": "保存快捷方式失败",
+      "delete": "删除快捷方式失败"
+    },
+    "hosts": {
+      "cygwinTmux": "Cygwin + tmux"
+    },
+    "fields": {
+      "name": "名称",
+      "command": "命令",
+      "host": "Host 环境",
+      "description": "说明"
+    },
+    "dialog": {
+      "createTitle": "新建快捷方式",
+      "editTitle": "编辑快捷方式",
+      "description": "快捷方式描述如何在绑定 host 环境中启动入口命令。"
+    },
+    "delete": {
+      "title": "删除快捷方式",
+      "description": "确认删除快捷方式「{name}」？",
+      "inUse": "使用中的快捷方式不允许删除"
+    }
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "app": {
+    "title": "TermBridge",
+    "nav": {
+      "sessions": "Sessions",
+      "environment": "Environment Management",
+      "shortcuts": "Shortcuts",
+      "terminals": "Shortcuts"
+    },
+    "language": {
+      "label": "Language",
+      "zhCN": "中文",
+      "enUS": "English"
+    },
+    "settings": {
+      "trigger": "Settings",
+      "navigation": "Navigation"
+    },
+    "errors": {
+      "loadSessions": "Failed to load sessions",
+      "createSession": "Failed to create session",
+      "restartSession": "Failed to restart session",
+      "deleteSession": "Failed to delete session"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "save": "Save",
+      "close": "Close"
+    },
+    "deleteSession": {
+      "title": "Delete Session",
+      "description": "Delete session \"{name}\"? This only removes the management record."
+    },
+    "sidebar": {
+      "expandLabel": "Expand session navigation",
+      "resizeLabel": "Resize session management width"
+    }
+  },
+  "api": {
+    "requestFailed": "Request failed: {status}"
+  },
+  "session": {
+    "create": {
+      "title": "Create Session",
+      "description": "Choose a shortcut and workspace to create a session.",
+      "name": "Name",
+      "namePlaceholder": "For example: preflight",
+      "workspace": "Directory",
+      "workspacePlaceholder": "Enter a path or browse",
+      "browse": "Browse",
+      "collapse": "Collapse",
+      "submit": "Create",
+      "shortcut": "Shortcut",
+      "loadShortcutsError": "Failed to load shortcuts"
+    },
+    "list": {
+      "title": "Session Management",
+      "createLabel": "Create session",
+      "loading": "Loading sessions...",
+      "empty": "No sessions yet. Create one first.",
+      "collapse": "Collapse"
+    },
+    "card": {
+      "restartLabel": "Restart session",
+      "deleteLabel": "Delete session",
+      "shortcut": "Shortcut: {shortcut}"
+    },
+    "terminal": {
+      "title": "Terminal",
+      "empty": "Select a session to view the terminal.",
+      "missingUrl": "The current session has no available terminal URL.",
+      "statusUnavailable": "Current status is {status}; the terminal is unavailable.",
+      "restart": "Restart session",
+      "iframeTitle": "{name} terminal"
+    },
+    "status": {
+      "running": "Running",
+      "starting": "Starting",
+      "stopped": "Stopped",
+      "failed": "Failed"
+    }
+  },
+  "workspace": {
+    "errors": {
+      "loadRoots": "Failed to load disk roots",
+      "loadDirectory": "Failed to load directory"
+    },
+    "loadingRoots": "Loading disk roots...",
+    "empty": "No accessible directories."
+  },
+  "environmentManagement": {
+    "title": "Environment Management",
+    "description": "Manage Windows, Cygwin, WSL, and terminal runtime environment settings.",
+    "mode": "Mode",
+    "saved": "Settings saved.",
+    "actions": {
+      "check": "Check"
+    },
+    "status": {
+      "available": "Available",
+      "unavailable": "Unavailable"
+    },
+    "errors": {
+      "load": "Failed to load environment settings",
+      "check": "Failed to check environment",
+      "saveTtyd": "Failed to save ttyd settings",
+      "saveCygwin": "Failed to save Cygwin settings"
+    },
+    "tabs": {
+      "windows": "Windows",
+      "cygwin": "Cygwin",
+      "wsl": "WSL"
+    },
+    "windows": {
+      "title": "Windows",
+      "description": "Check the native Windows command environment and common shells."
+    },
+    "cygwin": {
+      "title": "Cygwin",
+      "description": "Check Cygwin bash and Cygwin-only tmux capability.",
+      "bashPath": "bash path",
+      "tmuxPath": "tmux path",
+      "saved": "Cygwin settings saved."
+    },
+    "wsl": {
+      "title": "WSL",
+      "description": "Check basic WSL availability; distro management is out of scope here."
+    },
+    "ttyd": {
+      "title": "ttyd",
+      "description": "ttyd is an independent runtime dependency. Check writes the available path automatically; you can also enter a path and check it.",
+      "path": "ttyd path",
+      "saved": "ttyd settings saved."
+    }
+  },
+  "shortcutManagement": {
+    "title": "Shortcuts",
+    "description": "Manage entry commands launched in a host environment.",
+    "loading": "Loading shortcuts...",
+    "actions": {
+      "create": "New Shortcut"
+    },
+    "errors": {
+      "load": "Failed to load shortcuts",
+      "save": "Failed to save shortcut",
+      "delete": "Failed to delete shortcut"
+    },
+    "hosts": {
+      "cygwinTmux": "Cygwin + tmux"
+    },
+    "fields": {
+      "name": "Name",
+      "command": "Command",
+      "host": "Host environment",
+      "description": "Description"
+    },
+    "dialog": {
+      "createTitle": "New Shortcut",
+      "editTitle": "Edit Shortcut",
+      "description": "A shortcut describes how to launch an entry command in its bound host environment."
+    },
+    "delete": {
+      "title": "Delete Shortcut",
+      "description": "Delete shortcut \"{name}\"?",
+      "inUse": "Shortcuts in use cannot be deleted"
+    }
+  }
+}
