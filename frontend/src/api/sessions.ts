@@ -7,6 +7,7 @@ import type {
   LinuxCheckResponse,
   RuntimeCheckResponse,
   Session,
+  SessionTreeResponse,
   Shortcut,
   ShortcutListResponse,
   TerminalSettings,
@@ -57,6 +58,10 @@ export function listSessions(): Promise<Session[]> {
   return request<Session[]>('/api/sessions')
 }
 
+export function listSessionTree(): Promise<SessionTreeResponse> {
+  return request<SessionTreeResponse>('/api/session-tree')
+}
+
 export function createSession(payload: CreateSessionPayload): Promise<Session> {
   return request<Session>('/api/sessions', {
     method: 'POST',
@@ -70,6 +75,12 @@ export function getSession(id: string): Promise<Session> {
 
 export function restartSession(id: string): Promise<Session> {
   return request<Session>(`/api/sessions/${encodeURIComponent(id)}/restart`, {
+    method: 'POST',
+  })
+}
+
+export function stopSession(id: string): Promise<Session> {
+  return request<Session>(`/api/sessions/${encodeURIComponent(id)}/stop`, {
     method: 'POST',
   })
 }

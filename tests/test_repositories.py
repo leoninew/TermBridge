@@ -3,51 +3,75 @@ from pathlib import Path
 import pytest
 
 from termbridge.exceptions import SessionNotFoundError, SessionRepositoryError
-from termbridge.models import SessionRecord, SessionStatus, TerminalState, utc_now
+from termbridge.models import SessionEntryRecord, SessionState, SessionStatus, TerminalState, WorkspaceRecord, utc_now
 from termbridge.repositories import FileSessionRepository, FileTerminalRepository
 
 
-def make_session(session_id: str = "sess_1", port: int = 9001) -> SessionRecord:
+def make_workspace(workspace_id: str = "ws_1") -> WorkspaceRecord:
     now = utc_now()
-    return SessionRecord(
-        id=session_id,
+    entry = SessionEntryRecord(
+        id="sess_1",
+        workspace_id=workspace_id,
         name="Test",
-        workspace=Path.cwd(),
-        runtime="bash",
-        command=["ttyd", "--port", str(port), "bash"],
-        port=port,
+        runtime="windows_cygwin",
+        command=["ttyd", "--port", "9001", "bash"],
+        port=9001,
         status=SessionStatus.RUNNING,
         pid=123,
         created_at=now,
         updated_at=now,
-        url=f"http://127.0.0.1:{port}",
+        url="http://127.0.0.1:9001",
+        shortcut_id="cygwin-bash",
+        shortcut_name="bash",
+        host="windows_cygwin",
+        tmux_session_name="tb_cyg_123",
+        tmux_window_id="@1",
+    )
+    return WorkspaceRecord(
+        id=workspace_id,
+        host="windows_cygwin",
+        path=Path.cwd(),
+        name="TermBridge",
+        tmux_session_name="tb_cyg_123",
+        created_at=now,
+        updated_at=now,
+        entries=[entry],
     )
 
 
-def test_repository_crud(tmp_path: Path) -> None:
+def test_repository_workspace_and_entry_crud(tmp_path: Path) -> None:
     repository = FileSessionRepository(tmp_path / "sessions.json")
-    session = make_session()
+    workspace = make_workspace()
 
-    repository.create(session)
-    assert repository.get(session.id).id == session.id
-    assert repository.list() == [session]
+    repository.upsert_workspace(workspace)
+    assert repository.get_workspace(workspace.id).id == workspace.id
+    assert repository.list_workspaces() == [workspace]
+    assert repository.get_entry("sess_1")[1].id == "sess_1"
 
-    updated = session.model_copy(update={"status": SessionStatus.STOPPED})
-    repository.update(updated)
-    assert repository.get(session.id).status == SessionStatus.STOPPED
+    updated_entry = workspace.entries[0].model_copy(update={"status": SessionStatus.STOPPED})
+    repository.update_entry(updated_entry)
+    assert repository.get_entry("sess_1")[1].status == SessionStatus.STOPPED
 
-    repository.delete(session.id)
-    assert repository.list() == []
+    assert repository.delete_entry("sess_1") is None
+    assert repository.list_workspaces() == []
 
 
 def test_repository_missing_file_lists_empty(tmp_path: Path) -> None:
-    assert FileSessionRepository(tmp_path / "missing.json").list() == []
+    assert FileSessionRepository(tmp_path / "missing.json").list_workspaces() == []
 
 
 def test_repository_missing_session_raises(tmp_path: Path) -> None:
     repository = FileSessionRepository(tmp_path / "sessions.json")
     with pytest.raises(SessionNotFoundError):
-        repository.get("missing")
+        repository.get_entry("missing")
+
+
+def test_repository_rejects_incompatible_flat_session_registry(tmp_path: Path) -> None:
+    sessions_file = tmp_path / "sessions.json"
+    sessions_file.write_text('{"sess_1": {"id": "sess_1"}}', encoding="utf-8")
+
+    with pytest.raises(SessionRepositoryError, match="incompatible schema"):
+        FileSessionRepository(sessions_file).list_workspaces()
 
 
 def test_repository_invalid_json_raises(tmp_path: Path) -> None:
@@ -55,13 +79,13 @@ def test_repository_invalid_json_raises(tmp_path: Path) -> None:
     sessions_file.write_text("not-json", encoding="utf-8")
 
     with pytest.raises(SessionRepositoryError):
-        FileSessionRepository(sessions_file).list()
+        FileSessionRepository(sessions_file).list_workspaces()
 
 
 def test_session_repository_creates_missing_parent_directory(tmp_path: Path) -> None:
     sessions_file = tmp_path / "missing" / "state" / "sessions.json"
 
-    FileSessionRepository(sessions_file).create(make_session())
+    FileSessionRepository(sessions_file).save_state(SessionState(workspaces={"ws_1": make_workspace()}))
 
     assert sessions_file.is_file()
 

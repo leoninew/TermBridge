@@ -63,8 +63,8 @@ const usedShortcutIds = computed(
         .filter((shortcutId): shortcutId is string => !!shortcutId),
     ),
 )
-const environmentsByHost = computed(() =>
-  new Map(environments.value.map((environment) => [environment.host, environment])),
+const environmentsByHost = computed(
+  () => new Map(environments.value.map((environment) => [environment.host, environment])),
 )
 const shortcutGroups = computed(() =>
   hosts
@@ -253,7 +253,9 @@ function hostDisabledReason(host: ShortcutHost): string {
                 class="rounded-md border border-red-200 px-2 py-1 text-sm text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
                 :disabled="usedShortcutIds.has(shortcut.id)"
                 :title="
-                  usedShortcutIds.has(shortcut.id) ? t('shortcutManagement.delete.inUse') : undefined
+                  usedShortcutIds.has(shortcut.id)
+                    ? t('shortcutManagement.delete.inUse')
+                    : undefined
                 "
                 @click="askRemoveShortcut(shortcut)"
               >
@@ -315,7 +317,8 @@ function hostDisabledReason(host: ShortcutHost): string {
                   :value="host"
                   :disabled="!!hostDisabledReason(host)"
                 >
-                  {{ hostLabel(host) }}{{ hostDisabledReason(host) ? ` - ${hostDisabledReason(host)}` : '' }}
+                  {{ hostLabel(host)
+                  }}{{ hostDisabledReason(host) ? ` - ${hostDisabledReason(host)}` : '' }}
                 </option>
               </select>
             </label>

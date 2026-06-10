@@ -18,18 +18,25 @@ import {
   createSession,
   deleteSession,
   listEnvironments,
-  listSessions,
+  listSessionTree,
   restartSession,
+  stopSession,
 } from './api/sessions'
 import EnvironmentManagement from './components/EnvironmentManagement.vue'
 import SessionCreateForm from './components/SessionCreateForm.vue'
 import SessionList from './components/SessionList.vue'
 import SessionTerminal from './components/SessionTerminal.vue'
 import ShortcutManagement from './components/ShortcutManagement.vue'
-import type { CreateSessionPayload, EnvironmentSummary, Session } from './types/sessions'
+import type {
+  CreateSessionPayload,
+  EnvironmentSummary,
+  Session,
+  SessionEnvironment,
+} from './types/sessions'
 
 const { t } = useI18n()
 const sessions = ref<Session[]>([])
+const sessionTree = ref<SessionEnvironment[]>([])
 const environments = ref<EnvironmentSummary[]>([])
 const activeSessionId = ref<string>()
 const loading = ref(false)
@@ -72,7 +79,11 @@ async function refresh() {
 
 async function loadSessions() {
   try {
-    sessions.value = await listSessions()
+    const tree = (await listSessionTree()).environments
+    sessionTree.value = tree
+    sessions.value = tree.flatMap((environment) =>
+      environment.workspaces.flatMap((workspace) => workspace.entries),
+    )
     if (
       !activeSessionId.value ||
       !sessions.value.some((session) => session.id === activeSessionId.value)
@@ -101,7 +112,7 @@ async function handleCreate(payload: CreateSessionPayload) {
   error.value = ''
   try {
     const session = await createSession(payload)
-    sessions.value = [session, ...sessions.value]
+    await loadSessions()
     activeSessionId.value = session.id
     showCreatePanel.value = false
     navigate('/')
@@ -125,7 +136,7 @@ async function confirmRemove() {
   const sessionId = deletingSession.value.id
   try {
     await deleteSession(sessionId)
-    sessions.value = sessions.value.filter((item) => item.id !== sessionId)
+    await loadSessions()
     if (activeSessionId.value === sessionId) {
       activeSessionId.value = sessions.value[0]?.id
     }
@@ -139,11 +150,23 @@ async function handleRestart(session: Session) {
   error.value = ''
   try {
     const restarted = await restartSession(session.id)
-    sessions.value = sessions.value.map((item) => (item.id === restarted.id ? restarted : item))
+    await loadSessions()
     activeSessionId.value = restarted.id
     navigate('/')
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('app.errors.restartSession')
+  }
+}
+
+async function handleStop(session: Session) {
+  error.value = ''
+  try {
+    const stopped = await stopSession(session.id)
+    await loadSessions()
+    activeSessionId.value = stopped.id
+    navigate('/')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : t('app.errors.stopSession')
   }
 }
 
@@ -199,6 +222,7 @@ onUnmounted(() => {
         <SessionList
           class="h-full min-h-0"
           :sessions="sessions"
+          :session-tree="sessionTree"
           :active-session-id="activeSessionId"
           :loading="loading"
           :environments-loading="environmentsLoading"
@@ -210,6 +234,7 @@ onUnmounted(() => {
           @collapse="sidebarCollapsed = true"
           @select="selectSession"
           @restart="handleRestart"
+          @stop="handleStop"
           @remove="askRemove"
           @navigate="navigate"
         />

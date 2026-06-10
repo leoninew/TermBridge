@@ -21,6 +21,7 @@
       "loadEnvironments": "加载环境列表失败",
       "createSession": "创建会话失败",
       "restartSession": "重新启动会话失败",
+      "stopSession": "停止会话失败",
       "deleteSession": "删除会话失败"
     },
     "actions": {
@@ -73,10 +74,12 @@
       "empty": "暂无会话，先创建一个。",
       "noReadyEnvironment": "当前没有就绪的运行环境。请先进入环境管理执行检测或填写必要路径。",
       "goToEnvironment": "去环境管理",
+      "searchPlaceholder": "搜索环境、目录或会话",
       "collapse": "收起"
     },
     "card": {
       "restartLabel": "重新启动会话",
+      "stopLabel": "停止会话",
       "deleteLabel": "删除会话",
       "shortcut": "快捷方式：{shortcut}"
     },

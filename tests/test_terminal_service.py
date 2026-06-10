@@ -170,6 +170,30 @@ def test_shortcut_service_resolves_windows_wsl_command(tmp_path: Path) -> None:
     ]
 
 
+def test_terminal_service_creates_wsl_tmux_window_from_wsl_cd_workspace(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))
+    shortcut = service.create_shortcut(CreateShortcutRequest(name="WSL", command="agent run", host="windows_wsl"))
+    workspace = Path(r"D:\SourceCodes\agentic\cc-switch")
+    completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="@3\n", stderr="")
+
+    with patch("termbridge.services.subprocess.run", return_value=completed) as run:
+        window_id = service.create_tmux_window(
+            shortcut,
+            workspace,
+            tmux_session_name="tb_wsl_workspace",
+            window_name="Agent",
+        )
+
+    assert window_id == "@3"
+    run.assert_called_once()
+    command = run.call_args.args[0]
+    assert command[:4] == ["wsl", "--cd", str(workspace), "sh"]
+    assert f"-c {workspace}" not in command[5]
+    assert "tmux new-session -d -s tb_wsl_workspace -c ." in command[5]
+    assert "tmux new-window -P -F '#{window_id}' -t tb_wsl_workspace -n Agent -c . 'agent run'" in command[5]
+
+
 def test_shortcut_service_resolves_linux_command_when_ready(tmp_path: Path) -> None:
     repository = FileTerminalRepository(tmp_path / "terminals.json")
     service = TerminalService(repository)

@@ -21,6 +21,7 @@
       "loadEnvironments": "Failed to load environments",
       "createSession": "Failed to create session",
       "restartSession": "Failed to restart session",
+      "stopSession": "Failed to stop session",
       "deleteSession": "Failed to delete session"
     },
     "actions": {
@@ -73,10 +74,12 @@
       "empty": "No sessions yet. Create one first.",
       "noReadyEnvironment": "No runtime environment is ready. Open environment management to run checks or fill required paths.",
       "goToEnvironment": "Go to environment management",
+      "searchPlaceholder": "Search environments, directories, or sessions",
       "collapse": "Collapse"
     },
     "card": {
       "restartLabel": "Restart session",
+      "stopLabel": "Stop session",
       "deleteLabel": "Delete session",
       "shortcut": "Shortcut: {shortcut}"
     },

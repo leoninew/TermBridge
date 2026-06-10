@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RotateCw, Trash2 } from '@lucide/vue'
+import { Square, RotateCw, Trash2 } from '@lucide/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Session } from '../types/sessions'
@@ -15,6 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [session: Session]
   restart: [session: Session]
+  stop: [session: Session]
   remove: [session: Session]
 }>()
 
@@ -59,6 +60,16 @@ function requestRemove() {
       </span>
     </button>
     <div class="absolute right-3 top-3 z-10 flex gap-1">
+      <button
+        v-if="session.status === 'running'"
+        type="button"
+        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 opacity-0 transition hover:bg-amber-50 hover:text-amber-600 group-hover:opacity-100 group-focus-within:opacity-100"
+        :aria-label="t('session.card.stopLabel')"
+        :title="t('session.card.stopLabel')"
+        @click.stop="emit('stop', session)"
+      >
+        <Square class="h-4 w-4" />
+      </button>
       <button
         v-if="session.status === 'stopped'"
         type="button"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ctypes
+import hashlib
 import logging
 import os
 import platform
@@ -29,9 +30,12 @@ from termbridge.models import (
     LinuxCheckResponse,
     LinuxSettings,
     RuntimeCheckResponse,
-    SessionRecord,
+    SessionEntryRecord,
+    SessionEnvironmentResponse,
     SessionResponse,
     SessionStatus,
+    SessionTreeResponse,
+    SessionWorkspaceResponse,
     Shortcut,
     ShortcutHost,
     ShortcutListResponse,
@@ -43,6 +47,7 @@ from termbridge.models import (
     WindowsCygwinSettings,
     WindowsWslCheckResponse,
     WindowsWslSettings,
+    WorkspaceRecord,
     WorkspaceRoot,
     WorkspaceRootsResponse,
     WorkspaceTreeNode,
@@ -387,6 +392,54 @@ class TerminalService:
         cleanup_command = [shell_path, "-lc", f"tmux kill-session -t {shlex.quote(tmux_session_name)}"]
         return [shell_path, "-lc", command], shortcut, cleanup_command
 
+    def resolve_shortcut(self, shortcut_id: str) -> Shortcut:
+        shortcut = self._find_shortcut(shortcut_id)
+        if shortcut.host == "windows_cygwin":
+            self._ensure_windows_cygwin_ready()
+        elif shortcut.host == "windows_wsl":
+            self._ensure_windows_wsl_ready()
+        else:
+            self._ensure_linux_ready()
+        return shortcut
+
+    def create_tmux_window(
+        self, shortcut: Shortcut, workspace: Path, *, tmux_session_name: str, window_name: str
+    ) -> str:
+        result = self._run_tmux_command(
+            shortcut.host,
+            workspace,
+            self._create_window_script(shortcut, workspace, tmux_session_name, window_name),
+        )
+        output = result.stdout.strip().splitlines()
+        if result.returncode != 0 or not output:
+            raise InvalidTerminalConfigError(result.stderr.strip() or "tmux window could not be created")
+        return output[-1]
+
+    def build_tmux_attach_command(
+        self, host: ShortcutHost, workspace: Path, *, tmux_session_name: str, tmux_window_id: str | None
+    ) -> list[str]:
+        select_window = f"tmux select-window -t {shlex.quote(tmux_window_id)} && " if tmux_window_id else ""
+        command = f"{select_window}exec tmux attach-session -t {shlex.quote(tmux_session_name)}"
+        return self._runtime_shell_command(host, workspace, command)
+
+    def tmux_window_exists(self, host: ShortcutHost, workspace: Path, *, tmux_window_id: str | None) -> bool:
+        if not tmux_window_id:
+            return False
+        result = self._run_tmux_command(host, workspace, f"tmux display-message -p -t {shlex.quote(tmux_window_id)} '#{{window_id}}'")
+        return result.returncode == 0 and result.stdout.strip() == tmux_window_id
+
+    def tmux_session_exists(self, host: ShortcutHost, workspace: Path, *, tmux_session_name: str) -> bool:
+        result = self._run_tmux_command(host, workspace, f"tmux has-session -t {shlex.quote(tmux_session_name)}")
+        return result.returncode == 0
+
+    def kill_tmux_window(self, host: ShortcutHost, workspace: Path, *, tmux_window_id: str | None) -> None:
+        if not tmux_window_id:
+            return
+        self._run_tmux_cleanup(host, workspace, f"tmux kill-window -t {shlex.quote(tmux_window_id)}")
+
+    def kill_tmux_session(self, host: ShortcutHost, workspace: Path, *, tmux_session_name: str) -> None:
+        self._run_tmux_cleanup(host, workspace, f"tmux kill-session -t {shlex.quote(tmux_session_name)}")
+
     def resolve_ttyd_executable(self, host: ShortcutHost | str, cygwin_bash_path: str | None = None) -> str:
         settings = self.get_settings()
         if settings.ttyd_mode == "explicit":
@@ -398,6 +451,55 @@ class TerminalService:
     def normalize_tmux_session_name(self, name: str, fallback: str) -> str:
         normalized = re.sub(r"[^A-Za-z0-9_.-]+", "-", name.strip()).strip("-._")
         return normalized or fallback
+
+    def _create_window_script(
+        self, shortcut: Shortcut, workspace: Path, tmux_session_name: str, window_name: str
+    ) -> str:
+        quoted_session = shlex.quote(tmux_session_name)
+        quoted_window = shlex.quote(window_name)
+        quoted_command = shlex.quote(shortcut.command)
+        quoted_workspace = shlex.quote(self._workspace_shell_path(shortcut.host, workspace))
+        return (
+            f"tmux has-session -t {quoted_session} 2>/dev/null || "
+            f"tmux new-session -d -s {quoted_session} -c {quoted_workspace}; "
+            f"tmux new-window -P -F '#{{window_id}}' -t {quoted_session} "
+            f"-n {quoted_window} -c {quoted_workspace} {quoted_command}"
+        )
+
+    def _run_tmux_command(self, host: ShortcutHost, workspace: Path, command: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            self._runtime_shell_command(host, workspace, command),
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+
+    def _run_tmux_cleanup(self, host: ShortcutHost, workspace: Path, command: str) -> None:
+        try:
+            result = self._run_tmux_command(host, workspace, command)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            logger.warning("Failed to cleanup tmux state host=%s workspace=%s error=%s", host, workspace, exc)
+            return
+        if result.returncode != 0:
+            logger.warning("Failed to cleanup tmux state host=%s workspace=%s stderr=%s", host, workspace, result.stderr.strip())
+
+    def _runtime_shell_command(self, host: ShortcutHost, workspace: Path, command: str) -> list[str]:
+        if host == "windows_cygwin":
+            bash_path = self._ensure_windows_cygwin_ready()
+            return [bash_path, "-lc", command]
+        if host == "windows_wsl":
+            self._ensure_windows_wsl_ready()
+            return ["wsl", "--cd", str(workspace), "sh", "-lc", command]
+        shell_path = self._ensure_linux_ready()
+        return [shell_path, "-lc", command]
+
+    def _workspace_shell_path(self, host: ShortcutHost, workspace: Path) -> str:
+        if host == "windows_cygwin":
+            return self._to_forward_slash(workspace)
+        if host == "windows_wsl":
+            return "."
+        return str(workspace)
 
     def _find_shortcut(self, shortcut_id: str) -> Shortcut:
         for shortcut in self.list_shortcuts().shortcuts:
@@ -682,73 +784,142 @@ class SessionService:
         logger.info(
             "Creating session name=%s shortcut=%s workspace=%s", request.name, request.shortcut_id, request.workspace
         )
-        workspace = request.workspace.expanduser().resolve()
-        if not workspace.is_dir():
-            logger.warning("Session workspace not found workspace=%s", workspace)
-            raise WorkspaceNotFoundError(workspace)
-        if self._terminal_service is None:
-            raise InvalidTerminalConfigError("Shortcut service is not available")
-
+        workspace_path = self._resolve_workspace(request.workspace)
+        terminal_service = self._require_terminal_service()
+        shortcut = terminal_service.resolve_shortcut(request.shortcut_id)
         now = utc_now()
-        session_id = f"sess_{uuid4().hex}"
-        tmux_session_name = self._terminal_service.normalize_tmux_session_name(request.name, session_id)
-        runtime_command, shortcut, tmux_cleanup_command = self._terminal_service.resolve_shortcut_command(
-            request.shortcut_id, workspace, tmux_session_name=tmux_session_name
+        workspace = self._get_or_create_workspace(shortcut.host, workspace_path, now)
+        entry_id = f"sess_{uuid4().hex}"
+        tmux_window_id = terminal_service.create_tmux_window(
+            shortcut,
+            workspace.path,
+            tmux_session_name=workspace.tmux_session_name,
+            window_name=request.name,
         )
-        tmux_bash_path = tmux_cleanup_command[0] if shortcut.host == "windows_cygwin" and tmux_cleanup_command else None
-        ttyd_executable = self._terminal_service.resolve_ttyd_executable(shortcut.host, tmux_bash_path)
-        runtime_name = shortcut.host
-        logger.info("Resolved shortcut command runtime=%s command=%s", runtime_name, runtime_command)
-        used_ports = [session.port for session in self._repository.list()]
-        port = self._port_allocator.allocate(used_ports)
-        logger.info("Allocated ttyd port port=%s used_ports=%s", port, used_ports)
-        command = self._build_ttyd_command(port, workspace, runtime_command, ttyd_executable)
-        logger.info("Starting ttyd process session_id=%s command=%s", session_id, command)
-        handle = self._process_adapter.start(command, workspace)
-        session = SessionRecord(
-            id=session_id,
+        entry = SessionEntryRecord(
+            id=entry_id,
+            workspace_id=workspace.id,
             name=request.name,
-            workspace=workspace,
-            runtime=runtime_name,
-            command=command,
-            port=port,
-            status=SessionStatus.RUNNING,
-            pid=handle.pid,
+            runtime=shortcut.host,
+            command=[],
+            port=0,
+            status=SessionStatus.STARTING,
+            pid=None,
             created_at=now,
             updated_at=now,
-            url=self._build_url(port),
+            url="",
             shortcut_id=shortcut.id,
             shortcut_name=shortcut.name,
             host=shortcut.host,
-            session_persistence="tmux",
-            tmux_bash_path=tmux_bash_path,
-            tmux_session_name=tmux_session_name,
-            tmux_cleanup_command=tmux_cleanup_command,
+            tmux_session_name=workspace.tmux_session_name,
+            tmux_window_id=tmux_window_id,
         )
-        self._repository.create(session)
-        logger.info("Session created session_id=%s pid=%s url=%s", session.id, session.pid, session.url)
-        return SessionResponse.from_record(session)
+        try:
+            entry = self._start_entry(entry, workspace)
+            workspace = workspace.model_copy(update={"entries": [*workspace.entries, entry], "updated_at": entry.updated_at})
+            self._repository.upsert_workspace(workspace)
+        except Exception:
+            self._cleanup_started_entry(workspace, entry)
+            raise
+        logger.info("Session entry created entry_id=%s workspace_id=%s pid=%s", entry.id, workspace.id, entry.pid)
+        return SessionResponse.from_entry(workspace, entry)
 
     def list_sessions(self) -> list[SessionResponse]:
-        sessions = self._repository.list()
-        logger.info("Listing sessions count=%s", len(sessions))
-        return [SessionResponse.from_record(self._refresh_status(session)) for session in sessions]
+        workspaces = self._refresh_workspaces(self._repository.list_workspaces())
+        return [SessionResponse.from_entry(workspace, entry) for workspace in workspaces for entry in workspace.entries]
+
+    def list_tree(self) -> SessionTreeResponse:
+        workspaces = self._refresh_workspaces(self._repository.list_workspaces())
+        labels = self._environment_labels()
+        environments = []
+        for host in ("windows_cygwin", "windows_wsl", "linux"):
+            host_workspaces = [workspace for workspace in workspaces if workspace.host == host]
+            environments.append(
+                SessionEnvironmentResponse(
+                    host=host,
+                    label=labels[host],
+                    workspaces=[self._workspace_response(workspace) for workspace in host_workspaces],
+                )
+            )
+        return SessionTreeResponse(environments=environments)
 
     def get(self, session_id: str) -> SessionResponse:
-        logger.info("Getting session session_id=%s", session_id)
-        return SessionResponse.from_record(self._refresh_status(self._repository.get(session_id)))
+        workspace, entry = self._repository.get_entry(session_id)
+        entry = self._refresh_entry(workspace, entry)
+        return SessionResponse.from_entry(workspace, entry)
 
     def restart(self, session_id: str) -> SessionResponse:
-        logger.info("Restarting session session_id=%s", session_id)
-        session = self._refresh_status(self._repository.get(session_id))
-        if session.status == SessionStatus.RUNNING:
-            return SessionResponse.from_record(session)
+        logger.info("Restarting session entry_id=%s", session_id)
+        workspace, entry = self._repository.get_entry(session_id)
+        entry = self._refresh_entry(workspace, entry)
+        if entry.status == SessionStatus.RUNNING:
+            return SessionResponse.from_entry(workspace, entry)
+        terminal_service = self._require_terminal_service()
+        shortcut = terminal_service.resolve_shortcut(entry.shortcut_id)
+        if shortcut.host != workspace.host:
+            raise InvalidTerminalConfigError("Shortcut host does not match session workspace")
+        tmux_window_id = terminal_service.create_tmux_window(
+            shortcut,
+            workspace.path,
+            tmux_session_name=workspace.tmux_session_name,
+            window_name=entry.name,
+        )
+        entry = entry.model_copy(update={"tmux_window_id": tmux_window_id})
+        try:
+            entry = self._start_entry(entry, workspace)
+            self._repository.update_entry(entry)
+        except Exception:
+            self._cleanup_started_entry(workspace, entry)
+            raise
+        return SessionResponse.from_entry(workspace, entry)
 
-        used_ports = [item.port for item in self._repository.list() if item.id != session_id]
+    def stop(self, session_id: str) -> SessionResponse:
+        logger.info("Stopping session entry_id=%s", session_id)
+        workspace, entry = self._repository.get_entry(session_id)
+        if entry.pid is not None:
+            self._process_adapter.terminate(ProcessHandle(pid=entry.pid))
+        self._require_terminal_service().kill_tmux_window(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id)
+        updated = entry.model_copy(
+            update={
+                "status": SessionStatus.STOPPED,
+                "pid": None,
+                "url": "",
+                "tmux_window_id": None,
+                "updated_at": utc_now(),
+            }
+        )
+        self._repository.update_entry(updated)
+        return SessionResponse.from_entry(workspace, updated)
+
+    def delete(self, session_id: str) -> None:
+        logger.info("Deleting session entry_id=%s", session_id)
+        workspace, entry = self._repository.get_entry(session_id)
+        if entry.pid is not None:
+            self._process_adapter.terminate(ProcessHandle(pid=entry.pid))
+        self._require_terminal_service().kill_tmux_window(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id)
+        remaining_workspace = self._repository.delete_entry(session_id)
+        if remaining_workspace is None:
+            self._require_terminal_service().kill_tmux_session(
+                workspace.host,
+                workspace.path,
+                tmux_session_name=workspace.tmux_session_name,
+            )
+        logger.info("Session entry deleted entry_id=%s", session_id)
+
+    def _start_entry(self, entry: SessionEntryRecord, workspace: WorkspaceRecord) -> SessionEntryRecord:
+        terminal_service = self._require_terminal_service()
+        used_ports = [item.port for _, item in self._repository.list_entries() if item.id != entry.id and item.port]
         port = self._port_allocator.allocate(used_ports)
-        command = self._replace_ttyd_port(session.command, port)
-        handle = self._process_adapter.start(command, session.workspace)
-        updated = session.model_copy(
+        runtime_command = terminal_service.build_tmux_attach_command(
+            workspace.host,
+            workspace.path,
+            tmux_session_name=workspace.tmux_session_name,
+            tmux_window_id=entry.tmux_window_id,
+        )
+        ttyd_executable = terminal_service.resolve_ttyd_executable(workspace.host)
+        command = self._build_ttyd_command(port, workspace.path, runtime_command, ttyd_executable)
+        handle = self._process_adapter.start(command, workspace.path)
+        return entry.model_copy(
             update={
                 "command": command,
                 "port": port,
@@ -758,41 +929,100 @@ class SessionService:
                 "url": self._build_url(port),
             }
         )
-        self._repository.update(updated)
-        logger.info("Session restarted session_id=%s pid=%s url=%s", updated.id, updated.pid, updated.url)
-        return SessionResponse.from_record(updated)
 
-    def delete(self, session_id: str) -> None:
-        logger.info("Deleting session session_id=%s", session_id)
-        session = self._repository.get(session_id)
-        if session.pid is not None:
-            logger.info("Terminating session process session_id=%s pid=%s", session_id, session.pid)
-            self._process_adapter.terminate(ProcessHandle(pid=session.pid))
-        self._cleanup_tmux_session(session)
-        self._repository.delete(session_id)
-        logger.info("Session deleted session_id=%s", session_id)
+    def _cleanup_started_entry(self, workspace: WorkspaceRecord, entry: SessionEntryRecord) -> None:
+        if entry.pid is not None:
+            self._process_adapter.terminate(ProcessHandle(pid=entry.pid))
+        self._require_terminal_service().kill_tmux_window(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id)
 
-    def _cleanup_tmux_session(self, session: SessionRecord) -> None:
-        if session.session_persistence != "tmux":
-            return
-        cleanup_command = session.tmux_cleanup_command
-        if cleanup_command is None and session.tmux_bash_path and session.tmux_session_name:
-            cleanup_command = [session.tmux_bash_path, "-lc", f"tmux kill-session -t {shlex.quote(session.tmux_session_name)}"]
-        if cleanup_command is None:
-            return
+    def _refresh_workspaces(self, workspaces: list[WorkspaceRecord]) -> list[WorkspaceRecord]:
+        return [self._refresh_workspace(workspace) for workspace in workspaces]
+
+    def _refresh_workspace(self, workspace: WorkspaceRecord) -> WorkspaceRecord:
+        entries = [self._refresh_entry(workspace, entry) for entry in workspace.entries]
+        if entries == workspace.entries:
+            return workspace
+        return workspace.model_copy(update={"entries": entries})
+
+    def _refresh_entry(self, workspace: WorkspaceRecord, entry: SessionEntryRecord) -> SessionEntryRecord:
+        if entry.status != SessionStatus.RUNNING or entry.pid is None:
+            return entry
+        terminal_service = self._require_terminal_service()
+        if self._process_adapter.is_running(ProcessHandle(pid=entry.pid)) and terminal_service.tmux_window_exists(
+            workspace.host,
+            workspace.path,
+            tmux_window_id=entry.tmux_window_id,
+        ):
+            return entry
+        updated = entry.model_copy(
+            update={"status": SessionStatus.STOPPED, "pid": None, "url": "", "tmux_window_id": None, "updated_at": utc_now()}
+        )
         try:
-            result = subprocess.run(
-                cleanup_command,
-                capture_output=True,
-                text=True,
-                timeout=5,
-                check=False,
-            )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            logger.warning("Failed to cleanup tmux session session_id=%s error=%s", session.id, exc)
-            return
-        if result.returncode != 0:
-            logger.warning("Failed to cleanup tmux session session_id=%s stderr=%s", session.id, result.stderr.strip())
+            self._repository.update_entry(updated)
+        except SessionNotFoundError:
+            logger.warning("Session entry disappeared while refreshing status entry_id=%s", entry.id)
+        return updated
+
+    def _workspace_response(self, workspace: WorkspaceRecord) -> SessionWorkspaceResponse:
+        entries = [SessionResponse.from_entry(workspace, entry) for entry in workspace.entries]
+        status = SessionStatus.RUNNING if any(entry.status == SessionStatus.RUNNING for entry in workspace.entries) else SessionStatus.STOPPED
+        return SessionWorkspaceResponse(
+            id=workspace.id,
+            host=workspace.host,
+            name=workspace.name,
+            path=str(workspace.path),
+            status=status,
+            entries=entries,
+        )
+
+    def _get_or_create_workspace(self, host: ShortcutHost, workspace_path: Path, now: object) -> WorkspaceRecord:
+        workspace_id = self._workspace_id(host, workspace_path)
+        state = self._repository.get_state()
+        existing = state.workspaces.get(workspace_id)
+        if existing is not None:
+            return existing
+        return WorkspaceRecord(
+            id=workspace_id,
+            host=host,
+            path=workspace_path,
+            name=workspace_path.name or str(workspace_path),
+            tmux_session_name=self._tmux_session_name(host, workspace_path),
+            created_at=now,
+            updated_at=now,
+            entries=[],
+        )
+
+    def _workspace_id(self, host: ShortcutHost, workspace_path: Path) -> str:
+        digest = hashlib.sha256(f"{host}:{self._normalized_workspace_path(host, workspace_path)}".encode()).hexdigest()
+        return f"ws_{digest[:16]}"
+
+    def _tmux_session_name(self, host: ShortcutHost, workspace_path: Path) -> str:
+        digest = hashlib.sha256(f"{host}:{self._normalized_workspace_path(host, workspace_path)}".encode()).hexdigest()
+        host_part = {"windows_cygwin": "cyg", "windows_wsl": "wsl", "linux": "lin"}[host]
+        return f"tb_{host_part}_{digest[:16]}"
+
+    def _normalized_workspace_path(self, host: ShortcutHost, workspace_path: Path) -> str:
+        normalized = str(workspace_path).replace("\\", "/").rstrip("/")
+        return normalized.lower() if host == "windows_cygwin" else normalized
+
+    def _resolve_workspace(self, workspace: Path) -> Path:
+        workspace_path = workspace.expanduser().resolve()
+        if not workspace_path.is_dir():
+            logger.warning("Session workspace not found workspace=%s", workspace_path)
+            raise WorkspaceNotFoundError(workspace_path)
+        return workspace_path
+
+    def _require_terminal_service(self) -> TerminalService:
+        if self._terminal_service is None:
+            raise InvalidTerminalConfigError("Shortcut service is not available")
+        return self._terminal_service
+
+    def _environment_labels(self) -> dict[ShortcutHost, str]:
+        return {
+            "windows_cygwin": "Windows/Cygwin",
+            "windows_wsl": "Windows/WSL",
+            "linux": "Linux",
+        }
 
     def _build_ttyd_command(
         self, port: int, workspace: Path, runtime_command: Sequence[str], ttyd_executable: str
@@ -807,30 +1037,7 @@ class SessionService:
             *runtime_command,
         ]
 
-    def _replace_ttyd_port(self, command: list[str], port: int) -> list[str]:
-        next_command = list(command)
-        for index, value in enumerate(next_command[:-1]):
-            if value == "--port":
-                next_command[index + 1] = str(port)
-                return next_command
-        return next_command
-
     def _build_url(self, port: int) -> str:
         if self._settings.public_base_url:
             return f"{self._settings.public_base_url.rstrip('/')}/{port}"
         return f"http://{self._settings.host}:{port}"
-
-    def _refresh_status(self, session: SessionRecord) -> SessionRecord:
-        if session.status != SessionStatus.RUNNING or session.pid is None:
-            return session
-        if self._process_adapter.is_running(ProcessHandle(pid=session.pid)):
-            return session
-        logger.info("Session process stopped session_id=%s pid=%s", session.id, session.pid)
-        updated = session.model_copy(update={"status": SessionStatus.STOPPED, "updated_at": utc_now()})
-        try:
-            self._repository.update(updated)
-        except SessionNotFoundError:
-            logger.warning("Session disappeared while refreshing status session_id=%s", session.id)
-            return updated
-        logger.info("Session status updated session_id=%s status=%s", session.id, updated.status)
-        return updated

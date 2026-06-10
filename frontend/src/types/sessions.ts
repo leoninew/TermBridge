@@ -6,6 +6,7 @@ export type EnvironmentReadiness = 'not_ready' | 'ready'
 
 export interface Session {
   id: string
+  workspace_id: string
   name: string
   workspace: string
   runtime: string
@@ -19,6 +20,25 @@ export interface Session {
   tmux_session_name?: string | null
   created_at: string
   updated_at: string
+}
+
+export interface SessionWorkspace {
+  id: string
+  host: ShortcutHost
+  name: string
+  path: string
+  status: SessionStatus
+  entries: Session[]
+}
+
+export interface SessionEnvironment {
+  host: ShortcutHost
+  label: string
+  workspaces: SessionWorkspace[]
+}
+
+export interface SessionTreeResponse {
+  environments: SessionEnvironment[]
 }
 
 export interface CreateSessionPayload {
@@ -152,4 +172,3 @@ export interface LinuxCheckResponse {
   shell?: RuntimeCheckResponse | null
   tmux?: RuntimeCheckResponse | null
 }
-

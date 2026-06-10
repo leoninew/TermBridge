@@ -39,12 +39,6 @@ const emit = defineEmits<{
       </div>
     </div>
     <div
-      v-else-if="!session.url"
-      class="flex min-h-0 flex-1 items-center justify-center rounded-2xl bg-slate-950 text-slate-300"
-    >
-      {{ t('session.terminal.missingUrl') }}
-    </div>
-    <div
       v-else-if="session.status !== 'running'"
       class="flex min-h-0 flex-1 items-center justify-center rounded-2xl bg-slate-950 text-slate-300"
     >
@@ -62,6 +56,12 @@ const emit = defineEmits<{
           {{ t('session.terminal.restart') }}
         </button>
       </div>
+    </div>
+    <div
+      v-else-if="!session.url"
+      class="flex min-h-0 flex-1 items-center justify-center rounded-2xl bg-slate-950 text-slate-300"
+    >
+      {{ t('session.terminal.missingUrl') }}
     </div>
     <div v-else class="flex min-h-0 flex-1 flex-col overflow-hidden bg-slate-950">
       <iframe

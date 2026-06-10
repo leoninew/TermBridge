@@ -23,10 +23,10 @@ class CreateSessionRequest(BaseModel):
     shortcut_id: str = Field(min_length=1)
 
 
-class SessionRecord(BaseModel):
+class SessionEntryRecord(BaseModel):
     id: str
+    workspace_id: str
     name: str
-    workspace: Path
     runtime: str
     command: list[str]
     port: int
@@ -35,17 +35,32 @@ class SessionRecord(BaseModel):
     created_at: datetime
     updated_at: datetime
     url: str
-    shortcut_id: str | None = None
-    shortcut_name: str | None = None
-    host: ShortcutHost | None = None
-    session_persistence: Literal["none", "tmux"] = "none"
-    tmux_bash_path: str | None = None
-    tmux_session_name: str | None = None
-    tmux_cleanup_command: list[str] | None = None
+    shortcut_id: str
+    shortcut_name: str
+    host: ShortcutHost
+    session_persistence: Literal["none", "tmux"] = "tmux"
+    tmux_session_name: str
+    tmux_window_id: str | None = None
+
+
+class WorkspaceRecord(BaseModel):
+    id: str
+    host: ShortcutHost
+    path: Path
+    name: str
+    tmux_session_name: str
+    created_at: datetime
+    updated_at: datetime
+    entries: list[SessionEntryRecord] = Field(default_factory=list)
+
+
+class SessionState(BaseModel):
+    workspaces: dict[str, WorkspaceRecord] = Field(default_factory=dict)
 
 
 class SessionResponse(BaseModel):
     id: str
+    workspace_id: str
     name: str
     workspace: str
     runtime: str
@@ -55,17 +70,38 @@ class SessionResponse(BaseModel):
     shortcut_id: str | None = None
     shortcut_name: str | None = None
     host: ShortcutHost | None = None
-    session_persistence: Literal["none", "tmux"] = "none"
+    session_persistence: Literal["none", "tmux"] = "tmux"
     tmux_session_name: str | None = None
     created_at: datetime
     updated_at: datetime
 
     @classmethod
-    def from_record(cls, record: SessionRecord) -> "SessionResponse":
+    def from_entry(cls, workspace: WorkspaceRecord, entry: SessionEntryRecord) -> "SessionResponse":
+        return cls(
+            id=entry.id,
+            workspace_id=workspace.id,
+            name=entry.name,
+            workspace=str(workspace.path),
+            runtime=entry.runtime,
+            status=entry.status,
+            port=entry.port,
+            url=entry.url,
+            shortcut_id=entry.shortcut_id,
+            shortcut_name=entry.shortcut_name,
+            host=entry.host,
+            session_persistence=entry.session_persistence,
+            tmux_session_name=entry.tmux_session_name,
+            created_at=entry.created_at,
+            updated_at=entry.updated_at,
+        )
+
+    @classmethod
+    def from_record(cls, record: SessionEntryRecord) -> "SessionResponse":
         return cls(
             id=record.id,
+            workspace_id=record.workspace_id,
             name=record.name,
-            workspace=str(record.workspace),
+            workspace="",
             runtime=record.runtime,
             status=record.status,
             port=record.port,
@@ -78,6 +114,25 @@ class SessionResponse(BaseModel):
             created_at=record.created_at,
             updated_at=record.updated_at,
         )
+
+
+class SessionWorkspaceResponse(BaseModel):
+    id: str
+    host: ShortcutHost
+    name: str
+    path: str
+    status: SessionStatus
+    entries: list[SessionResponse]
+
+
+class SessionEnvironmentResponse(BaseModel):
+    host: ShortcutHost
+    label: str
+    workspaces: list[SessionWorkspaceResponse]
+
+
+class SessionTreeResponse(BaseModel):
+    environments: list[SessionEnvironmentResponse]
 
 
 class Shortcut(BaseModel):
@@ -197,7 +252,6 @@ class RuntimeCheckRequest(BaseModel):
 
 class WindowsCygwinCheckRequest(BaseModel):
     bash_path: str | None = None
-
 
 
 class WorkspaceRoot(BaseModel):

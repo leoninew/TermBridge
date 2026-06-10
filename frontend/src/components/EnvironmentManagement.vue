@@ -59,8 +59,8 @@ const checking = ref('')
 const error = ref('')
 const toastMessage = ref('')
 const toastOpen = ref(false)
-const environmentsByHost = computed(() =>
-  new Map(environments.value.map((environment) => [environment.host, environment])),
+const environmentsByHost = computed(
+  () => new Map(environments.value.map((environment) => [environment.host, environment])),
 )
 
 const tabs = computed(() => [
@@ -290,11 +290,7 @@ async function showToast(message: string) {
       </div>
     </section>
 
-    <TabsRoot
-      :model-value="activeTab"
-      class="grid gap-4"
-      @update:model-value="updateActiveTab"
-    >
+    <TabsRoot :model-value="activeTab" class="grid gap-4" @update:model-value="updateActiveTab">
       <TabsList class="flex flex-wrap gap-4 border-b border-slate-200">
         <TabsTrigger
           v-for="tab in tabs"
@@ -310,174 +306,178 @@ async function showToast(message: string) {
           {{ tab.label }}
           <span
             class="rounded-full px-2 py-0.5 text-sm"
-            :class="environmentSummary(tab.id)?.readiness === 'ready' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-200 text-slate-600'"
+            :class="
+              environmentSummary(tab.id)?.readiness === 'ready'
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'bg-slate-200 text-slate-600'
+            "
           >
             {{ readinessLabel(tab.id) }}
           </span>
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent
-        value="windows_cygwin"
-        class="grid gap-4 rounded-xl border border-slate-200 p-4"
-      >
-      <div class="flex items-start justify-between gap-3">
-        <h3 class="text-lg font-semibold text-slate-950">
-          {{ t('environmentManagement.windowsCygwin.title') }}
-        </h3>
-        <button
-          type="button"
-          class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          :disabled="checking === 'windows_cygwin'"
-          @click="() => refreshWindowsCygwin()"
-        >
-          <RefreshCw class="h-4 w-4" :class="checking === 'windows_cygwin' ? 'animate-spin' : ''" />
-          {{ t('environmentManagement.actions.check') }}
-        </button>
-      </div>
+      <TabsContent value="windows_cygwin" class="grid gap-4 rounded-xl border border-slate-200 p-4">
+        <div class="flex items-start justify-between gap-3">
+          <h3 class="text-lg font-semibold text-slate-950">
+            {{ t('environmentManagement.windowsCygwin.title') }}
+          </h3>
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            :disabled="checking === 'windows_cygwin'"
+            @click="() => refreshWindowsCygwin()"
+          >
+            <RefreshCw
+              class="h-4 w-4"
+              :class="checking === 'windows_cygwin' ? 'animate-spin' : ''"
+            />
+            {{ t('environmentManagement.actions.check') }}
+          </button>
+        </div>
 
-      <div class="grid gap-2">
-        <label class="grid gap-2 text-sm text-slate-700">
-          {{ t('environmentManagement.windowsCygwin.bashPath') }}
-          <input
-            v-model.trim="windowsCygwinSettings.bash_path"
-            class="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
-            placeholder="bash"
-          />
-        </label>
-        <p
-          v-if="windowsCygwinStatus?.bash.available && windowsCygwinStatus.bash.version"
-          class="text-sm text-slate-500"
-        >
-          {{ windowsCygwinStatus.bash.version }}
-        </p>
-        <p
-          v-else-if="windowsCygwinStatus && !windowsCygwinStatus.bash.available"
-          class="text-sm text-red-600"
-        >
-          {{ windowsCygwinStatus.bash.reason }}
-        </p>
-      </div>
+        <div class="grid gap-2">
+          <label class="grid gap-2 text-sm text-slate-700">
+            {{ t('environmentManagement.windowsCygwin.bashPath') }}
+            <input
+              v-model.trim="windowsCygwinSettings.bash_path"
+              class="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
+              placeholder="bash"
+            />
+          </label>
+          <p
+            v-if="windowsCygwinStatus?.bash.available && windowsCygwinStatus.bash.version"
+            class="text-sm text-slate-500"
+          >
+            {{ windowsCygwinStatus.bash.version }}
+          </p>
+          <p
+            v-else-if="windowsCygwinStatus && !windowsCygwinStatus.bash.available"
+            class="text-sm text-red-600"
+          >
+            {{ windowsCygwinStatus.bash.reason }}
+          </p>
+        </div>
 
-      <div class="grid gap-2">
-        <label class="grid gap-2 text-sm text-slate-700">
-          {{ t('environmentManagement.windowsCygwin.tmuxPath') }}
-          <input
-            v-model.trim="tmuxPath"
-            class="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
-            placeholder="tmux"
-            readonly
-          />
-        </label>
-        <p
-          v-if="windowsCygwinStatus?.tmux?.available && windowsCygwinStatus.tmux.version"
-          class="text-sm text-slate-500"
-        >
-          {{ windowsCygwinStatus.tmux.version }}
-        </p>
-        <p
-          v-else-if="windowsCygwinStatus?.tmux && !windowsCygwinStatus.tmux.available"
-          class="text-sm text-red-600"
-        >
-          {{ windowsCygwinStatus.tmux.reason }}
-        </p>
-      </div>
+        <div class="grid gap-2">
+          <label class="grid gap-2 text-sm text-slate-700">
+            {{ t('environmentManagement.windowsCygwin.tmuxPath') }}
+            <input
+              v-model.trim="tmuxPath"
+              class="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
+              placeholder="tmux"
+              readonly
+            />
+          </label>
+          <p
+            v-if="windowsCygwinStatus?.tmux?.available && windowsCygwinStatus.tmux.version"
+            class="text-sm text-slate-500"
+          >
+            {{ windowsCygwinStatus.tmux.version }}
+          </p>
+          <p
+            v-else-if="windowsCygwinStatus?.tmux && !windowsCygwinStatus.tmux.available"
+            class="text-sm text-red-600"
+          >
+            {{ windowsCygwinStatus.tmux.reason }}
+          </p>
+        </div>
       </TabsContent>
 
-      <TabsContent
-        value="windows_wsl"
-        class="grid gap-4 rounded-xl border border-slate-200 p-4"
-      >
-      <div class="flex items-start justify-between gap-3">
-        <h3 class="text-lg font-semibold text-slate-950">
-          {{ t('environmentManagement.windowsWsl.title') }}
-        </h3>
-        <button
-          type="button"
-          class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          :disabled="checking === 'windows_wsl'"
-          @click="refreshTab('windows_wsl')"
-        >
-          <RefreshCw class="h-4 w-4" :class="checking === 'windows_wsl' ? 'animate-spin' : ''" />
-          {{ t('environmentManagement.actions.check') }}
-        </button>
-      </div>
+      <TabsContent value="windows_wsl" class="grid gap-4 rounded-xl border border-slate-200 p-4">
+        <div class="flex items-start justify-between gap-3">
+          <h3 class="text-lg font-semibold text-slate-950">
+            {{ t('environmentManagement.windowsWsl.title') }}
+          </h3>
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            :disabled="checking === 'windows_wsl'"
+            @click="refreshTab('windows_wsl')"
+          >
+            <RefreshCw class="h-4 w-4" :class="checking === 'windows_wsl' ? 'animate-spin' : ''" />
+            {{ t('environmentManagement.actions.check') }}
+          </button>
+        </div>
 
-      <div class="grid gap-2">
-        <label class="grid gap-2 text-sm text-slate-700">
-          {{ t('environmentManagement.windowsWsl.wslPath') }}
-          <input
-            :value="windowsWslSettings.wsl_path || ''"
-            class="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
-            placeholder="wsl"
-            readonly
-          />
-        </label>
-        <p
-          v-if="windowsWslStatus?.wsl.available && windowsWslStatus.wsl.version"
-          class="text-sm text-slate-500"
-        >
-          {{ windowsWslStatus.wsl.version }}
-        </p>
-        <p v-else-if="windowsWslSettings.wsl_version" class="text-sm text-slate-500">
-          {{ windowsWslSettings.wsl_version }}
-        </p>
-        <p v-else-if="windowsWslStatus && !windowsWslStatus.wsl.available" class="text-sm text-red-600">
-          {{ windowsWslStatus.wsl.reason }}
-        </p>
-      </div>
+        <div class="grid gap-2">
+          <label class="grid gap-2 text-sm text-slate-700">
+            {{ t('environmentManagement.windowsWsl.wslPath') }}
+            <input
+              :value="windowsWslSettings.wsl_path || ''"
+              class="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
+              placeholder="wsl"
+              readonly
+            />
+          </label>
+          <p
+            v-if="windowsWslStatus?.wsl.available && windowsWslStatus.wsl.version"
+            class="text-sm text-slate-500"
+          >
+            {{ windowsWslStatus.wsl.version }}
+          </p>
+          <p v-else-if="windowsWslSettings.wsl_version" class="text-sm text-slate-500">
+            {{ windowsWslSettings.wsl_version }}
+          </p>
+          <p
+            v-else-if="windowsWslStatus && !windowsWslStatus.wsl.available"
+            class="text-sm text-red-600"
+          >
+            {{ windowsWslStatus.wsl.reason }}
+          </p>
+        </div>
 
-      <div class="grid gap-2">
-        <label class="grid gap-2 text-sm text-slate-700">
-          {{ t('environmentManagement.windowsWsl.tmuxPath') }}
-          <input
-            :value="windowsWslSettings.tmux_path || ''"
-            class="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
-            placeholder="tmux"
-            readonly
-          />
-        </label>
-        <p
-          v-if="windowsWslStatus?.tmux?.available && windowsWslStatus.tmux.version"
-          class="text-sm text-slate-500"
-        >
-          {{ windowsWslStatus.tmux.version }}
-        </p>
-        <p v-else-if="windowsWslSettings.tmux_version" class="text-sm text-slate-500">
-          {{ windowsWslSettings.tmux_version }}
-        </p>
-        <p
-          v-else-if="windowsWslStatus?.tmux && !windowsWslStatus.tmux.available"
-          class="text-sm text-red-600"
-        >
-          {{ windowsWslStatus.tmux.reason }}
-        </p>
-      </div>
+        <div class="grid gap-2">
+          <label class="grid gap-2 text-sm text-slate-700">
+            {{ t('environmentManagement.windowsWsl.tmuxPath') }}
+            <input
+              :value="windowsWslSettings.tmux_path || ''"
+              class="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
+              placeholder="tmux"
+              readonly
+            />
+          </label>
+          <p
+            v-if="windowsWslStatus?.tmux?.available && windowsWslStatus.tmux.version"
+            class="text-sm text-slate-500"
+          >
+            {{ windowsWslStatus.tmux.version }}
+          </p>
+          <p v-else-if="windowsWslSettings.tmux_version" class="text-sm text-slate-500">
+            {{ windowsWslSettings.tmux_version }}
+          </p>
+          <p
+            v-else-if="windowsWslStatus?.tmux && !windowsWslStatus.tmux.available"
+            class="text-sm text-red-600"
+          >
+            {{ windowsWslStatus.tmux.reason }}
+          </p>
+        </div>
       </TabsContent>
 
       <TabsContent value="linux" class="grid gap-3 rounded-xl border border-slate-200 p-4">
-      <div class="flex items-start justify-between gap-3">
-        <h3 class="text-lg font-semibold text-slate-950">
-          {{ t('environmentManagement.linux.title') }}
-        </h3>
-        <button
-          type="button"
-          class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          :disabled="checking === 'linux'"
-          @click="refreshTab('linux')"
-        >
-          <RefreshCw class="h-4 w-4" :class="checking === 'linux' ? 'animate-spin' : ''" />
-          {{ t('environmentManagement.actions.check') }}
-        </button>
-      </div>
-      <div class="grid gap-1 text-sm">
-        <p v-if="linuxStatus?.host.available" class="text-slate-500">
-          {{ linuxStatus.host.path }}
-        </p>
-        <p v-else-if="linuxStatus" class="text-red-600">
-          {{ linuxStatus.host.reason }}
-        </p>
-      </div>
+        <div class="flex items-start justify-between gap-3">
+          <h3 class="text-lg font-semibold text-slate-950">
+            {{ t('environmentManagement.linux.title') }}
+          </h3>
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            :disabled="checking === 'linux'"
+            @click="refreshTab('linux')"
+          >
+            <RefreshCw class="h-4 w-4" :class="checking === 'linux' ? 'animate-spin' : ''" />
+            {{ t('environmentManagement.actions.check') }}
+          </button>
+        </div>
+        <div class="grid gap-1 text-sm">
+          <p v-if="linuxStatus?.host.available" class="text-slate-500">
+            {{ linuxStatus.host.path }}
+          </p>
+          <p v-else-if="linuxStatus" class="text-red-600">
+            {{ linuxStatus.host.reason }}
+          </p>
+        </div>
       </TabsContent>
     </TabsRoot>
 

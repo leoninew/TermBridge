@@ -12,8 +12,11 @@ from termbridge.models import (
     EnvironmentSummary,
     LinuxCheckResponse,
     RuntimeCheckResponse,
+    SessionEnvironmentResponse,
     SessionResponse,
     SessionStatus,
+    SessionTreeResponse,
+    SessionWorkspaceResponse,
     Shortcut,
     ShortcutListResponse,
     TerminalSettings,
@@ -30,6 +33,7 @@ class FakeSessionService:
         now = datetime(2026, 6, 8, tzinfo=UTC)
         self.session = SessionResponse(
             id="sess_1",
+            workspace_id="ws_1",
             name="Test",
             workspace=str(Path.cwd()),
             runtime="windows_cygwin",
@@ -60,6 +64,31 @@ class FakeSessionService:
 
     def restart(self, session_id: str) -> SessionResponse:
         return self.session.model_copy(update={"id": session_id, "status": SessionStatus.RUNNING})
+
+    def stop(self, session_id: str) -> SessionResponse:
+        return self.session.model_copy(update={"id": session_id, "status": SessionStatus.STOPPED, "url": ""})
+
+    def list_tree(self) -> SessionTreeResponse:
+        return SessionTreeResponse(
+            environments=[
+                SessionEnvironmentResponse(
+                    host="windows_cygwin",
+                    label="Windows/Cygwin",
+                    workspaces=[
+                        SessionWorkspaceResponse(
+                            id="ws_1",
+                            host="windows_cygwin",
+                            name="TermBridge",
+                            path=str(Path.cwd()),
+                            status=SessionStatus.RUNNING,
+                            entries=self.sessions,
+                        )
+                    ]
+                    if self.sessions
+                    else [],
+                )
+            ]
+        )
 
     def delete(self, session_id: str) -> None:
         self.deleted.append(session_id)
@@ -215,7 +244,9 @@ def test_session_api_routes(tmp_path: Path) -> None:
     )
     listed = client.get("/api/sessions")
     detail = client.get("/api/sessions/sess_2")
+    tree = client.get("/api/session-tree")
     restarted = client.post("/api/sessions/sess_2/restart")
+    stopped = client.post("/api/sessions/sess_2/stop")
     deleted = client.delete("/api/sessions/sess_2")
 
     assert created.status_code == 201
@@ -227,9 +258,13 @@ def test_session_api_routes(tmp_path: Path) -> None:
     assert detail.json()["id"] == "sess_2"
     assert detail.json()["shortcut_name"] == "Claude Code"
     assert detail.json()["session_persistence"] == "tmux"
+    assert tree.status_code == 200
+    assert tree.json()["environments"][0]["workspaces"][0]["entries"][0]["id"] == "sess_1"
     assert restarted.status_code == 200
     assert restarted.json()["id"] == "sess_2"
     assert restarted.json()["status"] == "running"
+    assert stopped.status_code == 200
+    assert stopped.json()["status"] == "stopped"
     assert deleted.status_code == 204
     assert service.deleted == ["sess_2"]
 

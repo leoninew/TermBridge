@@ -6,66 +6,100 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from termbridge.exceptions import (
-    DuplicateSessionError,
     SessionNotFoundError,
     SessionRepositoryError,
     ShortcutRepositoryError,
 )
-from termbridge.models import SessionRecord, TerminalState
+from termbridge.models import SessionEntryRecord, SessionState, TerminalState, WorkspaceRecord
 
 
 class FileSessionRepository:
     def __init__(self, sessions_file: Path) -> None:
         self._sessions_file = sessions_file
 
-    def create(self, session: SessionRecord) -> SessionRecord:
-        sessions = self._read_all()
-        if session.id in sessions:
-            raise DuplicateSessionError(session.id)
-        sessions[session.id] = session
-        self._write_all(sessions)
-        return session
+    def get_state(self) -> SessionState:
+        return self._read_state()
 
-    def list(self) -> list[SessionRecord]:
-        return list(self._read_all().values())
+    def save_state(self, state: SessionState) -> SessionState:
+        self._write_state(state)
+        return state
 
-    def get(self, session_id: str) -> SessionRecord:
-        session = self._read_all().get(session_id)
-        if session is None:
-            raise SessionNotFoundError(session_id)
-        return session
+    def list_workspaces(self) -> list[WorkspaceRecord]:
+        return list(self._read_state().workspaces.values())
 
-    def update(self, session: SessionRecord) -> SessionRecord:
-        sessions = self._read_all()
-        if session.id not in sessions:
-            raise SessionNotFoundError(session.id)
-        sessions[session.id] = session
-        self._write_all(sessions)
-        return session
+    def get_workspace(self, workspace_id: str) -> WorkspaceRecord:
+        workspace = self._read_state().workspaces.get(workspace_id)
+        if workspace is None:
+            raise SessionNotFoundError(workspace_id)
+        return workspace
 
-    def delete(self, session_id: str) -> None:
-        sessions = self._read_all()
-        if session_id not in sessions:
-            raise SessionNotFoundError(session_id)
-        del sessions[session_id]
-        self._write_all(sessions)
+    def upsert_workspace(self, workspace: WorkspaceRecord) -> WorkspaceRecord:
+        state = self._read_state()
+        state.workspaces[workspace.id] = workspace
+        self._write_state(state)
+        return workspace
 
-    def _read_all(self) -> dict[str, SessionRecord]:
+    def delete_workspace(self, workspace_id: str) -> None:
+        state = self._read_state()
+        if workspace_id not in state.workspaces:
+            raise SessionNotFoundError(workspace_id)
+        del state.workspaces[workspace_id]
+        self._write_state(state)
+
+    def list_entries(self) -> list[tuple[WorkspaceRecord, SessionEntryRecord]]:
+        return [(workspace, entry) for workspace in self.list_workspaces() for entry in workspace.entries]
+
+    def get_entry(self, entry_id: str) -> tuple[WorkspaceRecord, SessionEntryRecord]:
+        for workspace, entry in self.list_entries():
+            if entry.id == entry_id:
+                return workspace, entry
+        raise SessionNotFoundError(entry_id)
+
+    def update_entry(self, entry: SessionEntryRecord) -> SessionEntryRecord:
+        state = self._read_state()
+        workspace = state.workspaces.get(entry.workspace_id)
+        if workspace is None:
+            raise SessionNotFoundError(entry.workspace_id)
+        entries = [entry if item.id == entry.id else item for item in workspace.entries]
+        if all(item.id != entry.id for item in workspace.entries):
+            raise SessionNotFoundError(entry.id)
+        state.workspaces[workspace.id] = workspace.model_copy(update={"entries": entries, "updated_at": entry.updated_at})
+        self._write_state(state)
+        return entry
+
+    def delete_entry(self, entry_id: str) -> WorkspaceRecord | None:
+        state = self._read_state()
+        for workspace in state.workspaces.values():
+            entries = [entry for entry in workspace.entries if entry.id != entry_id]
+            if len(entries) == len(workspace.entries):
+                continue
+            if entries:
+                updated = workspace.model_copy(update={"entries": entries})
+                state.workspaces[workspace.id] = updated
+                self._write_state(state)
+                return updated
+            del state.workspaces[workspace.id]
+            self._write_state(state)
+            return None
+        raise SessionNotFoundError(entry_id)
+
+    def _read_state(self) -> SessionState:
         if not self._sessions_file.exists():
-            return {}
+            return SessionState()
         try:
             raw = json.loads(self._sessions_file.read_text(encoding="utf-8"))
             if not isinstance(raw, dict):
                 raise SessionRepositoryError("Session registry must be a JSON object")
-            return {session_id: SessionRecord.model_validate(value) for session_id, value in raw.items()}
+            if any(key != "workspaces" for key in raw):
+                raise SessionRepositoryError("Session registry uses an incompatible schema")
+            return SessionState.model_validate(raw)
         except json.JSONDecodeError as exc:
             raise SessionRepositoryError("Session registry contains invalid JSON") from exc
         except ValidationError as exc:
             raise SessionRepositoryError("Session registry contains invalid session data") from exc
 
-    def _write_all(self, sessions: dict[str, SessionRecord]) -> None:
+    def _write_state(self, state: SessionState) -> None:
         self._sessions_file.parent.mkdir(parents=True, exist_ok=True)
-        payload = {session_id: session.model_dump(mode="json") for session_id, session in sessions.items()}
         fd, temp_name = tempfile.mkstemp(
             prefix=f".{self._sessions_file.name}.",
             suffix=".tmp",
@@ -75,7 +109,7 @@ class FileSessionRepository:
         temp_path = Path(temp_name)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as temp_file:
-                json.dump(payload, temp_file, ensure_ascii=False, indent=2)
+                json.dump(state.model_dump(mode="json"), temp_file, ensure_ascii=False, indent=2)
                 temp_file.write("\n")
             os.replace(temp_path, self._sessions_file)
         except Exception:

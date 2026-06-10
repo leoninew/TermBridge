@@ -28,6 +28,7 @@ from termbridge.models import (
     RuntimeCheckRequest,
     RuntimeCheckResponse,
     SessionResponse,
+    SessionTreeResponse,
     Shortcut,
     ShortcutListResponse,
     TerminalSettings,
@@ -231,6 +232,14 @@ def list_sessions(service: SessionServiceDep) -> list[SessionResponse]:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
+@router.get("/api/session-tree", response_model=SessionTreeResponse)
+def list_session_tree(service: SessionServiceDep) -> SessionTreeResponse:
+    try:
+        return service.list_tree()
+    except SessionRepositoryError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
 @router.get("/api/sessions/{session_id}", response_model=SessionResponse)
 def get_session(session_id: str, service: SessionServiceDep) -> SessionResponse:
     try:
@@ -249,6 +258,16 @@ def restart_session(session_id: str, service: SessionServiceDep) -> SessionRespo
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found") from exc
     except NoAvailablePortError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except SessionRepositoryError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
+@router.post("/api/sessions/{session_id}/stop", response_model=SessionResponse)
+def stop_session(session_id: str, service: SessionServiceDep) -> SessionResponse:
+    try:
+        return service.stop(session_id)
+    except SessionNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found") from exc
     except SessionRepositoryError as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
