@@ -13,7 +13,7 @@ class SessionStatus(StrEnum):
     FAILED = "failed"
 
 
-ShortcutHost = Literal["windows", "cygwin", "wsl", "cygwin_tmux"]
+ShortcutHost = Literal["windows_cygwin", "windows_wsl", "linux"]
 
 
 class CreateSessionRequest(BaseModel):
@@ -93,7 +93,7 @@ class ShortcutListResponse(BaseModel):
 class CreateShortcutRequest(BaseModel):
     name: str = Field(min_length=1)
     command: str = Field(min_length=1)
-    host: ShortcutHost = "cygwin_tmux"
+    host: ShortcutHost = "windows_cygwin"
     description: str | None = None
 
 
@@ -109,7 +109,7 @@ class TerminalSettings(BaseModel):
     ttyd_path: str | None = None
 
 
-class CygwinSettings(BaseModel):
+class WindowsCygwinSettings(BaseModel):
     bash_path: str | None = None
     tmux_path: str | None = None
 
@@ -122,7 +122,7 @@ class UpdateTerminalSettingsRequest(BaseModel):
 class TerminalState(BaseModel):
     shortcuts: list[Shortcut] = Field(default_factory=list)
     settings: TerminalSettings = Field(default_factory=TerminalSettings)
-    cygwin_settings: CygwinSettings = Field(default_factory=CygwinSettings)
+    windows_cygwin_settings: WindowsCygwinSettings = Field(default_factory=WindowsCygwinSettings)
 
 
 class RuntimeCheckResponse(BaseModel):
@@ -132,18 +132,22 @@ class RuntimeCheckResponse(BaseModel):
     reason: str | None = None
 
 
-class CygwinCheckResponse(BaseModel):
+class WindowsCygwinCheckResponse(BaseModel):
+    host: RuntimeCheckResponse
     bash: RuntimeCheckResponse
     tmux: RuntimeCheckResponse | None = None
 
 
-class WindowsCheckResponse(BaseModel):
+class WindowsWslCheckResponse(BaseModel):
     host: RuntimeCheckResponse
-    shells: list[RuntimeCheckResponse] = Field(default_factory=list)
-
-
-class WslCheckResponse(BaseModel):
     wsl: RuntimeCheckResponse
+    tmux: RuntimeCheckResponse | None = None
+
+
+class LinuxCheckResponse(BaseModel):
+    host: RuntimeCheckResponse
+    shell: RuntimeCheckResponse | None = None
+    tmux: RuntimeCheckResponse | None = None
 
 
 class TmuxAvailabilityRequest(BaseModel):

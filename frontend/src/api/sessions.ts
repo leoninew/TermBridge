@@ -2,9 +2,8 @@ import { i18n } from '../i18n'
 import type {
   CreateSessionPayload,
   CreateShortcutPayload,
-  CygwinCheckResponse,
-  CygwinSettings,
   HealthResponse,
+  LinuxCheckResponse,
   RuntimeCheckResponse,
   Session,
   Shortcut,
@@ -13,10 +12,11 @@ import type {
   TmuxAvailabilityPayload,
   TmuxAvailabilityResponse,
   UpdateShortcutPayload,
-  WindowsCheckResponse,
+  WindowsCygwinCheckResponse,
+  WindowsCygwinSettings,
+  WindowsWslCheckResponse,
   WorkspaceRootsResponse,
   WorkspaceTreeResponse,
-  WslCheckResponse,
 } from '../types/sessions'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -128,20 +128,22 @@ export function checkTtyd(path?: string): Promise<RuntimeCheckResponse> {
   return request<RuntimeCheckResponse>(`/api/environment/ttyd/check${query}`)
 }
 
-export function getCygwinSettings(): Promise<CygwinSettings> {
-  return request<CygwinSettings>('/api/environment/cygwin-settings')
+export function getWindowsCygwinSettings(): Promise<WindowsCygwinSettings> {
+  return request<WindowsCygwinSettings>('/api/environment/windows-cygwin/settings')
 }
 
-export function updateCygwinSettings(payload: CygwinSettings): Promise<CygwinSettings> {
-  return request<CygwinSettings>('/api/environment/cygwin-settings', {
+export function updateWindowsCygwinSettings(
+  payload: WindowsCygwinSettings,
+): Promise<WindowsCygwinSettings> {
+  return request<WindowsCygwinSettings>('/api/environment/windows-cygwin/settings', {
     method: 'PUT',
     body: JSON.stringify(payload),
   })
 }
 
-export function checkCygwin(bashPath?: string): Promise<CygwinCheckResponse> {
+export function checkWindowsCygwin(bashPath?: string): Promise<WindowsCygwinCheckResponse> {
   const query = bashPath ? `?bash_path=${encodeURIComponent(bashPath)}` : ''
-  return request<CygwinCheckResponse>(`/api/environment/cygwin/check${query}`)
+  return request<WindowsCygwinCheckResponse>(`/api/environment/windows-cygwin/check${query}`)
 }
 
 export function checkTmux(payload: TmuxAvailabilityPayload): Promise<TmuxAvailabilityResponse> {
@@ -151,10 +153,10 @@ export function checkTmux(payload: TmuxAvailabilityPayload): Promise<TmuxAvailab
   })
 }
 
-export function checkWindows(): Promise<WindowsCheckResponse> {
-  return request<WindowsCheckResponse>('/api/environment/windows/check')
+export function checkWindowsWsl(): Promise<WindowsWslCheckResponse> {
+  return request<WindowsWslCheckResponse>('/api/environment/windows-wsl/check')
 }
 
-export function checkWsl(): Promise<WslCheckResponse> {
-  return request<WslCheckResponse>('/api/environment/wsl/check')
+export function checkLinux(): Promise<LinuxCheckResponse> {
+  return request<LinuxCheckResponse>('/api/environment/linux/check')
 }

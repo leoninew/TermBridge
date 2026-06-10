@@ -41,7 +41,7 @@ class FakeShortcutService:
             id="claude-code",
             name="Claude Code",
             command="claude --dangerously-skip-permissions",
-            host="cygwin_tmux",
+            host="windows_cygwin",
         )
 
     def normalize_tmux_session_name(self, name: str, fallback: str) -> str:
@@ -88,7 +88,7 @@ def test_service_creates_session_with_shortcut(tmp_path: Path) -> None:
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
 
     assert response.name == "Test"
-    assert response.runtime == "cygwin_tmux"
+    assert response.runtime == "windows_cygwin"
     assert response.shortcut_id == "claude-code"
     assert response.shortcut_name == "Claude Code"
     assert response.tmux_session_name == "Test"

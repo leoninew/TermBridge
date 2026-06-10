@@ -4,38 +4,38 @@ import { Monitor, RefreshCw, Terminal } from '@lucide/vue'
 import { ToastProvider, ToastRoot, ToastTitle, ToastViewport } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
 import {
-  checkCygwin,
+  checkLinux,
   checkTmux,
   checkTtyd,
-  checkWindows,
-  checkWsl,
-  getCygwinSettings,
+  checkWindowsCygwin,
+  checkWindowsWsl,
   getTerminalSettings,
-  updateCygwinSettings,
+  getWindowsCygwinSettings,
   updateTerminalSettings,
+  updateWindowsCygwinSettings,
 } from '../api/sessions'
 import type {
-  CygwinCheckResponse,
-  CygwinSettings,
+  LinuxCheckResponse,
   RuntimeCheckResponse,
-  TmuxAvailabilityResponse,
   TerminalSettings,
-  WindowsCheckResponse,
-  WslCheckResponse,
+  TmuxAvailabilityResponse,
+  WindowsCygwinCheckResponse,
+  WindowsCygwinSettings,
+  WindowsWslCheckResponse,
 } from '../types/sessions'
 
 const { t } = useI18n()
-type EnvironmentTab = 'windows' | 'cygwin' | 'wsl'
+type EnvironmentTab = 'windows_cygwin' | 'windows_wsl' | 'linux'
 
-const activeTab = ref<EnvironmentTab>('cygwin')
+const activeTab = ref<EnvironmentTab>('windows_cygwin')
 const ttydSettings = ref<TerminalSettings>({ ttyd_mode: 'auto', ttyd_path: '' })
-const cygwinSettings = ref<CygwinSettings>({ bash_path: '', tmux_path: '' })
+const windowsCygwinSettings = ref<WindowsCygwinSettings>({ bash_path: '', tmux_path: '' })
 const ttydStatus = ref<RuntimeCheckResponse>()
 const tmuxPath = ref('')
 const tmuxStatus = ref<TmuxAvailabilityResponse>()
-const cygwinStatus = ref<CygwinCheckResponse>()
-const windowsStatus = ref<WindowsCheckResponse>()
-const wslStatus = ref<WslCheckResponse>()
+const windowsCygwinStatus = ref<WindowsCygwinCheckResponse>()
+const windowsWslStatus = ref<WindowsWslCheckResponse>()
+const linuxStatus = ref<LinuxCheckResponse>()
 const loading = ref(false)
 const checking = ref('')
 const error = ref('')
@@ -44,9 +44,17 @@ const toastOpen = ref(false)
 const checkedTabs = ref(new Set<EnvironmentTab>())
 
 const tabs = computed(() => [
-  { id: 'cygwin' as const, label: t('environmentManagement.tabs.cygwin'), icon: Terminal },
-  { id: 'windows' as const, label: t('environmentManagement.tabs.windows'), icon: Monitor, disabled: true },
-  { id: 'wsl' as const, label: t('environmentManagement.tabs.wsl'), icon: Terminal, disabled: true },
+  {
+    id: 'windows_cygwin' as const,
+    label: t('environmentManagement.tabs.windowsCygwin'),
+    icon: Terminal,
+  },
+  {
+    id: 'windows_wsl' as const,
+    label: t('environmentManagement.tabs.windowsWsl'),
+    icon: Terminal,
+  },
+  { id: 'linux' as const, label: t('environmentManagement.tabs.linux'), icon: Monitor },
 ])
 
 onMounted(async () => {
@@ -62,14 +70,17 @@ async function loadSettings() {
   loading.value = true
   error.value = ''
   try {
-    const [ttyd, cygwin] = await Promise.all([getTerminalSettings(), getCygwinSettings()])
+    const [ttyd, windowsCygwin] = await Promise.all([
+      getTerminalSettings(),
+      getWindowsCygwinSettings(),
+    ])
     ttydSettings.value = { ...ttyd, ttyd_path: ttyd.ttyd_path || '' }
-    cygwinSettings.value = {
-      ...cygwin,
-      bash_path: cygwin.bash_path || '',
-      tmux_path: cygwin.tmux_path || '',
+    windowsCygwinSettings.value = {
+      ...windowsCygwin,
+      bash_path: windowsCygwin.bash_path || '',
+      tmux_path: windowsCygwin.tmux_path || '',
     }
-    tmuxPath.value = cygwin.tmux_path || ''
+    tmuxPath.value = windowsCygwin.tmux_path || ''
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('environmentManagement.errors.load')
   } finally {
@@ -109,12 +120,12 @@ async function refreshTab(tab: EnvironmentTab = activeTab.value) {
   checking.value = tab
   error.value = ''
   try {
-    if (tab === 'windows') {
-      windowsStatus.value = await checkWindows()
-    } else if (tab === 'cygwin') {
-      await refreshCygwin(false)
+    if (tab === 'windows_cygwin') {
+      await refreshWindowsCygwin(false)
+    } else if (tab === 'windows_wsl') {
+      windowsWslStatus.value = await checkWindowsWsl()
     } else {
-      wslStatus.value = await checkWsl()
+      linuxStatus.value = await checkLinux()
     }
     checkedTabs.value.add(tab)
   } catch (err) {
@@ -124,31 +135,31 @@ async function refreshTab(tab: EnvironmentTab = activeTab.value) {
   }
 }
 
-async function refreshCygwin(setChecking = true) {
+async function refreshWindowsCygwin(setChecking = true) {
   if (setChecking) {
-    checking.value = 'cygwin'
+    checking.value = 'windows_cygwin'
     error.value = ''
   }
   try {
-    const path = cygwinSettings.value.bash_path?.trim() || undefined
-    const status = await checkCygwin(path)
-    cygwinStatus.value = status
+    const path = windowsCygwinSettings.value.bash_path?.trim() || undefined
+    const status = await checkWindowsCygwin(path)
+    windowsCygwinStatus.value = status
     if (status.bash.available && status.bash.path) {
-      cygwinSettings.value = await updateCygwinSettings({
-        ...cygwinSettings.value,
+      windowsCygwinSettings.value = await updateWindowsCygwinSettings({
+        ...windowsCygwinSettings.value,
         bash_path: status.bash.path,
       })
-      showToast(t('environmentManagement.cygwin.saved'))
+      showToast(t('environmentManagement.windowsCygwin.saved'))
     }
     if (status.tmux?.available && status.tmux.path) {
       tmuxPath.value = status.tmux.path
       tmuxStatus.value = status.tmux
-      cygwinSettings.value = await updateCygwinSettings({
-        ...cygwinSettings.value,
+      windowsCygwinSettings.value = await updateWindowsCygwinSettings({
+        ...windowsCygwinSettings.value,
         tmux_path: status.tmux.path,
       })
     }
-    checkedTabs.value.add('cygwin')
+    checkedTabs.value.add('windows_cygwin')
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('environmentManagement.errors.check')
   } finally {
@@ -159,9 +170,9 @@ async function refreshCygwin(setChecking = true) {
 }
 
 async function refreshTmux() {
-  const bashPath = cygwinSettings.value.bash_path?.trim()
+  const bashPath = windowsCygwinSettings.value.bash_path?.trim()
   if (!bashPath) {
-    await refreshCygwin()
+    await refreshWindowsCygwin()
     return
   }
 
@@ -172,8 +183,8 @@ async function refreshTmux() {
     tmuxStatus.value = status
     if (status.available && status.path) {
       tmuxPath.value = status.path
-      cygwinSettings.value = await updateCygwinSettings({
-        ...cygwinSettings.value,
+      windowsCygwinSettings.value = await updateWindowsCygwinSettings({
+        ...windowsCygwinSettings.value,
         tmux_path: status.path,
       })
     }
@@ -243,13 +254,12 @@ async function showToast(message: string) {
         v-for="tab in tabs"
         :key="tab.id"
         type="button"
-        class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 transition hover:bg-white/70 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent disabled:hover:text-slate-600"
+        class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 transition hover:bg-white/70 hover:text-slate-950"
         :class="
           activeTab === tab.id
             ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200'
             : 'text-slate-600'
         "
-        :disabled="tab.disabled"
         @click="activeTab = tab.id"
       >
         <component
@@ -262,49 +272,55 @@ async function showToast(message: string) {
     </div>
 
     <section
-      v-if="activeTab === 'cygwin'"
+      v-if="activeTab === 'windows_cygwin'"
       class="grid gap-4 rounded-xl border border-slate-200 p-4"
     >
       <div>
         <h3 class="text-lg font-semibold text-slate-950">
-          {{ t('environmentManagement.cygwin.title') }}
+          {{ t('environmentManagement.windowsCygwin.title') }}
         </h3>
       </div>
 
       <div class="grid gap-2">
         <label class="grid gap-2 text-sm text-slate-700">
-          {{ t('environmentManagement.cygwin.bashPath') }}
+          {{ t('environmentManagement.windowsCygwin.bashPath') }}
           <div class="flex gap-2">
             <input
-              v-model.trim="cygwinSettings.bash_path"
+              v-model.trim="windowsCygwinSettings.bash_path"
               class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
               placeholder="bash"
             />
             <button
               type="button"
               class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              :disabled="checking === 'cygwin'"
-              @click="() => refreshCygwin()"
+              :disabled="checking === 'windows_cygwin'"
+              @click="() => refreshWindowsCygwin()"
             >
-              <RefreshCw class="h-4 w-4" :class="checking === 'cygwin' ? 'animate-spin' : ''" />
+              <RefreshCw
+                class="h-4 w-4"
+                :class="checking === 'windows_cygwin' ? 'animate-spin' : ''"
+              />
               {{ t('environmentManagement.actions.check') }}
             </button>
           </div>
         </label>
         <p
-          v-if="cygwinStatus?.bash.available && cygwinStatus.bash.version"
+          v-if="windowsCygwinStatus?.bash.available && windowsCygwinStatus.bash.version"
           class="text-sm text-slate-500"
         >
-          {{ cygwinStatus.bash.version }}
+          {{ windowsCygwinStatus.bash.version }}
         </p>
-        <p v-else-if="cygwinStatus && !cygwinStatus.bash.available" class="text-sm text-red-600">
-          {{ cygwinStatus.bash.reason }}
+        <p
+          v-else-if="windowsCygwinStatus && !windowsCygwinStatus.bash.available"
+          class="text-sm text-red-600"
+        >
+          {{ windowsCygwinStatus.bash.reason }}
         </p>
       </div>
 
       <div class="grid gap-2">
         <label class="grid gap-2 text-sm text-slate-700">
-          {{ t('environmentManagement.cygwin.tmuxPath') }}
+          {{ t('environmentManagement.windowsCygwin.tmuxPath') }}
           <div class="flex gap-2">
             <input
               v-model.trim="tmuxPath"
@@ -333,20 +349,35 @@ async function showToast(message: string) {
     </section>
 
     <section
-      v-else-if="activeTab === 'windows'"
+      v-else-if="activeTab === 'windows_wsl'"
       class="grid gap-3 rounded-xl border border-slate-200 p-4"
     >
       <div>
         <h3 class="text-lg font-semibold text-slate-950">
-          {{ t('environmentManagement.windows.title') }}
+          {{ t('environmentManagement.windowsWsl.title') }}
         </h3>
       </div>
       <div class="grid gap-1 text-sm">
-        <p v-if="windowsStatus?.host.available && windowsStatus.host.version" class="text-slate-500">
-          {{ windowsStatus.host.version }}
+        <p
+          v-if="windowsWslStatus?.wsl.available && windowsWslStatus.wsl.version"
+          class="text-slate-500"
+        >
+          {{ windowsWslStatus.wsl.version }}
         </p>
-        <p v-else-if="windowsStatus && !windowsStatus.host.available" class="text-red-600">
-          {{ windowsStatus.host.reason }}
+        <p v-else-if="windowsWslStatus && !windowsWslStatus.wsl.available" class="text-red-600">
+          {{ windowsWslStatus.wsl.reason }}
+        </p>
+        <p
+          v-if="windowsWslStatus?.tmux?.available && windowsWslStatus.tmux.version"
+          class="text-slate-500"
+        >
+          {{ windowsWslStatus.tmux.version }}
+        </p>
+        <p
+          v-else-if="windowsWslStatus?.tmux && !windowsWslStatus.tmux.available"
+          class="text-red-600"
+        >
+          {{ windowsWslStatus.tmux.reason }}
         </p>
       </div>
     </section>
@@ -354,15 +385,15 @@ async function showToast(message: string) {
     <section v-else class="grid gap-3 rounded-xl border border-slate-200 p-4">
       <div>
         <h3 class="text-lg font-semibold text-slate-950">
-          {{ t('environmentManagement.wsl.title') }}
+          {{ t('environmentManagement.linux.title') }}
         </h3>
       </div>
       <div class="grid gap-1 text-sm">
-        <p v-if="wslStatus?.wsl.available && wslStatus.wsl.version" class="text-slate-500">
-          {{ wslStatus.wsl.version }}
+        <p v-if="linuxStatus?.host.available" class="text-slate-500">
+          {{ linuxStatus.host.path }}
         </p>
-        <p v-else-if="wslStatus && !wslStatus.wsl.available" class="text-red-600">
-          {{ wslStatus.wsl.reason }}
+        <p v-else-if="linuxStatus" class="text-red-600">
+          {{ linuxStatus.host.reason }}
         </p>
       </div>
     </section>

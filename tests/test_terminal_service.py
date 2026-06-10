@@ -7,11 +7,11 @@ import pytest
 from termbridge.exceptions import InvalidTerminalConfigError
 from termbridge.models import (
     CreateShortcutRequest,
-    CygwinSettings,
     TerminalState,
     TmuxAvailabilityResponse,
     UpdateShortcutRequest,
     UpdateTerminalSettingsRequest,
+    WindowsCygwinSettings,
 )
 from termbridge.repositories import FileTerminalRepository
 from termbridge.services import TerminalService
@@ -31,10 +31,10 @@ def test_shortcut_service_initializes_default_shortcuts(tmp_path: Path) -> None:
     shortcuts = service.list_shortcuts().shortcuts
 
     assert [(shortcut.id, shortcut.command, shortcut.host) for shortcut in shortcuts] == [
-        ("bash", "bash", "cygwin_tmux"),
-        ("cmd", "cmd", "cygwin_tmux"),
-        ("claude-code", "claude --dangerously-skip-permissions", "cygwin_tmux"),
-        ("codex", "codex -a never --sandbox danger-full-access", "cygwin_tmux"),
+        ("bash", "bash", "windows_cygwin"),
+        ("cmd", "cmd", "windows_cygwin"),
+        ("claude-code", "claude --dangerously-skip-permissions", "windows_cygwin"),
+        ("codex", "codex -a never --sandbox danger-full-access", "windows_cygwin"),
     ]
 
 
@@ -42,7 +42,7 @@ def test_shortcut_service_creates_and_persists_shortcut(tmp_path: Path) -> None:
     service = make_service(tmp_path)
 
     shortcut = service.create_shortcut(
-        CreateShortcutRequest(name="Agent", command="agent run", host="cygwin_tmux", description="Run agent")
+        CreateShortcutRequest(name="Agent", command="agent run", host="windows_cygwin", description="Run agent")
     )
 
     restored = make_service(tmp_path).list_shortcuts().shortcuts
@@ -53,7 +53,7 @@ def test_shortcut_service_creates_and_persists_shortcut(tmp_path: Path) -> None:
 
 def test_shortcut_service_updates_shortcut(tmp_path: Path) -> None:
     service = make_service(tmp_path)
-    shortcut = service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="cygwin_tmux"))
+    shortcut = service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="windows_cygwin"))
 
     updated = service.update_shortcut(shortcut.id, UpdateShortcutRequest(command="agent run --verbose"))
 
@@ -72,14 +72,15 @@ def test_shortcut_service_rejects_blank_command(tmp_path: Path) -> None:
     service = make_service(tmp_path)
 
     with pytest.raises(InvalidTerminalConfigError, match="Shortcut command is required"):
-        service.create_shortcut(CreateShortcutRequest(name="Blank", command="   ", host="cygwin_tmux"))
+        service.create_shortcut(CreateShortcutRequest(name="Blank", command="   ", host="windows_cygwin"))
 
 
-def test_shortcut_service_rejects_unsupported_host(tmp_path: Path) -> None:
+def test_shortcut_service_rejects_unsupported_startup_host(tmp_path: Path) -> None:
     service = make_service(tmp_path)
+    shortcut = service.create_shortcut(CreateShortcutRequest(name="WSL", command="bash", host="windows_wsl"))
 
     with pytest.raises(InvalidTerminalConfigError, match="not supported"):
-        service.create_shortcut(CreateShortcutRequest(name="WSL", command="bash", host="wsl"))
+        service.resolve_shortcut_command(shortcut.id, tmp_path, tmux_session_name="sess_test")
 
 
 def test_shortcut_service_ignores_old_terminal_definitions(tmp_path: Path) -> None:
@@ -91,10 +92,10 @@ def test_shortcut_service_ignores_old_terminal_definitions(tmp_path: Path) -> No
     assert {shortcut.id for shortcut in shortcuts} == {"bash", "cmd", "claude-code", "codex"}
 
 
-def test_shortcut_service_resolves_cygwin_tmux_command(tmp_path: Path) -> None:
+def test_shortcut_service_resolves_windows_cygwin_command(tmp_path: Path) -> None:
     service = make_service(tmp_path)
-    service.update_cygwin_settings(CygwinSettings(bash_path="bash.exe"))
-    shortcut = service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="cygwin_tmux"))
+    service.update_windows_cygwin_settings(WindowsCygwinSettings(bash_path="bash.exe"))
+    shortcut = service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="windows_cygwin"))
 
     with patch.object(service, "resolve_ttyd_executable", return_value="ttyd"):
         command, resolved, bash_path = service.resolve_shortcut_command(
@@ -184,9 +185,11 @@ def test_terminal_service_rejects_explicit_ttyd_without_path(tmp_path: Path) -> 
 def test_terminal_service_persists_cygwin_settings(tmp_path: Path) -> None:
     service = make_service(tmp_path)
 
-    service.update_cygwin_settings(service.get_cygwin_settings().model_copy(update={"bash_path": "bash.exe"}))
+    service.update_windows_cygwin_settings(
+        service.get_windows_cygwin_settings().model_copy(update={"bash_path": "bash.exe"})
+    )
 
-    settings = make_service(tmp_path).get_cygwin_settings()
+    settings = make_service(tmp_path).get_windows_cygwin_settings()
     assert settings.bash_path == "bash.exe"
 
 
@@ -214,7 +217,9 @@ def test_terminal_service_detects_ttyd_unavailable(tmp_path: Path) -> None:
 
 def test_terminal_service_detects_cygwin_and_tmux(tmp_path: Path) -> None:
     service = make_service(tmp_path)
-    service.update_cygwin_settings(service.get_cygwin_settings().model_copy(update={"bash_path": "/usr/bin/bash"}))
+    service.update_windows_cygwin_settings(
+        service.get_windows_cygwin_settings().model_copy(update={"bash_path": "/usr/bin/bash"})
+    )
     bash = subprocess.CompletedProcess(
         args=["bash.exe", "-lc", "cygpath -w $(command -v bash) && bash --version"],
         returncode=0,
@@ -224,7 +229,7 @@ def test_terminal_service_detects_cygwin_and_tmux(tmp_path: Path) -> None:
 
     with patch.object(service, "check_tmux", return_value=_tmux_available()):
         with patch("termbridge.services.subprocess.run", return_value=bash):
-            result = service.check_cygwin("bash.exe")
+            result = service.check_windows_cygwin("bash.exe")
 
     assert result.bash.available is True
     assert result.bash.path == "D:\\ProgramFiles\\Cygwin64\\bin\\bash.exe"
@@ -234,11 +239,45 @@ def test_terminal_service_detects_cygwin_and_tmux(tmp_path: Path) -> None:
 
 def test_terminal_service_ignores_persisted_cygwin_unix_path(tmp_path: Path) -> None:
     service = make_service(tmp_path)
-    service.update_cygwin_settings(service.get_cygwin_settings().model_copy(update={"bash_path": "/usr/bin/bash"}))
+    service.update_windows_cygwin_settings(
+        service.get_windows_cygwin_settings().model_copy(update={"bash_path": "/usr/bin/bash"})
+    )
 
     with patch("termbridge.services.shutil.which", return_value=None):
         with patch("termbridge.services.Path.exists", return_value=False):
-            result = service.check_cygwin()
+            result = service.check_windows_cygwin()
 
     assert result.bash.available is False
     assert result.bash.reason == "Cygwin bash was not found"
+
+
+def test_terminal_service_detects_windows_wsl_and_tmux(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    wsl = subprocess.CompletedProcess(args=["wsl", "--status"], returncode=0, stdout="Default Version: 2\n", stderr="")
+    tmux = subprocess.CompletedProcess(
+        args=["wsl", "sh", "-lc", "command -v tmux && tmux -V"],
+        returncode=0,
+        stdout="/usr/bin/tmux\ntmux 3.2\n",
+        stderr="",
+    )
+
+    with patch("termbridge.services.shutil.which", return_value="wsl"):
+        with patch("termbridge.services.subprocess.run", side_effect=[wsl, tmux]):
+            result = service.check_windows_wsl()
+
+    assert result.wsl.available is True
+    assert result.tmux is not None
+    assert result.tmux.path == "/usr/bin/tmux"
+    assert result.tmux.version == "tmux 3.2"
+
+
+def test_terminal_service_reports_linux_unavailable_on_non_linux_host(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+
+    with patch("termbridge.services.platform.system", return_value="Windows"):
+        result = service.check_linux()
+
+    assert result.host.available is False
+    assert result.host.reason == "Linux environment is unavailable on this host"
+    assert result.shell is None
+    assert result.tmux is None

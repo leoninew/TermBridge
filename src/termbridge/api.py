@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, HTTPException, Query, Response, status
+from fastapi.responses import FileResponse
 
 from termbridge.di import SessionServiceDep, TerminalServiceDep, WorkspaceBrowserServiceDep
 from termbridge.exceptions import (
@@ -22,8 +23,7 @@ from termbridge.middleware import RequestLoggingMiddleware
 from termbridge.models import (
     CreateSessionRequest,
     CreateShortcutRequest,
-    CygwinCheckResponse,
-    CygwinSettings,
+    LinuxCheckResponse,
     RuntimeCheckResponse,
     SessionResponse,
     Shortcut,
@@ -33,10 +33,11 @@ from termbridge.models import (
     TmuxAvailabilityResponse,
     UpdateShortcutRequest,
     UpdateTerminalSettingsRequest,
-    WindowsCheckResponse,
+    WindowsCygwinCheckResponse,
+    WindowsCygwinSettings,
+    WindowsWslCheckResponse,
     WorkspaceRootsResponse,
     WorkspaceTreeResponse,
-    WslCheckResponse,
 )
 from termbridge.settings import load_settings
 
@@ -145,37 +146,41 @@ def check_ttyd(service: TerminalServiceDep, path: str | None = Query(default=Non
     return service.check_ttyd(path)
 
 
-@router.get("/api/environment/cygwin-settings", response_model=CygwinSettings)
-def get_cygwin_settings(service: TerminalServiceDep) -> CygwinSettings:
+@router.get("/api/environment/windows-cygwin/settings", response_model=WindowsCygwinSettings)
+def get_windows_cygwin_settings(service: TerminalServiceDep) -> WindowsCygwinSettings:
     try:
-        return service.get_cygwin_settings()
+        return service.get_windows_cygwin_settings()
     except ShortcutRepositoryError as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
-@router.put("/api/environment/cygwin-settings", response_model=CygwinSettings)
-def update_cygwin_settings(request: CygwinSettings, service: TerminalServiceDep) -> CygwinSettings:
+@router.put("/api/environment/windows-cygwin/settings", response_model=WindowsCygwinSettings)
+def update_windows_cygwin_settings(
+    request: WindowsCygwinSettings, service: TerminalServiceDep
+) -> WindowsCygwinSettings:
     try:
-        return service.update_cygwin_settings(request)
+        return service.update_windows_cygwin_settings(request)
     except InvalidTerminalConfigError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except ShortcutRepositoryError as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
-@router.get("/api/environment/cygwin/check", response_model=CygwinCheckResponse)
-def check_cygwin(service: TerminalServiceDep, bash_path: str | None = Query(default=None)) -> CygwinCheckResponse:
-    return service.check_cygwin(bash_path)
+@router.get("/api/environment/windows-cygwin/check", response_model=WindowsCygwinCheckResponse)
+def check_windows_cygwin(
+    service: TerminalServiceDep, bash_path: str | None = Query(default=None)
+) -> WindowsCygwinCheckResponse:
+    return service.check_windows_cygwin(bash_path)
 
 
-@router.get("/api/environment/windows/check", response_model=WindowsCheckResponse)
-def check_windows(service: TerminalServiceDep) -> WindowsCheckResponse:
-    return service.check_windows()
+@router.get("/api/environment/windows-wsl/check", response_model=WindowsWslCheckResponse)
+def check_windows_wsl(service: TerminalServiceDep) -> WindowsWslCheckResponse:
+    return service.check_windows_wsl()
 
 
-@router.get("/api/environment/wsl/check", response_model=WslCheckResponse)
-def check_wsl(service: TerminalServiceDep) -> WslCheckResponse:
-    return service.check_wsl()
+@router.get("/api/environment/linux/check", response_model=LinuxCheckResponse)
+def check_linux(service: TerminalServiceDep) -> LinuxCheckResponse:
+    return service.check_linux()
 
 
 @router.post("/api/sessions", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
@@ -238,11 +243,37 @@ def delete_session(session_id: str, service: SessionServiceDep) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-def create_app() -> FastAPI:
+def _default_frontend_dir() -> Path:
+    return Path(__file__).parent / "static"
+
+
+def _resolve_frontend_dir(frontend_dir: Path | None) -> Path | None:
+    static_dir = frontend_dir or _default_frontend_dir()
+    index_file = static_dir / "index.html"
+    if index_file.is_file():
+        return static_dir
+    return None
+
+
+def create_app(*, serve_frontend: bool = True, frontend_dir: Path | None = None) -> FastAPI:
     settings = load_settings()
     configure_logging(settings)
 
     app = FastAPI(title="TermBridge")
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(router)
+
+    static_dir = _resolve_frontend_dir(frontend_dir) if serve_frontend else None
+    if static_dir is not None:
+
+        @app.get("/{path:path}", include_in_schema=False)
+        def serve_frontend_app(path: str) -> FileResponse:
+            if path == "health" or path.startswith("api/"):
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+            requested_file = (static_dir / path).resolve()
+            if requested_file.is_file() and requested_file.is_relative_to(static_dir.resolve()):
+                return FileResponse(requested_file)
+            return FileResponse(static_dir / "index.html")
+
     return app

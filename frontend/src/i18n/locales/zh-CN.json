@@ -92,7 +92,7 @@
   },
   "environmentManagement": {
     "title": "环境管理",
-    "description": "管理 Windows、Cygwin、WSL 和终端运行环境配置。",
+    "description": "管理 Windows/Cygwin、Windows/WSL、Linux 和终端运行环境配置。",
     "mode": "模式",
     "saved": "设置已保存。",
     "actions": {
@@ -106,27 +106,27 @@
       "load": "加载环境配置失败",
       "check": "检测环境失败",
       "saveTtyd": "保存 ttyd 配置失败",
-      "saveCygwin": "保存 Cygwin 配置失败"
+      "saveCygwin": "保存 Windows/Cygwin 配置失败"
     },
     "tabs": {
-      "windows": "Windows",
-      "cygwin": "Cygwin",
-      "wsl": "WSL"
+      "windowsCygwin": "Windows/Cygwin",
+      "windowsWsl": "Windows/WSL",
+      "linux": "Linux"
     },
-    "windows": {
-      "title": "Windows",
-      "description": "检查 Windows 原生命令执行环境和常见 shell。"
-    },
-    "cygwin": {
-      "title": "Cygwin",
-      "description": "检查 Cygwin bash 与专属 tmux 能力。",
+    "windowsCygwin": {
+      "title": "Windows/Cygwin",
+      "description": "检查 Windows 宿主上的 Cygwin bash 与 tmux 能力。",
       "bashPath": "bash 路径",
       "tmuxPath": "tmux 路径",
-      "saved": "Cygwin 配置已保存。"
+      "saved": "Windows/Cygwin 配置已保存。"
     },
-    "wsl": {
-      "title": "WSL",
-      "description": "检查 WSL 基础可用性；本页暂不管理具体发行版。"
+    "windowsWsl": {
+      "title": "Windows/WSL",
+      "description": "检查 Windows 宿主上的默认 WSL 与 tmux 能力。"
+    },
+    "linux": {
+      "title": "Linux",
+      "description": "检查 Linux 宿主上的 shell 与 tmux 能力。"
     },
     "ttyd": {
       "title": "ttyd",
@@ -148,7 +148,7 @@
       "delete": "删除快捷方式失败"
     },
     "hosts": {
-      "cygwinTmux": "Cygwin + tmux"
+      "windowsCygwin": "Windows/Cygwin"
     },
     "fields": {
       "name": "名称",

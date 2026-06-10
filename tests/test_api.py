@@ -8,8 +8,7 @@ from termbridge.di import get_session_service, get_terminal_service
 from termbridge.models import (
     CreateSessionRequest,
     CreateShortcutRequest,
-    CygwinCheckResponse,
-    CygwinSettings,
+    LinuxCheckResponse,
     RuntimeCheckResponse,
     SessionResponse,
     SessionStatus,
@@ -18,8 +17,9 @@ from termbridge.models import (
     TerminalSettings,
     TmuxAvailabilityResponse,
     UpdateShortcutRequest,
-    WindowsCheckResponse,
-    WslCheckResponse,
+    WindowsCygwinCheckResponse,
+    WindowsCygwinSettings,
+    WindowsWslCheckResponse,
 )
 
 
@@ -30,13 +30,13 @@ class FakeSessionService:
             id="sess_1",
             name="Test",
             workspace=str(Path.cwd()),
-            runtime="cygwin_tmux",
+            runtime="windows_cygwin",
             status=SessionStatus.RUNNING,
             port=9001,
             url="http://127.0.0.1:9001",
             shortcut_id="claude-code",
             shortcut_name="Claude Code",
-            host="cygwin_tmux",
+            host="windows_cygwin",
             session_persistence="tmux",
             tmux_session_name="Test",
             created_at=now,
@@ -70,7 +70,7 @@ class FakeTerminalService:
                 id="claude-code",
                 name="Claude Code",
                 command="claude --dangerously-skip-permissions",
-                host="cygwin_tmux",
+                host="windows_cygwin",
             )
         ]
         self.deleted: list[str] = []
@@ -103,26 +103,31 @@ class FakeTerminalService:
     def check_ttyd(self, ttyd_path: str | None = None) -> RuntimeCheckResponse:
         return RuntimeCheckResponse(available=True, path=ttyd_path or "ttyd", version="ttyd 1.7.7")
 
-    def get_cygwin_settings(self) -> CygwinSettings:
-        return CygwinSettings()
+    def get_windows_cygwin_settings(self) -> WindowsCygwinSettings:
+        return WindowsCygwinSettings()
 
-    def update_cygwin_settings(self, request: CygwinSettings) -> CygwinSettings:
+    def update_windows_cygwin_settings(self, request: WindowsCygwinSettings) -> WindowsCygwinSettings:
         return request
 
-    def check_cygwin(self, bash_path: str | None = None) -> CygwinCheckResponse:
-        return CygwinCheckResponse(
+    def check_windows_cygwin(self, bash_path: str | None = None) -> WindowsCygwinCheckResponse:
+        return WindowsCygwinCheckResponse(
+            host=RuntimeCheckResponse(available=True, path="nt"),
             bash=RuntimeCheckResponse(available=True, path=bash_path or "/usr/bin/bash", version="GNU bash"),
             tmux=RuntimeCheckResponse(available=True, path="/usr/bin/tmux", version="tmux 3.2"),
         )
 
-    def check_windows(self) -> WindowsCheckResponse:
-        return WindowsCheckResponse(
+    def check_windows_wsl(self) -> WindowsWslCheckResponse:
+        return WindowsWslCheckResponse(
             host=RuntimeCheckResponse(available=True, path="nt"),
-            shells=[RuntimeCheckResponse(available=True, path="cmd")],
+            wsl=RuntimeCheckResponse(available=False, path="wsl", reason="not installed"),
         )
 
-    def check_wsl(self) -> WslCheckResponse:
-        return WslCheckResponse(wsl=RuntimeCheckResponse(available=False, path="wsl", reason="not installed"))
+    def check_linux(self) -> LinuxCheckResponse:
+        return LinuxCheckResponse(
+            host=RuntimeCheckResponse(
+                available=False, path="Windows", reason="Linux environment is unavailable on this host"
+            )
+        )
 
 
 def make_client(service: FakeSessionService) -> TestClient:
@@ -138,6 +143,37 @@ def test_health() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_frontend_static_routes(tmp_path: Path) -> None:
+    frontend_dir = tmp_path / "frontend"
+    assets_dir = frontend_dir / "assets"
+    assets_dir.mkdir(parents=True)
+    index_file = frontend_dir / "index.html"
+    index_file.write_text("<html><body>TermBridge</body></html>", encoding="utf-8")
+    asset_file = assets_dir / "app.js"
+    asset_file.write_text("console.log('termbridge')", encoding="utf-8")
+    client = TestClient(create_app(frontend_dir=frontend_dir))
+
+    root = client.get("/")
+    environment = client.get("/environment")
+    shortcuts = client.get("/shortcuts")
+    asset = client.get("/assets/app.js")
+    missing_api = client.get("/api/missing")
+    health_response = client.get("/health")
+
+    assert root.status_code == 200
+    assert "TermBridge" in root.text
+    assert environment.status_code == 200
+    assert "TermBridge" in environment.text
+    assert shortcuts.status_code == 200
+    assert "TermBridge" in shortcuts.text
+    assert asset.status_code == 200
+    assert asset.text == "console.log('termbridge')"
+    assert missing_api.status_code == 404
+    assert missing_api.json() == {"detail": "Not found"}
+    assert health_response.status_code == 200
+    assert health_response.json() == {"status": "ok"}
 
 
 def test_session_api_routes(tmp_path: Path) -> None:
@@ -177,7 +213,7 @@ def test_shortcut_api_routes() -> None:
     client = TestClient(app)
 
     listed = client.get("/api/shortcuts")
-    created = client.post("/api/shortcuts", json={"name": "Codex", "command": "codex", "host": "cygwin_tmux"})
+    created = client.post("/api/shortcuts", json={"name": "Codex", "command": "codex", "host": "windows_cygwin"})
     updated = client.put("/api/shortcuts/claude-code", json={"command": "claude"})
     deleted = client.delete("/api/shortcuts/claude-code")
 
@@ -223,22 +259,23 @@ def test_environment_api_routes() -> None:
     client = TestClient(app)
 
     ttyd = client.get("/api/environment/ttyd/check", params={"path": "D:/ttyd.exe"})
-    cygwin_settings = client.get("/api/environment/cygwin-settings")
-    saved_cygwin_settings = client.put(
-        "/api/environment/cygwin-settings",
+    windows_cygwin_settings = client.get("/api/environment/windows-cygwin/settings")
+    saved_windows_cygwin_settings = client.put(
+        "/api/environment/windows-cygwin/settings",
         json={"bash_path": "D:/cygwin/bin/bash.exe", "tmux_path": "D:/cygwin/bin/tmux.exe"},
     )
-    cygwin = client.get("/api/environment/cygwin/check", params={"bash_path": "bash.exe"})
-    windows = client.get("/api/environment/windows/check")
-    wsl = client.get("/api/environment/wsl/check")
+    windows_cygwin = client.get("/api/environment/windows-cygwin/check", params={"bash_path": "bash.exe"})
+    windows_wsl = client.get("/api/environment/windows-wsl/check")
+    linux = client.get("/api/environment/linux/check")
 
     assert ttyd.status_code == 200
     assert ttyd.json()["path"] == "D:/ttyd.exe"
-    assert cygwin_settings.json() == {"bash_path": None, "tmux_path": None}
-    assert saved_cygwin_settings.json() == {
+    assert windows_cygwin_settings.json() == {"bash_path": None, "tmux_path": None}
+    assert saved_windows_cygwin_settings.json() == {
         "bash_path": "D:/cygwin/bin/bash.exe",
         "tmux_path": "D:/cygwin/bin/tmux.exe",
     }
-    assert cygwin.json()["tmux"]["version"] == "tmux 3.2"
-    assert windows.json()["shells"][0]["path"] == "cmd"
-    assert wsl.json()["wsl"]["available"] is False
+    assert windows_cygwin.json()["host"]["available"] is True
+    assert windows_cygwin.json()["tmux"]["version"] == "tmux 3.2"
+    assert windows_wsl.json()["wsl"]["available"] is False
+    assert linux.json()["host"]["available"] is False

@@ -92,7 +92,7 @@
   },
   "environmentManagement": {
     "title": "Environment Management",
-    "description": "Manage Windows, Cygwin, WSL, and terminal runtime environment settings.",
+    "description": "Manage Windows/Cygwin, Windows/WSL, Linux, and terminal runtime environment settings.",
     "mode": "Mode",
     "saved": "Settings saved.",
     "actions": {
@@ -106,27 +106,27 @@
       "load": "Failed to load environment settings",
       "check": "Failed to check environment",
       "saveTtyd": "Failed to save ttyd settings",
-      "saveCygwin": "Failed to save Cygwin settings"
+      "saveCygwin": "Failed to save Windows/Cygwin settings"
     },
     "tabs": {
-      "windows": "Windows",
-      "cygwin": "Cygwin",
-      "wsl": "WSL"
+      "windowsCygwin": "Windows/Cygwin",
+      "windowsWsl": "Windows/WSL",
+      "linux": "Linux"
     },
-    "windows": {
-      "title": "Windows",
-      "description": "Check the native Windows command environment and common shells."
-    },
-    "cygwin": {
-      "title": "Cygwin",
-      "description": "Check Cygwin bash and Cygwin-only tmux capability.",
+    "windowsCygwin": {
+      "title": "Windows/Cygwin",
+      "description": "Check Cygwin bash and tmux capabilities on a Windows host.",
       "bashPath": "bash path",
       "tmuxPath": "tmux path",
-      "saved": "Cygwin settings saved."
+      "saved": "Windows/Cygwin settings saved."
     },
-    "wsl": {
-      "title": "WSL",
-      "description": "Check basic WSL availability; distro management is out of scope here."
+    "windowsWsl": {
+      "title": "Windows/WSL",
+      "description": "Check default WSL and tmux capabilities on a Windows host."
+    },
+    "linux": {
+      "title": "Linux",
+      "description": "Check shell and tmux capabilities on a Linux host."
     },
     "ttyd": {
       "title": "ttyd",
@@ -148,7 +148,7 @@
       "delete": "Failed to delete shortcut"
     },
     "hosts": {
-      "cygwinTmux": "Cygwin + tmux"
+      "windowsCygwin": "Windows/Cygwin"
     },
     "fields": {
       "name": "Name",

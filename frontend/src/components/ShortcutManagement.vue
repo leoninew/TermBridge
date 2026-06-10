@@ -52,7 +52,7 @@ const usedShortcutIds = computed(
 const form = reactive<CreateShortcutPayload>({
   name: '',
   command: '',
-  host: 'cygwin_tmux',
+  host: 'windows_cygwin',
   description: '',
 })
 
@@ -83,7 +83,7 @@ function resetForm() {
   editingId.value = undefined
   form.name = ''
   form.command = ''
-  form.host = 'cygwin_tmux'
+  form.host = 'windows_cygwin'
   form.description = ''
 }
 
@@ -173,7 +173,7 @@ function normalizePayload(): CreateShortcutPayload {
               <p class="truncate text-sm font-semibold text-slate-950">{{ shortcut.name }}</p>
             </div>
             <span class="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-sm text-blue-700">
-              {{ t('shortcutManagement.hosts.cygwinTmux') }}
+              {{ t('shortcutManagement.hosts.windowsCygwin') }}
             </span>
           </div>
           <p
@@ -248,7 +248,7 @@ function normalizePayload(): CreateShortcutPayload {
                 v-model="form.host"
                 class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               >
-                <option value="cygwin_tmux">{{ t('shortcutManagement.hosts.cygwinTmux') }}</option>
+                <option value="windows_cygwin">{{ t('shortcutManagement.hosts.windowsCygwin') }}</option>
               </select>
             </label>
             <label class="grid gap-1.5 text-sm text-slate-700">

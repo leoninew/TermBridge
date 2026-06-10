@@ -1,7 +1,7 @@
 export type SessionStatus = 'starting' | 'running' | 'stopped' | 'failed'
 export type SessionPersistence = 'none' | 'tmux'
 export type TtydMode = 'auto' | 'explicit'
-export type ShortcutHost = 'windows' | 'cygwin' | 'wsl' | 'cygwin_tmux'
+export type ShortcutHost = 'windows_cygwin' | 'windows_wsl' | 'linux'
 
 export interface Session {
   id: string
@@ -92,13 +92,26 @@ export interface TerminalSettings {
   ttyd_path?: string | null
 }
 
-export interface CygwinSettings {
+export interface WindowsCygwinSettings {
   bash_path?: string | null
   tmux_path?: string | null
 }
 
-export interface CygwinCheckResponse {
+export interface WindowsCygwinCheckResponse {
+  host: RuntimeCheckResponse
   bash: RuntimeCheckResponse
+  tmux?: RuntimeCheckResponse | null
+}
+
+export interface WindowsWslCheckResponse {
+  host: RuntimeCheckResponse
+  wsl: RuntimeCheckResponse
+  tmux?: RuntimeCheckResponse | null
+}
+
+export interface LinuxCheckResponse {
+  host: RuntimeCheckResponse
+  shell?: RuntimeCheckResponse | null
   tmux?: RuntimeCheckResponse | null
 }
 
@@ -111,13 +124,4 @@ export interface TmuxAvailabilityResponse {
 
 export interface TmuxAvailabilityPayload {
   cygwin_bash_path: string
-}
-
-export interface WindowsCheckResponse {
-  host: RuntimeCheckResponse
-  shells: RuntimeCheckResponse[]
-}
-
-export interface WslCheckResponse {
-  wsl: RuntimeCheckResponse
 }

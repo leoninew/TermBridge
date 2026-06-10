@@ -3,6 +3,7 @@ from __future__ import annotations
 import ctypes
 import logging
 import os
+import platform
 import re
 import shlex
 import shutil
@@ -23,8 +24,7 @@ from termbridge.exceptions import (
 from termbridge.models import (
     CreateSessionRequest,
     CreateShortcutRequest,
-    CygwinCheckResponse,
-    CygwinSettings,
+    LinuxCheckResponse,
     RuntimeCheckResponse,
     SessionRecord,
     SessionResponse,
@@ -37,12 +37,13 @@ from termbridge.models import (
     TmuxAvailabilityResponse,
     UpdateShortcutRequest,
     UpdateTerminalSettingsRequest,
-    WindowsCheckResponse,
+    WindowsCygwinCheckResponse,
+    WindowsCygwinSettings,
+    WindowsWslCheckResponse,
     WorkspaceRoot,
     WorkspaceRootsResponse,
     WorkspaceTreeNode,
     WorkspaceTreeResponse,
-    WslCheckResponse,
     utc_now,
 )
 from termbridge.ports import PortAllocator
@@ -175,14 +176,14 @@ class TerminalService:
         self._repository.save_state(state)
         return state.settings
 
-    def get_cygwin_settings(self) -> CygwinSettings:
-        return self._repository.get_state().cygwin_settings
+    def get_windows_cygwin_settings(self) -> WindowsCygwinSettings:
+        return self._repository.get_state().windows_cygwin_settings
 
-    def update_cygwin_settings(self, request: CygwinSettings) -> CygwinSettings:
+    def update_windows_cygwin_settings(self, request: WindowsCygwinSettings) -> WindowsCygwinSettings:
         state = self._repository.get_state()
-        state.cygwin_settings = request
+        state.windows_cygwin_settings = request
         self._repository.save_state(state)
-        return state.cygwin_settings
+        return state.windows_cygwin_settings
 
     def check_ttyd(self, ttyd_path: str | None = None) -> RuntimeCheckResponse:
         executable = ttyd_path or shutil.which("ttyd")
@@ -190,40 +191,66 @@ class TerminalService:
             return RuntimeCheckResponse(available=False, reason="ttyd is not available in PATH")
         return self._check_executable_version(executable, [["--version"], ["-v"]])
 
-    def check_cygwin(self, bash_path: str | None = None) -> CygwinCheckResponse:
+    def check_windows_cygwin(self, bash_path: str | None = None) -> WindowsCygwinCheckResponse:
+        host = RuntimeCheckResponse(
+            available=os.name == "nt",
+            path=os.name,
+            reason=None if os.name == "nt" else "Windows/Cygwin is only available on Windows hosts",
+        )
         resolved_bash = (
             self._to_windows_executable_path(bash_path)
-            or self._to_windows_executable_path(self._resolve_configured_cygwin_bash())
+            or self._to_windows_executable_path(self._resolve_configured_windows_cygwin_bash())
             or self._detect_cygwin_bash_path()
         )
         if not resolved_bash:
-            return CygwinCheckResponse(bash=RuntimeCheckResponse(available=False, reason="Cygwin bash was not found"))
+            return WindowsCygwinCheckResponse(
+                host=host,
+                bash=RuntimeCheckResponse(available=False, reason="Cygwin bash was not found"),
+            )
         bash = self._check_bash(resolved_bash)
         if not bash.available:
-            return CygwinCheckResponse(bash=bash)
+            return WindowsCygwinCheckResponse(host=host, bash=bash)
         tmux = self._tmux_to_runtime(self.check_tmux(bash.path or resolved_bash))
-        return CygwinCheckResponse(bash=bash, tmux=tmux)
+        return WindowsCygwinCheckResponse(host=host, bash=bash, tmux=tmux)
 
-    def check_windows(self) -> WindowsCheckResponse:
-        host = RuntimeCheckResponse(available=os.name == "nt", path=os.name, version=None)
-        shells = []
-        for command in ("cmd", "powershell", "pwsh"):
-            path = shutil.which(command)
-            shells.append(
-                RuntimeCheckResponse(
-                    available=bool(path),
-                    path=path or command,
-                    reason=None if path else f"{command} is not available in PATH",
-                )
+    def check_windows_wsl(self) -> WindowsWslCheckResponse:
+        host = RuntimeCheckResponse(
+            available=os.name == "nt",
+            path=os.name,
+            reason=None if os.name == "nt" else "Windows/WSL is only available on Windows hosts",
+        )
+        wsl_path = shutil.which("wsl") or "wsl"
+        wsl = self._run_check([wsl_path, "--status"])
+        if not wsl.available:
+            wsl = self._run_check([wsl_path, "--version"])
+        tmux = self._check_wsl_tmux(wsl_path) if wsl.available else None
+        return WindowsWslCheckResponse(host=host, wsl=wsl, tmux=tmux)
+
+    def check_linux(self) -> LinuxCheckResponse:
+        is_linux = platform.system().lower() == "linux"
+        host = RuntimeCheckResponse(
+            available=is_linux,
+            path=platform.system(),
+            reason=None if is_linux else "Linux environment is unavailable on this host",
+        )
+        if not is_linux:
+            return LinuxCheckResponse(host=host)
+        shell_path = shutil.which("bash") or shutil.which("sh")
+        shell = RuntimeCheckResponse(
+            available=bool(shell_path),
+            path=shell_path,
+            reason=None if shell_path else "shell is not available in PATH",
+        )
+        tmux_path = shutil.which("tmux")
+        tmux = (
+            self._check_executable_version(tmux_path, [["-V"]])
+            if tmux_path
+            else RuntimeCheckResponse(
+                available=False,
+                reason="tmux is not available in PATH",
             )
-        return WindowsCheckResponse(host=host, shells=shells)
-
-    def check_wsl(self) -> WslCheckResponse:
-        path = shutil.which("wsl") or "wsl"
-        result = self._run_check([path, "--status"])
-        if result.available:
-            return WslCheckResponse(wsl=result)
-        return WslCheckResponse(wsl=self._run_check([path, "--version"]))
+        )
+        return LinuxCheckResponse(host=host, shell=shell, tmux=tmux)
 
     def check_tmux(self, cygwin_bash_path: str) -> TmuxAvailabilityResponse:
         try:
@@ -250,8 +277,6 @@ class TerminalService:
     ) -> tuple[list[str], Shortcut, str]:
         shortcut = self._find_shortcut(shortcut_id)
         bash_path = self._ensure_shortcut_host_ready(shortcut)
-        if shortcut.host != "cygwin_tmux":
-            raise InvalidTerminalConfigError(f"Shortcut host is not supported yet: {shortcut.host}")
         workspace_path = self._to_forward_slash(workspace)
         command = (
             f"cd {shlex.quote(workspace_path)} && exec tmux new-session -A "
@@ -265,8 +290,8 @@ class TerminalService:
             if not settings.ttyd_path:
                 raise InvalidTerminalConfigError("ttyd path is required for explicit mode")
             return settings.ttyd_path
-        if host in {"cygwin", "cygwin_tmux"}:
-            return self._resolve_cygwin_ttyd(cygwin_bash_path or self._resolve_configured_cygwin_bash())
+        if host == "windows_cygwin":
+            return self._resolve_cygwin_ttyd(cygwin_bash_path or self._resolve_configured_windows_cygwin_bash())
         return "ttyd"
 
     def normalize_tmux_session_name(self, name: str, fallback: str) -> str:
@@ -287,29 +312,29 @@ class TerminalService:
                 id="bash",
                 name="bash",
                 command="bash",
-                host="cygwin_tmux",
-                description="Start bash in Cygwin tmux",
+                host="windows_cygwin",
+                description="Start bash in Windows/Cygwin tmux",
             ),
             Shortcut(
                 id="cmd",
                 name="cmd",
                 command="cmd",
-                host="cygwin_tmux",
-                description="Start cmd in Cygwin tmux",
+                host="windows_cygwin",
+                description="Start cmd in Windows/Cygwin tmux",
             ),
             Shortcut(
                 id="claude-code",
                 name="Claude Code",
                 command="claude --dangerously-skip-permissions",
-                host="cygwin_tmux",
-                description="Start Claude Code in Cygwin tmux",
+                host="windows_cygwin",
+                description="Start Claude Code in Windows/Cygwin tmux",
             ),
             Shortcut(
                 id="codex",
                 name="Codex",
                 command="codex -a never --sandbox danger-full-access",
-                host="cygwin_tmux",
-                description="Start Codex in Cygwin tmux",
+                host="windows_cygwin",
+                description="Start Codex in Windows/Cygwin tmux",
             ),
         ]
         self._repository.save_state(state)
@@ -320,13 +345,11 @@ class TerminalService:
             raise InvalidTerminalConfigError("Shortcut name is required")
         if not shortcut.command.strip():
             raise InvalidTerminalConfigError("Shortcut command is required")
-        if shortcut.host != "cygwin_tmux":
-            raise InvalidTerminalConfigError(f"Shortcut host is not supported yet: {shortcut.host}")
 
     def _ensure_shortcut_host_ready(self, shortcut: Shortcut) -> str:
-        if shortcut.host != "cygwin_tmux":
+        if shortcut.host != "windows_cygwin":
             raise InvalidTerminalConfigError(f"Shortcut host is not supported yet: {shortcut.host}")
-        bash_path = self._resolve_configured_cygwin_bash()
+        bash_path = self._resolve_configured_windows_cygwin_bash()
         if not bash_path:
             raise InvalidTerminalConfigError("Cygwin bash path is required for this shortcut")
         self.resolve_ttyd_executable(shortcut.host, bash_path)
@@ -381,6 +404,28 @@ class TerminalService:
         version = output[1] if len(output) > 1 else None
         return RuntimeCheckResponse(available=True, path=detected_path, version=version)
 
+    def _check_wsl_tmux(self, wsl_path: str) -> RuntimeCheckResponse:
+        try:
+            result = subprocess.run(
+                [wsl_path, "sh", "-lc", "command -v tmux && tmux -V"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return RuntimeCheckResponse(available=False, path="tmux", reason="WSL tmux detection timed out")
+        except OSError as exc:
+            return RuntimeCheckResponse(available=False, path="tmux", reason=str(exc))
+        output = result.stdout.strip().splitlines()
+        if result.returncode != 0 or len(output) < 2:
+            return RuntimeCheckResponse(
+                available=False,
+                path="tmux",
+                reason=result.stderr.strip() or "tmux is not available in default WSL",
+            )
+        return RuntimeCheckResponse(available=True, path=output[0], version=output[1])
+
     def _tmux_to_runtime(self, response: TmuxAvailabilityResponse) -> RuntimeCheckResponse:
         return RuntimeCheckResponse(
             available=response.available,
@@ -389,8 +434,8 @@ class TerminalService:
             reason=response.reason,
         )
 
-    def _resolve_configured_cygwin_bash(self) -> str | None:
-        return self.get_cygwin_settings().bash_path
+    def _resolve_configured_windows_cygwin_bash(self) -> str | None:
+        return self.get_windows_cygwin_settings().bash_path
 
     def _detect_cygwin_bash_path(self) -> str | None:
         candidates = [
