@@ -84,7 +84,7 @@ Review status: Accepted
 2. 校验 `default_host` 是允许值。
 3. 保存 `TerminalSettings(ttyd_mode, ttyd_path, default_host)`。
 
-注意：默认运行环境可以选 `linux`，但前端会 disabled；后端创建 session 时仍需校验 host ready 和 supported。
+注意：默认运行环境可以选 `linux`；前后端都统一根据 host readiness 和 available_on_host 判断是否可用，不对 Linux 写死特殊禁用。
 
 ### 5. provider 检测刷新 readiness
 
@@ -123,7 +123,7 @@ Review status: Accepted
 修改 `TerminalService.check_linux()`：
 
 1. Windows host 下返回 unavailable，并保持/写入 Linux `not_ready`。
-2. Linux host 检测 shell/tmux，但本阶段不完整实现启动；是否标记 ready 以 spec 倾向为准：不作为可启动 host 暴露。
+2. Linux host 检测 shell/tmux；检查通过后写入 Linux `ready`，失败写入 `not_ready` 和 `last_error`。
 
 ### 6. WSL path conversion
 
@@ -174,7 +174,11 @@ Windows/WSL：
 
 Linux：
 
-- 本阶段返回 `InvalidTerminalConfigError("Linux runtime is not supported yet")`。
+1. 要求 `linux_settings.readiness == "ready"`。
+2. 使用 `linux_settings.shell_path` 执行：
+   - `<shell> -lc 'cd <workspace> && exec tmux new-session -A -s <name> <command>'`
+3. cleanup command：
+   - `<shell> -lc 'tmux kill-session -t <name>'`
 
 ### 8. SessionService 生命周期调整
 
@@ -259,7 +263,8 @@ Linux：
 3. host select 展示：
    - Windows/Cygwin
    - Windows/WSL
-   - Linux disabled
+   - Linux
+   - 是否 disabled 由对应 environment 的 `available_on_host` 和 `readiness` 决定
 4. card label 使用 `shortcut.host` 映射。
 5. loading 时显示 spinner。
 
@@ -269,7 +274,7 @@ Linux：
 
 1. 接收 environments 或自行加载 environments。
 2. 展示所有 host：Windows/Cygwin、Windows/WSL、Linux。
-3. not ready 或 unsupported host disabled。
+3. not ready 或当前宿主 unavailable 的 host disabled。
 4. shortcut 下拉按当前 host 过滤或标记 host：
    - 建议先按 host 过滤，只显示当前 host 的 shortcuts。
    - 如果当前 host 没有 shortcuts，显示提示去 shortcut 管理页创建。
@@ -299,7 +304,7 @@ Linux：
 1. 支持矩阵说明：
    - Windows/Cygwin：支持启动。
    - Windows/WSL：支持默认 WSL 启动。
-   - Linux：本阶段检测/模型存在，但启动支持未完整实现。
+   - Linux：使用同一 readiness 模型；当前宿主检测失败则 not ready，Linux 宿主检测通过则 ready。
 2. 说明 Windows/WSL 使用 Windows 原生 ttyd，通过 `wsl --cd ... sh -lc ...` 进入默认 WSL。
 3. 删除任何 `TERMBRIDGE_USE_WSL` 相关说明（如果存在）。
 

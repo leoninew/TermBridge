@@ -49,8 +49,12 @@ class FakeShortcutService:
 
     def resolve_shortcut_command(
         self, shortcut_id: str, workspace: Path, *, tmux_session_name: str
-    ) -> tuple[list[str], Shortcut, str]:
-        return ["bash.exe", "-lc", f"tmux attach -t {tmux_session_name}"], self.shortcut, "bash.exe"
+    ) -> tuple[list[str], Shortcut, list[str] | None]:
+        return (
+            ["bash.exe", "-lc", f"tmux attach -t {tmux_session_name}"],
+            self.shortcut,
+            ["bash.exe", "-lc", f"tmux kill-session -t {tmux_session_name}"],
+        )
 
     def resolve_ttyd_executable(self, host: str, cygwin_bash_path: str | None = None) -> str:
         return self.ttyd_executable
@@ -60,12 +64,10 @@ def make_service(
     tmp_path: Path,
     process: FakeProcessAdapter | None = None,
     *,
-    use_wsl: bool = False,
     shortcut_service: FakeShortcutService | None = None,
 ) -> SessionService:
     settings = Settings(
         ttyd_executable="ttyd",
-        use_wsl=use_wsl,
         host="127.0.0.1",
         port_start=9201,
         port_end=9205,
@@ -109,16 +111,6 @@ def test_service_creates_session_with_shortcut(tmp_path: Path) -> None:
             tmp_path.resolve(),
         )
     ]
-
-
-def test_service_wraps_ttyd_command_with_wsl_when_enabled(tmp_path: Path) -> None:
-    process = FakeProcessAdapter()
-    service = make_service(tmp_path, process, use_wsl=True)
-
-    service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
-
-    assert process.started[0][0][0] == "wsl"
-    assert process.started[0][0][1] == "custom-ttyd"
 
 
 def test_service_delete_terminates_process_and_removes_session(tmp_path: Path) -> None:

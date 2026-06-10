@@ -8,6 +8,8 @@ from termbridge.di import get_session_service, get_terminal_service
 from termbridge.models import (
     CreateSessionRequest,
     CreateShortcutRequest,
+    EnvironmentListResponse,
+    EnvironmentSummary,
     LinuxCheckResponse,
     RuntimeCheckResponse,
     SessionResponse,
@@ -15,11 +17,11 @@ from termbridge.models import (
     Shortcut,
     ShortcutListResponse,
     TerminalSettings,
-    TmuxAvailabilityResponse,
     UpdateShortcutRequest,
     WindowsCygwinCheckResponse,
     WindowsCygwinSettings,
     WindowsWslCheckResponse,
+    WindowsWslSettings,
 )
 
 
@@ -91,9 +93,6 @@ class FakeTerminalService:
     def delete_shortcut(self, shortcut_id: str) -> None:
         self.deleted.append(shortcut_id)
 
-    def check_tmux(self, cygwin_bash_path: str) -> TmuxAvailabilityResponse:
-        return TmuxAvailabilityResponse(available=True, path="/usr/bin/tmux", version="tmux 3.2")
-
     def get_settings(self) -> TerminalSettings:
         return TerminalSettings()
 
@@ -102,6 +101,31 @@ class FakeTerminalService:
 
     def check_ttyd(self, ttyd_path: str | None = None) -> RuntimeCheckResponse:
         return RuntimeCheckResponse(available=True, path=ttyd_path or "ttyd", version="ttyd 1.7.7")
+
+    def list_environments(self) -> EnvironmentListResponse:
+        return EnvironmentListResponse(
+            environments=[
+                EnvironmentSummary(
+                    host="windows_cygwin",
+                    label="Windows/Cygwin",
+                    readiness="not_ready",
+                    available_on_host=True,
+                ),
+                EnvironmentSummary(
+                    host="windows_wsl",
+                    label="Windows/WSL",
+                    readiness="not_ready",
+                    available_on_host=True,
+                ),
+                EnvironmentSummary(
+                    host="linux",
+                    label="Linux",
+                    readiness="not_ready",
+                    available_on_host=False,
+                    last_error="Linux environment is unavailable on this host",
+                ),
+            ],
+        )
 
     def get_windows_cygwin_settings(self) -> WindowsCygwinSettings:
         return WindowsCygwinSettings()
@@ -115,6 +139,12 @@ class FakeTerminalService:
             bash=RuntimeCheckResponse(available=True, path=bash_path or "/usr/bin/bash", version="GNU bash"),
             tmux=RuntimeCheckResponse(available=True, path="/usr/bin/tmux", version="tmux 3.2"),
         )
+
+    def get_windows_wsl_settings(self) -> WindowsWslSettings:
+        return WindowsWslSettings()
+
+    def update_windows_wsl_settings(self, request: WindowsWslSettings) -> WindowsWslSettings:
+        return request
 
     def check_windows_wsl(self) -> WindowsWslCheckResponse:
         return WindowsWslCheckResponse(
@@ -242,40 +272,39 @@ def test_shortcut_delete_rejects_in_use_shortcut() -> None:
     assert service.deleted == []
 
 
-def test_tmux_check_api() -> None:
-    app = create_app()
-    app.dependency_overrides[get_terminal_service] = lambda: FakeTerminalService()
-    client = TestClient(app)
-
-    response = client.post("/api/terminals/tmux/check", json={"cygwin_bash_path": "bash.exe"})
-
-    assert response.status_code == 200
-    assert response.json() == {"available": True, "path": "/usr/bin/tmux", "version": "tmux 3.2", "reason": None}
-
-
 def test_environment_api_routes() -> None:
     app = create_app()
     app.dependency_overrides[get_terminal_service] = lambda: FakeTerminalService()
     client = TestClient(app)
 
-    ttyd = client.get("/api/environment/ttyd/check", params={"path": "D:/ttyd.exe"})
+    ttyd = client.post("/api/environment/ttyd/check", json={"path": "D:/ttyd.exe"})
+    environments = client.get("/api/environments")
     windows_cygwin_settings = client.get("/api/environment/windows-cygwin/settings")
     saved_windows_cygwin_settings = client.put(
         "/api/environment/windows-cygwin/settings",
-        json={"bash_path": "D:/cygwin/bin/bash.exe", "tmux_path": "D:/cygwin/bin/tmux.exe"},
+        json={
+            "readiness": "not_ready",
+            "bash_path": "D:/cygwin/bin/bash.exe",
+            "tmux_path": "D:/cygwin/bin/tmux.exe",
+            "checked_at": None,
+            "last_error": None,
+        },
     )
-    windows_cygwin = client.get("/api/environment/windows-cygwin/check", params={"bash_path": "bash.exe"})
-    windows_wsl = client.get("/api/environment/windows-wsl/check")
-    linux = client.get("/api/environment/linux/check")
+    windows_cygwin = client.post("/api/environment/windows-cygwin/check", json={"bash_path": "bash.exe"})
+    windows_wsl_settings = client.get("/api/environment/windows-wsl/settings")
+    windows_wsl = client.post("/api/environment/windows-wsl/check")
+    linux = client.post("/api/environment/linux/check")
 
     assert ttyd.status_code == 200
     assert ttyd.json()["path"] == "D:/ttyd.exe"
-    assert windows_cygwin_settings.json() == {"bash_path": None, "tmux_path": None}
-    assert saved_windows_cygwin_settings.json() == {
-        "bash_path": "D:/cygwin/bin/bash.exe",
-        "tmux_path": "D:/cygwin/bin/tmux.exe",
-    }
+    assert environments.status_code == 200
+    assert len(environments.json()["environments"]) == 3
+    assert windows_cygwin_settings.json()["readiness"] == "not_ready"
+    assert windows_cygwin_settings.json()["bash_path"] is None
+    assert saved_windows_cygwin_settings.json()["bash_path"] == "D:/cygwin/bin/bash.exe"
+    assert saved_windows_cygwin_settings.json()["tmux_path"] == "D:/cygwin/bin/tmux.exe"
     assert windows_cygwin.json()["host"]["available"] is True
     assert windows_cygwin.json()["tmux"]["version"] == "tmux 3.2"
+    assert windows_wsl_settings.json()["readiness"] == "not_ready"
     assert windows_wsl.json()["wsl"]["available"] is False
     assert linux.json()["host"]["available"] is False

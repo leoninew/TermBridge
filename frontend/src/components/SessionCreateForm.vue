@@ -8,19 +8,25 @@ import {
   SelectValue,
   SelectViewport,
 } from 'reka-ui'
-import { FolderOpen, Plus } from '@lucide/vue'
-import { reactive, ref, onMounted } from 'vue'
+import { FolderOpen, Loader2, Plus } from '@lucide/vue'
+import { computed, reactive, ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listShortcuts } from '../api/sessions'
-import type { CreateSessionPayload, Shortcut } from '../types/sessions'
+import type { CreateSessionPayload, EnvironmentSummary, Shortcut, ShortcutHost } from '../types/sessions'
 import WorkspaceBrowser from './WorkspaceBrowser.vue'
 
 const { t } = useI18n()
+const props = defineProps<{
+  environments: EnvironmentSummary[]
+  submitting: boolean
+}>()
 const emit = defineEmits<{
   create: [payload: CreateSessionPayload]
   cancel: []
 }>()
 
+const hosts: ShortcutHost[] = ['windows_cygwin', 'windows_wsl', 'linux']
+const selectedHost = ref<ShortcutHost>('windows_cygwin')
 const shortcuts = ref<Shortcut[]>([])
 const shortcutError = ref('')
 const form = reactive<CreateSessionPayload>({
@@ -28,19 +34,43 @@ const form = reactive<CreateSessionPayload>({
   workspace: '',
   shortcut_id: '',
 })
-const submitting = ref(false)
+const loadingShortcuts = ref(false)
 const showWorkspaceBrowser = ref(false)
+const environmentsByHost = computed(() =>
+  new Map(props.environments.map((environment) => [environment.host, environment])),
+)
+const availableHosts = computed(() =>
+  hosts.filter((host) => {
+    const environment = environmentsByHost.value.get(host)
+    return environment?.available_on_host && environment.readiness === 'ready'
+  }),
+)
+const filteredShortcuts = computed(() =>
+  shortcuts.value.filter((shortcut) => shortcut.host === selectedHost.value),
+)
+
+watch([availableHosts, filteredShortcuts], () => {
+  if (!availableHosts.value.includes(selectedHost.value)) {
+    selectedHost.value = availableHosts.value[0] || 'windows_cygwin'
+  }
+  if (!filteredShortcuts.value.some((shortcut) => shortcut.id === form.shortcut_id)) {
+    form.shortcut_id = filteredShortcuts.value[0]?.id || ''
+  }
+})
 
 onMounted(loadShortcuts)
 
 async function loadShortcuts() {
+  loadingShortcuts.value = true
   try {
     const response = await listShortcuts()
     shortcuts.value = response.shortcuts
-    form.shortcut_id = shortcuts.value[0]?.id || ''
+    form.shortcut_id = filteredShortcuts.value[0]?.id || ''
   } catch (err) {
     shortcutError.value =
       err instanceof Error ? err.message : t('session.create.loadShortcutsError')
+  } finally {
+    loadingShortcuts.value = false
   }
 }
 
@@ -64,13 +94,26 @@ function fillNameFromWorkspace() {
 }
 
 async function submit() {
-  submitting.value = true
   emit('create', {
     name: form.name,
     workspace: form.workspace,
     shortcut_id: form.shortcut_id,
   })
-  submitting.value = false
+}
+
+function hostLabel(host: ShortcutHost): string {
+  return t(`hosts.${host}`)
+}
+
+function hostDisabledReason(host: ShortcutHost): string {
+  const environment = environmentsByHost.value.get(host)
+  if (!environment?.available_on_host) {
+    return t('session.create.hostUnavailable')
+  }
+  if (environment.readiness !== 'ready') {
+    return t('session.create.hostNotReady')
+  }
+  return ''
 }
 </script>
 
@@ -122,8 +165,27 @@ async function submit() {
     </label>
 
     <label class="grid gap-2 text-sm text-slate-700">
+      {{ t('session.create.host') }}
+      <select
+        v-model="selectedHost"
+        class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+      >
+        <option v-for="host in hosts" :key="host" :value="host" :disabled="!availableHosts.includes(host)">
+          {{ hostLabel(host) }}{{ hostDisabledReason(host) ? ` - ${hostDisabledReason(host)}` : '' }}
+        </option>
+      </select>
+    </label>
+
+    <label class="grid gap-2 text-sm text-slate-700">
       {{ t('session.create.shortcut') }}
-      <SelectRoot v-model="form.shortcut_id" required>
+      <p v-if="loadingShortcuts" class="inline-flex items-center gap-2 text-sm text-slate-500">
+        <Loader2 class="h-4 w-4 animate-spin" />
+        {{ t('session.create.loadingShortcuts') }}
+      </p>
+      <p v-else-if="filteredShortcuts.length === 0" class="text-sm text-amber-700">
+        {{ t('session.create.noShortcutsForHost') }}
+      </p>
+      <SelectRoot v-else v-model="form.shortcut_id" required>
         <SelectTrigger
           class="flex items-center justify-between rounded-xl border border-slate-300 bg-white px-3 py-2 text-left outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
         >
@@ -134,12 +196,12 @@ async function submit() {
         >
           <SelectViewport class="p-1">
             <SelectItem
-              v-for="shortcut in shortcuts"
+              v-for="shortcut in filteredShortcuts"
               :key="shortcut.id"
               :value="shortcut.id"
               class="cursor-pointer rounded-lg px-3 py-2 text-sm outline-none hover:bg-blue-50 data-[highlighted]:bg-blue-50"
             >
-              <SelectItemText>{{ shortcut.name }}</SelectItemText>
+              <SelectItemText>{{ hostLabel(shortcut.host) }} · {{ shortcut.name }}</SelectItemText>
             </SelectItem>
           </SelectViewport>
         </SelectContent>
@@ -156,10 +218,11 @@ async function submit() {
       </button>
       <button
         type="submit"
-        :disabled="submitting || !form.shortcut_id"
+        :disabled="props.submitting || !form.shortcut_id || !availableHosts.includes(selectedHost)"
         class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
       >
-        <Plus class="h-4 w-4" />
+        <Loader2 v-if="props.submitting" class="h-4 w-4 animate-spin" />
+        <Plus v-else class="h-4 w-4" />
         {{ t('session.create.submit') }}
       </button>
     </div>

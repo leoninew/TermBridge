@@ -16,7 +16,6 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="TERMBRIDGE_", env_file=".env", extra="ignore")
 
     ttyd_executable: str = "ttyd"
-    use_wsl: bool = False
     host: str = "127.0.0.1"
     port_start: int = 9001
     port_end: int = 9999

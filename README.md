@@ -41,6 +41,18 @@ ttyd remains an external runtime dependency; TermBridge is the management layer 
 - tmux for tmux-backed persistence
 - Cygwin when using Cygwin/tmux shortcuts on Windows
 
+## Runtime environments
+
+TermBridge models terminal runtimes as readiness-based tmux-backed providers:
+
+| Runtime host | Support | Notes |
+| --- | --- | --- |
+| Windows/Cygwin | Supported when ready | Uses Windows-native ttyd plus Cygwin bash and tmux. |
+| Windows/WSL | Supported when ready | Uses Windows-native ttyd and enters the default WSL environment with `wsl --cd ... sh -lc ...`. |
+| Linux | Readiness-based | Available on Linux hosts when shell and tmux checks pass. |
+
+All runtime hosts start as `not_ready`. Use the environment page to check dependencies or save required paths; a successful full check marks that runtime `ready` and persists the result in `terminals.json`. If no runtime is ready, the session page guides you to the environment page instead of offering a unusable create flow.
+
 ## Development setup
 
 Install dependencies:

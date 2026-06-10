@@ -14,20 +14,23 @@ import {
   SplitterResizeHandle,
 } from 'reka-ui'
 import { PanelLeftOpen } from '@lucide/vue'
-import { createSession, deleteSession, listSessions, restartSession } from './api/sessions'
+import { createSession, deleteSession, listEnvironments, listSessions, restartSession } from './api/sessions'
 import EnvironmentManagement from './components/EnvironmentManagement.vue'
 import SessionCreateForm from './components/SessionCreateForm.vue'
 import SessionList from './components/SessionList.vue'
 import SessionTerminal from './components/SessionTerminal.vue'
 import ShortcutManagement from './components/ShortcutManagement.vue'
-import type { CreateSessionPayload, Session } from './types/sessions'
+import type { CreateSessionPayload, EnvironmentSummary, Session } from './types/sessions'
 
 const { t } = useI18n()
 const sessions = ref<Session[]>([])
+const environments = ref<EnvironmentSummary[]>([])
 const activeSessionId = ref<string>()
 const loading = ref(false)
+const environmentsLoading = ref(false)
 const error = ref('')
 const showCreatePanel = ref(false)
+const creatingSession = ref(false)
 const currentPath = ref(window.location.pathname)
 const deletingSession = ref<Session>()
 const sidebarCollapsed = ref(false)
@@ -46,12 +49,17 @@ const deleteDialogOpen = computed({
 const activeSession = computed(() =>
   sessions.value.find((session) => session.id === activeSessionId.value),
 )
+const hasReadyEnvironment = computed(() =>
+  environments.value.some((environment) => environment.readiness === 'ready' && environment.available_on_host),
+)
 
 async function refresh() {
   loading.value = true
+  environmentsLoading.value = true
   error.value = ''
-  await loadSessions()
+  await Promise.all([loadSessions(), loadEnvironments()])
   loading.value = false
+  environmentsLoading.value = false
 }
 
 async function loadSessions() {
@@ -68,15 +76,31 @@ async function loadSessions() {
   }
 }
 
+async function loadEnvironments() {
+  try {
+    environments.value = (await listEnvironments()).environments
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : t('app.errors.loadEnvironments')
+  }
+}
+
+function updateEnvironments(nextEnvironments: EnvironmentSummary[]) {
+  environments.value = nextEnvironments
+}
+
 async function handleCreate(payload: CreateSessionPayload) {
+  creatingSession.value = true
   error.value = ''
   try {
     const session = await createSession(payload)
     sessions.value = [session, ...sessions.value]
     activeSessionId.value = session.id
     showCreatePanel.value = false
+    navigate('/')
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('app.errors.createSession')
+  } finally {
+    creatingSession.value = false
   }
 }
 
@@ -128,6 +152,9 @@ function showCreate() {
 function navigate(path: string) {
   window.history.pushState({}, '', path)
   currentPath.value = path
+  if (path === '/') {
+    void loadEnvironments()
+  }
 }
 
 function handlePopState() {
@@ -162,6 +189,8 @@ onUnmounted(() => {
             v-if="showCreatePanel"
             key="create"
             class="rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-blue-900/5"
+            :environments="environments"
+            :submitting="creatingSession"
             @create="handleCreate"
             @cancel="showCreatePanel = false"
           />
@@ -172,8 +201,11 @@ onUnmounted(() => {
             :sessions="sessions"
             :active-session-id="activeSessionId"
             :loading="loading"
+            :environments-loading="environmentsLoading"
             :error="error"
             :compact="compactSidebar"
+            :environments="environments"
+            :has-ready-environment="hasReadyEnvironment"
             @create="showCreate"
             @collapse="sidebarCollapsed = true"
             @select="selectSession"
@@ -206,7 +238,7 @@ onUnmounted(() => {
             <PanelLeftOpen class="h-4 w-4" />
           </button>
         </div>
-        <EnvironmentManagement v-if="currentPath === '/environment'" />
+        <EnvironmentManagement v-if="currentPath === '/environment'" @environments-updated="updateEnvironments" />
         <ShortcutManagement v-else-if="currentPath === '/shortcuts'" :sessions="sessions" />
         <SessionTerminal v-else :session="activeSession" @restart="handleRestart" />
       </SplitterPanel>

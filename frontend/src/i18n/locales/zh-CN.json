@@ -18,6 +18,7 @@
     },
     "errors": {
       "loadSessions": "加载会话失败",
+      "loadEnvironments": "加载环境列表失败",
       "createSession": "创建会话失败",
       "restartSession": "重新启动会话失败",
       "deleteSession": "删除会话失败"
@@ -41,6 +42,11 @@
   "api": {
     "requestFailed": "请求失败：{status}"
   },
+  "hosts": {
+    "windows_cygwin": "Windows/Cygwin",
+    "windows_wsl": "Windows/WSL",
+    "linux": "Linux"
+  },
   "session": {
     "create": {
       "title": "创建会话",
@@ -53,6 +59,11 @@
       "collapse": "收起",
       "submit": "创建",
       "shortcut": "快捷方式",
+      "host": "运行环境",
+      "loadingShortcuts": "正在加载快捷方式...",
+      "noShortcutsForHost": "当前运行环境没有快捷方式，请先到快捷方式管理页创建。",
+      "hostUnavailable": "当前宿主不可用",
+      "hostNotReady": "未就绪",
       "loadShortcutsError": "加载快捷方式失败"
     },
     "list": {
@@ -60,6 +71,8 @@
       "createLabel": "创建会话",
       "loading": "正在加载会话...",
       "empty": "暂无会话，先创建一个。",
+      "noReadyEnvironment": "当前没有就绪的运行环境。请先进入环境管理执行检测或填写必要路径。",
+      "goToEnvironment": "去环境管理",
       "collapse": "收起"
     },
     "card": {
@@ -94,6 +107,7 @@
     "title": "环境管理",
     "description": "管理 Windows/Cygwin、Windows/WSL、Linux 和终端运行环境配置。",
     "mode": "模式",
+    "loading": "正在加载环境配置...",
     "saved": "设置已保存。",
     "actions": {
       "check": "检测"
@@ -101,6 +115,10 @@
     "status": {
       "available": "可用",
       "unavailable": "不可用"
+    },
+    "readiness": {
+      "ready": "就绪",
+      "notReady": "未就绪"
     },
     "errors": {
       "load": "加载环境配置失败",
@@ -122,7 +140,11 @@
     },
     "windowsWsl": {
       "title": "Windows/WSL",
-      "description": "检查 Windows 宿主上的默认 WSL 与 tmux 能力。"
+      "description": "检查 Windows 宿主上的默认 WSL 与 tmux 能力。",
+      "wslPath": "wsl 路径",
+      "wslVersion": "WSL 版本",
+      "tmuxPath": "tmux 路径",
+      "tmuxVersion": "tmux 版本"
     },
     "linux": {
       "title": "Linux",
@@ -145,15 +167,17 @@
     "errors": {
       "load": "加载快捷方式失败",
       "save": "保存快捷方式失败",
-      "delete": "删除快捷方式失败"
+      "delete": "删除快捷方式失败",
+      "hostRequired": "请选择运行环境"
     },
-    "hosts": {
-      "windowsCygwin": "Windows/Cygwin"
+    "hostDisabled": {
+      "unavailable": "当前宿主不可用"
     },
     "fields": {
       "name": "名称",
       "command": "命令",
       "host": "Host 环境",
+      "selectHost": "请选择运行环境",
       "description": "说明"
     },
     "dialog": {

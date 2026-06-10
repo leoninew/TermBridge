@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
-import type { Session } from '../types/sessions'
+import type { EnvironmentSummary, Session } from '../types/sessions'
 import SessionCard from './SessionCard.vue'
 
 const { locale, t } = useI18n()
@@ -23,8 +23,11 @@ defineProps<{
   sessions: Session[]
   activeSessionId?: string
   loading: boolean
+  environmentsLoading: boolean
   error: string
   compact?: boolean
+  environments: EnvironmentSummary[]
+  hasReadyEnvironment: boolean
 }>()
 
 const emit = defineEmits<{
@@ -45,7 +48,8 @@ const emit = defineEmits<{
       <h2 class="text-lg font-semibold text-slate-950">{{ t('session.list.title') }}</h2>
       <button
         type="button"
-        class="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-3 py-2 text-sm text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
+        :disabled="!hasReadyEnvironment"
+        class="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-3 py-2 text-sm text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
         @click="emit('create')"
       >
         <Plus class="h-4 w-4" />
@@ -54,7 +58,7 @@ const emit = defineEmits<{
     </div>
 
     <div class="flex min-h-0 flex-1 flex-col gap-3 p-4 pt-2">
-      <p v-if="loading" class="inline-flex items-center gap-2 text-sm text-slate-500">
+      <p v-if="loading || environmentsLoading" class="inline-flex items-center gap-2 text-sm text-slate-500">
         <Loader2 class="h-4 w-4 animate-spin" />
         {{ t('session.list.loading') }}
       </p>
@@ -62,6 +66,16 @@ const emit = defineEmits<{
         <AlertCircle class="h-4 w-4" />
         {{ error }}
       </p>
+      <div v-else-if="sessions.length === 0 && !hasReadyEnvironment" class="grid gap-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+        <p>{{ t('session.list.noReadyEnvironment') }}</p>
+        <button
+          type="button"
+          class="justify-self-start rounded-lg bg-amber-600 px-3 py-2 text-white transition hover:bg-amber-700"
+          @click="emit('navigate', '/environment')"
+        >
+          {{ t('session.list.goToEnvironment') }}
+        </button>
+      </div>
       <p v-else-if="sessions.length === 0" class="text-sm text-slate-500">
         {{ t('session.list.empty') }}
       </p>

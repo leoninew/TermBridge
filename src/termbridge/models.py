@@ -14,6 +14,7 @@ class SessionStatus(StrEnum):
 
 
 ShortcutHost = Literal["windows_cygwin", "windows_wsl", "linux"]
+EnvironmentReadiness = Literal["not_ready", "ready"]
 
 
 class CreateSessionRequest(BaseModel):
@@ -40,6 +41,7 @@ class SessionRecord(BaseModel):
     session_persistence: Literal["none", "tmux"] = "none"
     tmux_bash_path: str | None = None
     tmux_session_name: str | None = None
+    tmux_cleanup_command: list[str] | None = None
 
 
 class SessionResponse(BaseModel):
@@ -93,7 +95,7 @@ class ShortcutListResponse(BaseModel):
 class CreateShortcutRequest(BaseModel):
     name: str = Field(min_length=1)
     command: str = Field(min_length=1)
-    host: ShortcutHost = "windows_cygwin"
+    host: ShortcutHost
     description: str | None = None
 
 
@@ -110,8 +112,32 @@ class TerminalSettings(BaseModel):
 
 
 class WindowsCygwinSettings(BaseModel):
+    readiness: EnvironmentReadiness = "not_ready"
     bash_path: str | None = None
     tmux_path: str | None = None
+    checked_at: datetime | None = None
+    last_error: str | None = None
+
+
+class WindowsWslSettings(BaseModel):
+    readiness: EnvironmentReadiness = "not_ready"
+    wsl_path: str | None = None
+    wsl_version: str | None = None
+    default_distro: str | None = None
+    automount_root: str | None = None
+    tmux_path: str | None = None
+    tmux_version: str | None = None
+    shell_path: str | None = None
+    checked_at: datetime | None = None
+    last_error: str | None = None
+
+
+class LinuxSettings(BaseModel):
+    readiness: EnvironmentReadiness = "not_ready"
+    shell_path: str | None = None
+    tmux_path: str | None = None
+    checked_at: datetime | None = None
+    last_error: str | None = None
 
 
 class UpdateTerminalSettingsRequest(BaseModel):
@@ -123,6 +149,8 @@ class TerminalState(BaseModel):
     shortcuts: list[Shortcut] = Field(default_factory=list)
     settings: TerminalSettings = Field(default_factory=TerminalSettings)
     windows_cygwin_settings: WindowsCygwinSettings = Field(default_factory=WindowsCygwinSettings)
+    windows_wsl_settings: WindowsWslSettings = Field(default_factory=WindowsWslSettings)
+    linux_settings: LinuxSettings = Field(default_factory=LinuxSettings)
 
 
 class RuntimeCheckResponse(BaseModel):
@@ -150,15 +178,26 @@ class LinuxCheckResponse(BaseModel):
     tmux: RuntimeCheckResponse | None = None
 
 
-class TmuxAvailabilityRequest(BaseModel):
-    cygwin_bash_path: str = Field(min_length=1)
+class EnvironmentSummary(BaseModel):
+    host: ShortcutHost
+    label: str
+    readiness: EnvironmentReadiness
+    available_on_host: bool
+    checked_at: datetime | None = None
+    last_error: str | None = None
 
 
-class TmuxAvailabilityResponse(BaseModel):
-    available: bool
+class EnvironmentListResponse(BaseModel):
+    environments: list[EnvironmentSummary]
+
+
+class RuntimeCheckRequest(BaseModel):
     path: str | None = None
-    version: str | None = None
-    reason: str | None = None
+
+
+class WindowsCygwinCheckRequest(BaseModel):
+    bash_path: str | None = None
+
 
 
 class WorkspaceRoot(BaseModel):

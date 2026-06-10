@@ -23,19 +23,21 @@ from termbridge.middleware import RequestLoggingMiddleware
 from termbridge.models import (
     CreateSessionRequest,
     CreateShortcutRequest,
+    EnvironmentListResponse,
     LinuxCheckResponse,
+    RuntimeCheckRequest,
     RuntimeCheckResponse,
     SessionResponse,
     Shortcut,
     ShortcutListResponse,
     TerminalSettings,
-    TmuxAvailabilityRequest,
-    TmuxAvailabilityResponse,
     UpdateShortcutRequest,
     UpdateTerminalSettingsRequest,
+    WindowsCygwinCheckRequest,
     WindowsCygwinCheckResponse,
     WindowsCygwinSettings,
     WindowsWslCheckResponse,
+    WindowsWslSettings,
     WorkspaceRootsResponse,
     WorkspaceTreeResponse,
 )
@@ -118,11 +120,6 @@ def delete_shortcut(shortcut_id: str, service: TerminalServiceDep, session_servi
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/api/terminals/tmux/check", response_model=TmuxAvailabilityResponse)
-def check_tmux(request: TmuxAvailabilityRequest, service: TerminalServiceDep) -> TmuxAvailabilityResponse:
-    return service.check_tmux(request.cygwin_bash_path)
-
-
 @router.get("/api/terminal-settings", response_model=TerminalSettings)
 def get_terminal_settings(service: TerminalServiceDep) -> TerminalSettings:
     try:
@@ -141,9 +138,17 @@ def update_terminal_settings(request: UpdateTerminalSettingsRequest, service: Te
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
-@router.get("/api/environment/ttyd/check", response_model=RuntimeCheckResponse)
-def check_ttyd(service: TerminalServiceDep, path: str | None = Query(default=None)) -> RuntimeCheckResponse:
-    return service.check_ttyd(path)
+@router.post("/api/environment/ttyd/check", response_model=RuntimeCheckResponse)
+def check_ttyd(request: RuntimeCheckRequest, service: TerminalServiceDep) -> RuntimeCheckResponse:
+    return service.check_ttyd(request.path)
+
+
+@router.get("/api/environments", response_model=EnvironmentListResponse)
+def list_environments(service: TerminalServiceDep) -> EnvironmentListResponse:
+    try:
+        return service.list_environments()
+    except ShortcutRepositoryError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
 @router.get("/api/environment/windows-cygwin/settings", response_model=WindowsCygwinSettings)
@@ -166,19 +171,35 @@ def update_windows_cygwin_settings(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
-@router.get("/api/environment/windows-cygwin/check", response_model=WindowsCygwinCheckResponse)
+@router.post("/api/environment/windows-cygwin/check", response_model=WindowsCygwinCheckResponse)
 def check_windows_cygwin(
-    service: TerminalServiceDep, bash_path: str | None = Query(default=None)
+    request: WindowsCygwinCheckRequest, service: TerminalServiceDep
 ) -> WindowsCygwinCheckResponse:
-    return service.check_windows_cygwin(bash_path)
+    return service.check_windows_cygwin(request.bash_path)
 
 
-@router.get("/api/environment/windows-wsl/check", response_model=WindowsWslCheckResponse)
+@router.get("/api/environment/windows-wsl/settings", response_model=WindowsWslSettings)
+def get_windows_wsl_settings(service: TerminalServiceDep) -> WindowsWslSettings:
+    try:
+        return service.get_windows_wsl_settings()
+    except ShortcutRepositoryError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
+@router.put("/api/environment/windows-wsl/settings", response_model=WindowsWslSettings)
+def update_windows_wsl_settings(request: WindowsWslSettings, service: TerminalServiceDep) -> WindowsWslSettings:
+    try:
+        return service.update_windows_wsl_settings(request)
+    except ShortcutRepositoryError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
+@router.post("/api/environment/windows-wsl/check", response_model=WindowsWslCheckResponse)
 def check_windows_wsl(service: TerminalServiceDep) -> WindowsWslCheckResponse:
     return service.check_windows_wsl()
 
 
-@router.get("/api/environment/linux/check", response_model=LinuxCheckResponse)
+@router.post("/api/environment/linux/check", response_model=LinuxCheckResponse)
 def check_linux(service: TerminalServiceDep) -> LinuxCheckResponse:
     return service.check_linux()
 

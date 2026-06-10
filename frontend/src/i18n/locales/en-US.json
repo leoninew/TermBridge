@@ -18,6 +18,7 @@
     },
     "errors": {
       "loadSessions": "Failed to load sessions",
+      "loadEnvironments": "Failed to load environments",
       "createSession": "Failed to create session",
       "restartSession": "Failed to restart session",
       "deleteSession": "Failed to delete session"
@@ -41,6 +42,11 @@
   "api": {
     "requestFailed": "Request failed: {status}"
   },
+  "hosts": {
+    "windows_cygwin": "Windows/Cygwin",
+    "windows_wsl": "Windows/WSL",
+    "linux": "Linux"
+  },
   "session": {
     "create": {
       "title": "Create Session",
@@ -53,6 +59,11 @@
       "collapse": "Collapse",
       "submit": "Create",
       "shortcut": "Shortcut",
+      "host": "Runtime environment",
+      "loadingShortcuts": "Loading shortcuts...",
+      "noShortcutsForHost": "No shortcuts exist for this runtime environment. Create one in shortcut management first.",
+      "hostUnavailable": "Unavailable on this host",
+      "hostNotReady": "Not ready",
       "loadShortcutsError": "Failed to load shortcuts"
     },
     "list": {
@@ -60,6 +71,8 @@
       "createLabel": "Create session",
       "loading": "Loading sessions...",
       "empty": "No sessions yet. Create one first.",
+      "noReadyEnvironment": "No runtime environment is ready. Open environment management to run checks or fill required paths.",
+      "goToEnvironment": "Go to environment management",
       "collapse": "Collapse"
     },
     "card": {
@@ -94,6 +107,7 @@
     "title": "Environment Management",
     "description": "Manage Windows/Cygwin, Windows/WSL, Linux, and terminal runtime environment settings.",
     "mode": "Mode",
+    "loading": "Loading environment settings...",
     "saved": "Settings saved.",
     "actions": {
       "check": "Check"
@@ -101,6 +115,10 @@
     "status": {
       "available": "Available",
       "unavailable": "Unavailable"
+    },
+    "readiness": {
+      "ready": "Ready",
+      "notReady": "Not ready"
     },
     "errors": {
       "load": "Failed to load environment settings",
@@ -122,7 +140,11 @@
     },
     "windowsWsl": {
       "title": "Windows/WSL",
-      "description": "Check default WSL and tmux capabilities on a Windows host."
+      "description": "Check default WSL and tmux capabilities on a Windows host.",
+      "wslPath": "wsl path",
+      "wslVersion": "WSL version",
+      "tmuxPath": "tmux path",
+      "tmuxVersion": "tmux version"
     },
     "linux": {
       "title": "Linux",
@@ -145,15 +167,17 @@
     "errors": {
       "load": "Failed to load shortcuts",
       "save": "Failed to save shortcut",
-      "delete": "Failed to delete shortcut"
+      "delete": "Failed to delete shortcut",
+      "hostRequired": "Select a host environment"
     },
-    "hosts": {
-      "windowsCygwin": "Windows/Cygwin"
+    "hostDisabled": {
+      "unavailable": "Unavailable on this host"
     },
     "fields": {
       "name": "Name",
       "command": "Command",
       "host": "Host environment",
+      "selectHost": "Select a host environment",
       "description": "Description"
     },
     "dialog": {

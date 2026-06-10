@@ -2,6 +2,7 @@ import { i18n } from '../i18n'
 import type {
   CreateSessionPayload,
   CreateShortcutPayload,
+  EnvironmentListResponse,
   HealthResponse,
   LinuxCheckResponse,
   RuntimeCheckResponse,
@@ -9,12 +10,11 @@ import type {
   Shortcut,
   ShortcutListResponse,
   TerminalSettings,
-  TmuxAvailabilityPayload,
-  TmuxAvailabilityResponse,
   UpdateShortcutPayload,
   WindowsCygwinCheckResponse,
   WindowsCygwinSettings,
   WindowsWslCheckResponse,
+  WindowsWslSettings,
   WorkspaceRootsResponse,
   WorkspaceTreeResponse,
 } from '../types/sessions'
@@ -124,8 +124,14 @@ export function updateTerminalSettings(payload: TerminalSettings): Promise<Termi
 }
 
 export function checkTtyd(path?: string): Promise<RuntimeCheckResponse> {
-  const query = path ? `?path=${encodeURIComponent(path)}` : ''
-  return request<RuntimeCheckResponse>(`/api/environment/ttyd/check${query}`)
+  return request<RuntimeCheckResponse>('/api/environment/ttyd/check', {
+    method: 'POST',
+    body: JSON.stringify({ path: path || null }),
+  })
+}
+
+export function listEnvironments(): Promise<EnvironmentListResponse> {
+  return request<EnvironmentListResponse>('/api/environments')
 }
 
 export function getWindowsCygwinSettings(): Promise<WindowsCygwinSettings> {
@@ -142,21 +148,27 @@ export function updateWindowsCygwinSettings(
 }
 
 export function checkWindowsCygwin(bashPath?: string): Promise<WindowsCygwinCheckResponse> {
-  const query = bashPath ? `?bash_path=${encodeURIComponent(bashPath)}` : ''
-  return request<WindowsCygwinCheckResponse>(`/api/environment/windows-cygwin/check${query}`)
+  return request<WindowsCygwinCheckResponse>('/api/environment/windows-cygwin/check', {
+    method: 'POST',
+    body: JSON.stringify({ bash_path: bashPath || null }),
+  })
 }
 
-export function checkTmux(payload: TmuxAvailabilityPayload): Promise<TmuxAvailabilityResponse> {
-  return request<TmuxAvailabilityResponse>('/api/terminals/tmux/check', {
-    method: 'POST',
+export function getWindowsWslSettings(): Promise<WindowsWslSettings> {
+  return request<WindowsWslSettings>('/api/environment/windows-wsl/settings')
+}
+
+export function updateWindowsWslSettings(payload: WindowsWslSettings): Promise<WindowsWslSettings> {
+  return request<WindowsWslSettings>('/api/environment/windows-wsl/settings', {
+    method: 'PUT',
     body: JSON.stringify(payload),
   })
 }
 
 export function checkWindowsWsl(): Promise<WindowsWslCheckResponse> {
-  return request<WindowsWslCheckResponse>('/api/environment/windows-wsl/check')
+  return request<WindowsWslCheckResponse>('/api/environment/windows-wsl/check', { method: 'POST' })
 }
 
 export function checkLinux(): Promise<LinuxCheckResponse> {
-  return request<LinuxCheckResponse>('/api/environment/linux/check')
+  return request<LinuxCheckResponse>('/api/environment/linux/check', { method: 'POST' })
 }

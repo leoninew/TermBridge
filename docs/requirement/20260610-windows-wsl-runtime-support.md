@@ -15,7 +15,7 @@ TermBridge 已经把运行环境模型整理为三类 tmux-backed provider：Win
 1. 支持用户在配置项中切换运行环境：
    - Windows/Cygwin
    - Windows/WSL
-   - Linux（当前阶段可保留为不可用或占位，不要求完整启动支持）
+   - Linux
 2. Windows/WSL 不再只是环境检测项，而应能作为 session/shortcut 的运行环境。
 3. Windows 宿主上选择 Windows/WSL 后，session 启动应通过默认 WSL 环境运行用户命令，并使用 WSL 内 tmux 提供会话持久化。
 4. 保持 Windows/Cygwin 现有启动、删除、restart 行为不回退。
@@ -31,7 +31,7 @@ TermBridge 已经把运行环境模型整理为三类 tmux-backed provider：Win
 
 1. 不在本需求中实现 WSL 安装、distro 安装、tmux 安装或自动修复。
 2. 不要求本阶段支持选择具体 WSL distro；继续使用默认 WSL 环境。
-3. 不要求完整实现 Linux host 的 session 启动；Linux 可继续作为环境模型中的占位或不可用状态。
+3. 不把 Linux 作为本阶段的特殊禁用对象；Linux 是否可用由其检测结果和 readiness 统一决定。
 4. 不要求支持 Windows 原生 terminal 的非 tmux 持久化。
 5. 不引入 `screen` 作为新的 session persistence backend。
 6. 不做旧 terminal state 或旧 host 值的向后兼容迁移。
@@ -77,7 +77,7 @@ TermBridge 已经把运行环境模型整理为三类 tmux-backed provider：Win
 
 ## Acceptance criteria
 
-1. 配置项中存在默认运行环境选择，至少包含 Windows/Cygwin 和 Windows/WSL；Linux 当前阶段可显示为不可用或不可选。
+1. 配置项中存在默认运行环境选择，包含 Windows/Cygwin、Windows/WSL、Linux；是否可用统一由检测结果和 readiness 决定。
 2. Windows/Cygwin、Windows/WSL、Linux 都有 readiness 字段；新环境默认为 not ready。
 3. 环境配置页对某个环境执行完整检查且全部通过后，该环境被标记为 ready 并持久化。
 4. 用户下次进入会话主页时，系统直接读取持久化 readiness；已有 ready 环境时无需自动重新检测即可使用。
@@ -85,7 +85,7 @@ TermBridge 已经把运行环境模型整理为三类 tmux-backed provider：Win
 6. 用户仍可在环境配置页手动重新检测，重新检测结果会刷新 readiness 和检测快照。
 7. 默认运行环境选择可持久化，并在重新打开页面后保持。
 8. 创建 shortcut 时可选择 Windows/WSL；默认值应跟随配置项中的默认运行环境。
-9. Session 创建表单展示所有 host：Windows/Cygwin、Windows/WSL、Linux；不可用或本阶段不可启动的 host 以 disabled 状态展示，不隐藏。
+9. Session 创建表单展示所有 host：Windows/Cygwin、Windows/WSL、Linux；未 ready 或当前宿主不可用的 host 以 disabled 状态展示，不隐藏。
 10. shortcut 列表和编辑表单能正确展示 Windows/Cygwin、Windows/WSL、Linux 的 label，不再硬编码为 Windows/Cygwin。
 11. 后端允许 `windows_wsl` shortcut 进入 session 创建流程，不再直接以 unsupported host 拒绝。
 12. Windows/WSL session 启动前会根据持久化 readiness 和必要运行信息判断是否可启动；如果启动失败，返回明确错误并引导用户重新检测环境。
@@ -98,7 +98,7 @@ TermBridge 已经把运行环境模型整理为三类 tmux-backed provider：Win
 19. restart Windows/WSL session 时能重新启动 ttyd 并附加到同一个 WSL tmux session。
 20. Windows/Cygwin 现有 session 创建、删除、restart 流程不回退。
 21. API、前端类型和 UI 文案都使用同一组运行环境语义：Windows/Cygwin、Windows/WSL、Linux。
-22. README 或相关文档更新支持矩阵，明确 Windows/WSL 已支持默认 WSL 环境启动，Linux 启动支持仍不在本阶段范围内。
+22. README 或相关文档更新支持矩阵，明确 Windows/WSL 已支持默认 WSL 环境启动，三类运行环境都使用 readiness 判断可用性。
 23. 前端在加载环境列表、执行检测、保存配置、加载 shortcut 和创建 session 时提供必要 loading/spinner 反馈，并防止重复提交。
 24. 相关测试覆盖：
     - Windows/WSL 环境可用时的启动命令构造
@@ -138,7 +138,7 @@ TermBridge 已经把运行环境模型整理为三类 tmux-backed provider：Win
 
 1. 本需求按标准模式 / standard 推进：Requirement -> Plan -> Implementation -> Verification。
 2. Windows/WSL 本阶段使用默认 WSL 环境，不做 distro 管理。
-3. 本阶段不完整实现 Linux session 启动。
+3. Linux 不作为特殊禁用对象；若 Linux 检测通过并标记 ready，则按同一 tmux-backed provider 语义参与启动。
 4. Windows/WSL session 使用 Windows 原生 ttyd；TermBridge 后端仍运行在 Windows，ttyd 的 command 进入 `wsl.exe sh -lc ...` 或 `wsl --cd <wsl_workspace> sh -lc ...`。
 5. 不在本阶段使用 WSL 内 Linux 版 ttyd。未选理由：这会让 Windows 后端跨边界管理 WSL 内 ttyd 的端口、PID、健康检查和 URL 生成，复杂度明显高于只把 WSL 作为 command provider。
 6. 不把 TermBridge 整体移动到 WSL 内运行。未选理由：这会变成 Linux host 支持问题，需要同时改变宿主平台、路径模型、依赖安装和网络访问模型，不适合作为 Windows/WSL provider 支持的一部分。

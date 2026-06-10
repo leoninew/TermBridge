@@ -2,6 +2,7 @@ export type SessionStatus = 'starting' | 'running' | 'stopped' | 'failed'
 export type SessionPersistence = 'none' | 'tmux'
 export type TtydMode = 'auto' | 'explicit'
 export type ShortcutHost = 'windows_cygwin' | 'windows_wsl' | 'linux'
+export type EnvironmentReadiness = 'not_ready' | 'ready'
 
 export interface Session {
   id: string
@@ -92,9 +93,46 @@ export interface TerminalSettings {
   ttyd_path?: string | null
 }
 
+export interface EnvironmentSummary {
+  host: ShortcutHost
+  label: string
+  readiness: EnvironmentReadiness
+  available_on_host: boolean
+  checked_at?: string | null
+  last_error?: string | null
+}
+
+export interface EnvironmentListResponse {
+  environments: EnvironmentSummary[]
+}
+
 export interface WindowsCygwinSettings {
+  readiness: EnvironmentReadiness
   bash_path?: string | null
   tmux_path?: string | null
+  checked_at?: string | null
+  last_error?: string | null
+}
+
+export interface WindowsWslSettings {
+  readiness: EnvironmentReadiness
+  wsl_path?: string | null
+  wsl_version?: string | null
+  default_distro?: string | null
+  automount_root?: string | null
+  tmux_path?: string | null
+  tmux_version?: string | null
+  shell_path?: string | null
+  checked_at?: string | null
+  last_error?: string | null
+}
+
+export interface LinuxSettings {
+  readiness: EnvironmentReadiness
+  shell_path?: string | null
+  tmux_path?: string | null
+  checked_at?: string | null
+  last_error?: string | null
 }
 
 export interface WindowsCygwinCheckResponse {
@@ -115,13 +153,3 @@ export interface LinuxCheckResponse {
   tmux?: RuntimeCheckResponse | null
 }
 
-export interface TmuxAvailabilityResponse {
-  available: boolean
-  path?: string | null
-  version?: string | null
-  reason?: string | null
-}
-
-export interface TmuxAvailabilityPayload {
-  cygwin_bash_path: string
-}

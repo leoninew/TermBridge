@@ -15,7 +15,7 @@ Review status: Accepted
 5. 每个环境都有 readiness，默认 `not ready`；完整检查通过后标记 `ready` 并持久化。
 6. 会话主页读取 readiness；有 ready 环境时不自动重检，没有 ready 环境时引导用户去环境配置页检测或手填路径。
 7. 配置项需要支持用户切换默认运行环境。
-8. Linux host 启动支持不在本阶段完整实现。
+8. Linux 不做特殊禁用；是否可启动由检测结果和 readiness 统一决定。
 
 ## Overview
 
@@ -117,7 +117,7 @@ class LinuxSettings(BaseModel):
     last_error: str | None = None
 ```
 
-Linux 本阶段主要用于统一环境列表和 unavailable 状态，不完整实现 session 启动。
+Linux 使用同一 readiness 模型；当前宿主、shell、tmux 检测通过后可标记 ready。
 
 ### 4. 环境 summary API
 
@@ -199,8 +199,11 @@ Windows/WSL ready 条件：
 
 Linux ready 条件：
 
-- 当前阶段在 Windows host 下永远 not ready。
-- Linux host 上可检测 shell/tmux，但 session 启动不在本阶段完整实现；是否允许 ready 留到 Linux host 支持阶段。
+1. 当前 host 是 Linux。
+2. shell 可用。
+3. tmux 可用。
+
+Windows host 下 Linux 检测自然失败并保持 not ready；不需要额外把 Linux 写死为禁用。
 
 ### 6. Windows/WSL 路径转换
 
@@ -338,7 +341,7 @@ wsl sh -lc 'tmux kill-session -t <name>'
 
 - 创建表单 host 默认值来自 `TerminalSettings.default_host`。
 - host select 展示 Windows/Cygwin 和 Windows/WSL。
-- Linux 本阶段可显示 disabled 或不显示；倾向显示 disabled，让环境模型完整但避免误以为可启动。
+- Linux 与其他 host 一样展示；是否 disabled 只由 environment readiness 和 available_on_host 决定。
 - shortcut card 使用 `shortcut.host` 显示 label，不再硬编码 Windows/Cygwin。
 
 ### 13. Session 创建
@@ -346,7 +349,7 @@ wsl sh -lc 'tmux kill-session -t <name>'
 `SessionCreateForm.vue` 调整：
 
 - 表单展示所有 host：Windows/Cygwin、Windows/WSL、Linux。
-- host 选择项根据 environment readiness 决定是否可用；not ready 或本阶段不可启动的 host 以 disabled 状态展示，不隐藏。
+- host 选择项根据 environment readiness 和 available_on_host 决定是否可用；not ready 或当前宿主不可用的 host 以 disabled 状态展示，不隐藏。
 - shortcut 下拉展示 shortcut host label，并与当前 host 选择联动。
 - 如果 shortcut host 对应 environment not ready，则禁用或标记该 shortcut。
 - 如果没有 ready environment，不进入 create form，而由主页空状态引导。
@@ -478,7 +481,7 @@ wsl wslpath -a <windows_workspace>
 3. Windows ttyd `--cwd` 在 WSL session 中是否保留？
    - 需要本地验证。
 4. Linux provider 是否应该在 Linux host 检测通过后标记 ready？
-   - 本阶段不完整支持 Linux 启动，倾向即使检测通过也不在 UI 中作为可启动 host 暴露。
+   - 决定：应该。Linux 不需要特殊禁用；ready 设计足以覆盖宿主不可用、检测未通过和检测通过三种场景。
 5. `GET /api/environment/windows-wsl/check` 是否应有 `persist=true/false` 参数？
    - 倾向检测页调用默认持久化；纯诊断如未来需要再扩展。
 
@@ -489,7 +492,7 @@ wsl wslpath -a <windows_workspace>
 3. **命令 quoting**：workspace、session name、shortcut command 含空格或特殊字符时可能失败。缓解：集中构造 shell command，测试路径含空格。
 4. **旧字段命名**：`tmux_bash_path` 与 WSL 不匹配。缓解：计划阶段泛化 cleanup 字段，不继续扩展 Cygwin-specific 命名。
 5. **UI 自动检测行为变化**：环境页当前 mounted 会自动检测。新设计不对主页自动重检，但环境页是否自动检测当前 tab 需要谨慎。倾向：环境页可显示状态，检测由按钮触发。
-6. **Linux 表达误导**：UI 展示 Linux 但本阶段不可启动。缓解：明确 disabled/unavailable 文案。
+6. **Linux 表达误导**：如果 UI 对 Linux 写死特殊禁用，会和 readiness 模型冲突。缓解：所有 host 统一根据 readiness 和 available_on_host 决定是否可用。
 
 ## Alternatives
 
