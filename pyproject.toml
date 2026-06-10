@@ -21,15 +21,13 @@ termbridge = "termbridge.main:main"
 [tool.uv]
 package = true
 
-[tool.hatch.build.targets.sdist.force-include]
-"src/termbridge/static" = "src/termbridge/static"
+[tool.hatch.build.targets.sdist]
+artifacts = ["src/termbridge/static/**"]
 
 [tool.hatch.build.targets.wheel]
 only-include = ["src/termbridge"]
 sources = ["src"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"src/termbridge/static" = "termbridge/static"
+artifacts = ["src/termbridge/static/**"]
 
 [dependency-groups]
 dev = [

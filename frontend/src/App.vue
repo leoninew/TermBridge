@@ -44,6 +44,7 @@ const environmentsLoading = ref(false)
 const error = ref('')
 const showCreatePanel = ref(false)
 const creatingSession = ref(false)
+const createError = ref('')
 const currentPath = ref(window.location.pathname)
 const deletingSession = ref<Session>()
 const sidebarCollapsed = ref(false)
@@ -109,7 +110,7 @@ function updateEnvironments(nextEnvironments: EnvironmentSummary[]) {
 
 async function handleCreate(payload: CreateSessionPayload) {
   creatingSession.value = true
-  error.value = ''
+  createError.value = ''
   try {
     const session = await createSession(payload)
     await loadSessions()
@@ -117,7 +118,7 @@ async function handleCreate(payload: CreateSessionPayload) {
     showCreatePanel.value = false
     navigate('/')
   } catch (err) {
-    error.value = err instanceof Error ? err.message : t('app.errors.createSession')
+    createError.value = err instanceof Error ? err.message : t('app.errors.createSession')
   } finally {
     creatingSession.value = false
   }
@@ -177,6 +178,7 @@ function selectSession(session: Session) {
 }
 
 function showCreate() {
+  createError.value = ''
   showCreatePanel.value = true
   navigate('/')
 }
@@ -186,6 +188,7 @@ function navigate(path: string) {
   currentPath.value = path
   if (path !== '/') {
     showCreatePanel.value = false
+    createError.value = ''
   }
   if (path === '/') {
     void loadEnvironments()
@@ -282,6 +285,7 @@ onUnmounted(() => {
               <SessionCreateForm
                 :environments="environments"
                 :submitting="creatingSession"
+                :error="createError"
                 @create="handleCreate"
                 @cancel="showCreatePanel = false"
               />

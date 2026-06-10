@@ -24,6 +24,7 @@ const { t } = useI18n()
 const props = defineProps<{
   environments: EnvironmentSummary[]
   submitting: boolean
+  error: string
 }>()
 const emit = defineEmits<{
   create: [payload: CreateSessionPayload]
@@ -113,6 +114,10 @@ function hostDisabledReason(host: ShortcutHost): string {
       <h2 class="text-lg font-semibold text-slate-950">{{ t('session.create.title') }}</h2>
       <p class="mt-1 text-sm text-slate-500">{{ t('session.create.description') }}</p>
     </div>
+
+    <p v-if="props.error" class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+      {{ props.error }}
+    </p>
 
     <p v-if="shortcutError" class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
       {{ shortcutError }}
