@@ -3,7 +3,7 @@
 help:
 	@printf "Available commands:\n"
 	@printf "  make backend   Start backend API on 127.0.0.1:9008 with reload\n"
-	@printf "  make frontend  Start frontend Vite dev server on 0.0.0.0:9007\n"
+	@printf "  make frontend  Start frontend Vite dev server on 127.0.0.1:9007\n"
 	@printf "  make prepare   Install frontend and backend dependencies\n"
 	@printf "  make help      Show this help message\n"
 

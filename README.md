@@ -63,7 +63,7 @@ Start the frontend dev server:
 make frontend
 ```
 
-The frontend runs on `0.0.0.0:9007` and proxies `/api` and `/health` to the backend.
+The frontend runs on `127.0.0.1:9007` and proxies `/api` and `/health` to the backend.
 
 ## CLI
 
