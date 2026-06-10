@@ -46,6 +46,21 @@ async function loadShortcuts() {
 
 function selectWorkspace(path: string) {
   form.workspace = path
+  fillNameFromWorkspace()
+}
+
+function fillNameFromWorkspace() {
+  if (form.name.trim()) {
+    return
+  }
+  const workspaceName = form.workspace
+    .trim()
+    .replace(/[\\/]+$/, '')
+    .split(/[\\/]/)
+    .pop()
+  if (workspaceName) {
+    form.name = workspaceName
+  }
 }
 
 async function submit() {
@@ -70,16 +85,6 @@ async function submit() {
       {{ shortcutError }}
     </p>
 
-    <label class="grid gap-2 text-sm text-slate-700">
-      {{ t('session.create.name') }}
-      <input
-        v-model.trim="form.name"
-        required
-        class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-        :placeholder="t('session.create.namePlaceholder')"
-      />
-    </label>
-
     <div class="grid gap-2 text-sm text-slate-700">
       <span>{{ t('session.create.workspace') }}</span>
       <div class="flex gap-2">
@@ -88,6 +93,7 @@ async function submit() {
           required
           class="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
           :placeholder="t('session.create.workspacePlaceholder')"
+          @change="fillNameFromWorkspace"
         />
         <button
           type="button"
@@ -104,6 +110,16 @@ async function submit() {
         @select="selectWorkspace"
       />
     </div>
+
+    <label class="grid gap-2 text-sm text-slate-700">
+      {{ t('session.create.name') }}
+      <input
+        v-model.trim="form.name"
+        required
+        class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+        :placeholder="t('session.create.namePlaceholder')"
+      />
+    </label>
 
     <label class="grid gap-2 text-sm text-slate-700">
       {{ t('session.create.shortcut') }}

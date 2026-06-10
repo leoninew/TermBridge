@@ -67,10 +67,16 @@ The frontend runs on `127.0.0.1:9007` and proxies `/api` and `/health` to the ba
 
 ## CLI
 
-After installing the Python package, run the API server with:
+After installing the Python package, run the server with:
 
 ```bash
 termbridge --host 127.0.0.1 --port 9008
+```
+
+The installed server serves packaged frontend assets when they are available. For API-only development or debugging, run:
+
+```bash
+termbridge --host 127.0.0.1 --port 9008 --no-frontend
 ```
 
 During development, you can also run:
@@ -92,14 +98,14 @@ TERMBRIDGE_PORT_END=9999
 TERMBRIDGE_STATE_DIR=.termbridge
 ```
 
-The default state directory is `.termbridge/`.
+The default state directory is `.termbridge/` when running from a source checkout, and `~/.termbridge/` when running from an installed package.
 
 State files include:
 
-- `.termbridge/sessions.json`
-- `.termbridge/terminals.json`
+- `sessions.json`
+- `terminals.json`
 
-If you used an earlier internal build that wrote `.cc-ttyd/`, copy the files manually to `.termbridge/` before starting TermBridge.
+Set `TERMBRIDGE_STATE_DIR` to use a project-local or custom state directory. The state directory is created automatically when TermBridge first writes state.
 
 ## Build
 
@@ -109,11 +115,35 @@ Build the frontend:
 yarn --cwd frontend build
 ```
 
-Build the Python package:
+Build the Python package with frontend assets included:
 
 ```bash
-uv build
+make wheel
 ```
+
+`make wheel` builds the frontend, syncs `frontend/dist` to `src/termbridge/static`, and runs `uv build`. `src/termbridge/static` is generated build output and is ignored by git.
+
+## Docker
+
+Build the image:
+
+```bash
+docker build -t termbridge:local .
+```
+
+For domestic mirrors in China, use:
+
+```bash
+docker build -f Dockerfile.cn -t termbridge:local .
+```
+
+Run the container:
+
+```bash
+docker run --rm -p 9008:9008 termbridge:local
+```
+
+The container starts `python -m termbridge.main --host 0.0.0.0 --port 9008` and serves the built frontend from the backend. Runtime tools such as `ttyd`, `tmux`, Cygwin, WSL, or Linux shell environments still need to be available for terminal sessions to work.
 
 ## Verification
 

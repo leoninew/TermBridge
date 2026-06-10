@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 
 from termbridge.exceptions import SessionNotFoundError, SessionRepositoryError
-from termbridge.models import SessionRecord, SessionStatus, utc_now
-from termbridge.repositories import FileSessionRepository
+from termbridge.models import SessionRecord, SessionStatus, TerminalState, utc_now
+from termbridge.repositories import FileSessionRepository, FileTerminalRepository
 
 
 def make_session(session_id: str = "sess_1", port: int = 9001) -> SessionRecord:
@@ -56,3 +56,19 @@ def test_repository_invalid_json_raises(tmp_path: Path) -> None:
 
     with pytest.raises(SessionRepositoryError):
         FileSessionRepository(sessions_file).list()
+
+
+def test_session_repository_creates_missing_parent_directory(tmp_path: Path) -> None:
+    sessions_file = tmp_path / "missing" / "state" / "sessions.json"
+
+    FileSessionRepository(sessions_file).create(make_session())
+
+    assert sessions_file.is_file()
+
+
+def test_terminal_repository_creates_missing_parent_directory(tmp_path: Path) -> None:
+    terminals_file = tmp_path / "missing" / "state" / "terminals.json"
+
+    FileTerminalRepository(terminals_file).save_state(TerminalState())
+
+    assert terminals_file.is_file()

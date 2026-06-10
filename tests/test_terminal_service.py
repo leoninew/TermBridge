@@ -215,6 +215,21 @@ def test_terminal_service_detects_ttyd_unavailable(tmp_path: Path) -> None:
     assert result.reason == "ttyd is not available in PATH"
 
 
+def test_terminal_service_detects_ttyd_exe_first_on_windows(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    completed = subprocess.CompletedProcess(
+        args=["D:/cygwin/bin/ttyd.exe", "--version"], returncode=0, stdout="ttyd 1.7.7\n", stderr=""
+    )
+
+    with patch("termbridge.services.os.name", "nt"):
+        with patch("termbridge.services.shutil.which", side_effect=["D:/cygwin/bin/ttyd.exe"]):
+            with patch("termbridge.services.subprocess.run", return_value=completed):
+                result = service.check_ttyd()
+
+    assert result.available is True
+    assert result.path == "D:/cygwin/bin/ttyd.exe"
+
+
 def test_terminal_service_detects_cygwin_and_tmux(tmp_path: Path) -> None:
     service = make_service(tmp_path)
     service.update_windows_cygwin_settings(

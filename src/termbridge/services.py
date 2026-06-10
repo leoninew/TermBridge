@@ -186,7 +186,11 @@ class TerminalService:
         return state.windows_cygwin_settings
 
     def check_ttyd(self, ttyd_path: str | None = None) -> RuntimeCheckResponse:
-        executable = ttyd_path or shutil.which("ttyd")
+        executable = ttyd_path
+        if not executable and os.name == "nt":
+            executable = shutil.which("ttyd.exe") or shutil.which("ttyd")
+        if not executable:
+            executable = shutil.which("ttyd")
         if not executable:
             return RuntimeCheckResponse(available=False, reason="ttyd is not available in PATH")
         return self._check_executable_version(executable, [["--version"], ["-v"]])
