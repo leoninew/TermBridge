@@ -55,7 +55,7 @@ function isActive(path: string): boolean {
         <span>{{ t('app.language.label') }}</span>
         <select
           v-model="locale"
-          class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 shadow-sm outline-none transition focus:border-blue-500"
         >
           <option value="zh-CN">{{ t('app.language.zhCN') }}</option>
           <option value="en-US">{{ t('app.language.enUS') }}</option>

@@ -105,9 +105,10 @@ Examples:
 
 ```bash
 TERMBRIDGE_LOGGING_LEVEL=DEBUG
-TERMBRIDGE_PORT_START=9001
-TERMBRIDGE_PORT_END=9999
+TERMBRIDGE_PORT_START=19001
+TERMBRIDGE_PORT_END=19999
 TERMBRIDGE_STATE_DIR=.termbridge
+TERMBRIDGE_TMUX_COMMAND_TIMEOUT_SECONDS=10
 ```
 
 The default state directory is `.termbridge/` when running from a source checkout, and `~/.termbridge/` when running from an installed package.

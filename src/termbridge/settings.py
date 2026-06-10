@@ -17,11 +17,12 @@ class Settings(BaseSettings):
 
     ttyd_executable: str = "ttyd"
     host: str = "127.0.0.1"
-    port_start: int = 9001
-    port_end: int = 9999
+    port_start: int = 19001
+    port_end: int = 19999
     state_dir: Path = Field(default_factory=default_state_dir)
     public_base_url: str | None = None
     logging_level: str = "INFO"
+    tmux_command_timeout_seconds: float = 10
 
     @property
     def sessions_file(self) -> Path:

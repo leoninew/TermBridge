@@ -292,7 +292,7 @@ function hostDisabledReason(host: ShortcutHost): string {
               <input
                 v-model.trim="form.name"
                 required
-                class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500"
               />
             </label>
             <label class="grid gap-1.5 text-sm text-slate-700">
@@ -300,7 +300,7 @@ function hostDisabledReason(host: ShortcutHost): string {
               <input
                 v-model.trim="form.command"
                 required
-                class="rounded-xl border border-slate-300 px-3 py-2 font-mono outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                class="rounded-xl border border-slate-300 px-3 py-2 font-mono outline-none transition focus:border-blue-500"
               />
             </label>
             <label class="grid gap-1.5 text-sm text-slate-700">
@@ -308,7 +308,7 @@ function hostDisabledReason(host: ShortcutHost): string {
               <select
                 v-model="form.host"
                 required
-                class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500"
               >
                 <option value="" disabled>{{ t('shortcutManagement.fields.selectHost') }}</option>
                 <option
@@ -327,7 +327,7 @@ function hostDisabledReason(host: ShortcutHost): string {
               <textarea
                 v-model.trim="form.description"
                 rows="3"
-                class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500"
               />
             </label>
             <div class="mt-2 flex justify-end gap-2">

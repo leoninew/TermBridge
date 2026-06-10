@@ -4,11 +4,16 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Folder,
   Languages,
   Loader2,
   Plus,
+  RotateCw,
   Search,
   Settings,
+  Pause,
+  SquareTerminal,
+  Trash2,
 } from '@lucide/vue'
 import {
   DropdownMenuContent,
@@ -22,20 +27,35 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  TreeItem,
+  TreeRoot,
 } from 'reka-ui'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import CygwinLogo from './CygwinLogo.vue'
+import WslLogo from './WslLogo.vue'
 import type {
   EnvironmentSummary,
   Session,
   SessionEnvironment,
   SessionWorkspace,
+  ShortcutHost,
 } from '../types/sessions'
-import SessionCard from './SessionCard.vue'
+
+type SessionTreeNode = {
+  id: string
+  label: string
+  kind: 'environment' | 'workspace' | 'session'
+  host: ShortcutHost
+  workspacePath?: string
+  children?: SessionTreeNode[]
+  session?: Session
+}
 
 const { locale, t } = useI18n()
 const query = ref('')
-const expanded = ref(new Set<string>())
+const selectedTreeNodes = ref<SessionTreeNode[]>([])
+const expandedTreeKeys = ref<string[]>([])
 
 const props = defineProps<{
   sessions: Session[]
@@ -52,6 +72,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   create: []
   collapse: []
+  createContext: [context: { host?: ShortcutHost; workspace?: string }]
   select: [session: Session]
   restart: [session: Session]
   stop: [session: Session]
@@ -86,28 +107,119 @@ const filteredTree = computed(() => {
     .filter((environment): environment is SessionEnvironment => !!environment)
 })
 
+const treeNodes = computed<SessionTreeNode[]>(() =>
+  filteredTree.value.map((environment) => ({
+    id: `environment:${environment.host}`,
+    kind: 'environment',
+    label: environment.label,
+    host: environment.host,
+    children: environment.workspaces.map((workspace) => ({
+      id: `workspace:${workspace.id}`,
+      kind: 'workspace',
+      label: workspace.path,
+      host: workspace.host,
+      workspacePath: workspace.path,
+      children: workspace.entries.map((session) => ({
+        id: `session:${session.id}`,
+        kind: 'session',
+        label: session.name,
+        host: workspace.host,
+        workspacePath: workspace.path,
+        session,
+      })),
+    })),
+  })),
+)
+
+const defaultExpandedTreeKeys = computed(() => collectExpandableKeys(treeNodes.value))
+const selectedSession = computed(() => selectedTreeNodes.value[0]?.session)
+const selectedShortcutLabel = computed(() => selectedSession.value?.shortcut_name || selectedSession.value?.runtime || '')
+
+watch(
+  defaultExpandedTreeKeys,
+  (keys) => {
+    expandedTreeKeys.value = keys
+  },
+  { immediate: true },
+)
+
+watch(
+  [treeNodes, () => props.activeSessionId],
+  ([nodes, activeSessionId]) => {
+    const selectedNode = activeSessionId ? findTreeNode(nodes, `session:${activeSessionId}`) : undefined
+    selectedTreeNodes.value = asSelectedList(selectedNode)
+    emit('createContext', selectedNode ? { host: selectedNode.host, workspace: selectedNode.workspacePath } : {})
+  },
+  { immediate: true },
+)
+
 function matches(...values: string[]) {
   const needle = values.pop() || ''
   return values.some((value) => value.toLowerCase().includes(needle))
 }
 
-function nodeKey(kind: string, id: string) {
-  return `${kind}:${id}`
+function collectExpandableKeys(nodes: SessionTreeNode[]): string[] {
+  return nodes.flatMap((node) => [
+    ...(node.children?.length ? [node.id] : []),
+    ...collectExpandableKeys(node.children || []),
+  ])
 }
 
-function isExpanded(kind: string, id: string) {
-  return query.value.trim() ? true : expanded.value.has(nodeKey(kind, id))
-}
-
-function toggle(kind: string, id: string) {
-  const key = nodeKey(kind, id)
-  const next = new Set(expanded.value)
-  if (next.has(key)) {
-    next.delete(key)
-  } else {
-    next.add(key)
+function findTreeNode(nodes: SessionTreeNode[], id: string): SessionTreeNode | undefined {
+  for (const node of nodes) {
+    if (node.id === id) {
+      return node
+    }
+    const child = findTreeNode(node.children || [], id)
+    if (child) {
+      return child
+    }
   }
-  expanded.value = next
+  return undefined
+}
+
+function asSelectedList(node: SessionTreeNode | undefined): SessionTreeNode[] {
+  return node ? [node] : []
+}
+
+function isSelectedNode(node: SessionTreeNode): boolean {
+  return selectedTreeNodes.value.some((selected) => selected.id === node.id)
+}
+
+function environmentLogo(host: ShortcutHost) {
+  if (host === 'windows_cygwin') {
+    return CygwinLogo
+  }
+  if (host === 'windows_wsl') {
+    return WslLogo
+  }
+  return undefined
+}
+
+function handleTreeSelect(node: SessionTreeNode) {
+  selectedTreeNodes.value = [node]
+  emit('createContext', { host: node.host, workspace: node.workspacePath })
+  if (node.session) {
+    emit('select', node.session)
+  }
+}
+
+function stopSession(event: MouseEvent, session: Session) {
+  event.preventDefault()
+  event.stopPropagation()
+  emit('stop', session)
+}
+
+function restartSession(event: MouseEvent, session: Session) {
+  event.preventDefault()
+  event.stopPropagation()
+  emit('restart', session)
+}
+
+function removeSession(event: MouseEvent, session: Session) {
+  event.preventDefault()
+  event.stopPropagation()
+  emit('remove', session)
 }
 </script>
 
@@ -120,11 +232,11 @@ function toggle(kind: string, id: string) {
       <button
         type="button"
         :disabled="!hasReadyEnvironment"
-        class="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-3 py-2 text-sm text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+        class="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-3 py-2 text-sm text-white shadow-sm transition hover:bg-blue-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         @click="emit('create')"
       >
         <Plus class="h-4 w-4" />
-        {{ t('session.list.createLabel') }}
+        {{ t('session.terminal.createTab') }}
       </button>
     </div>
 
@@ -161,75 +273,110 @@ function toggle(kind: string, id: string) {
           <Search class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
           <input
             v-model.trim="query"
-            class="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            class="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-500"
             :placeholder="t('session.list.searchPlaceholder')"
           />
         </label>
 
         <div class="min-h-0 flex-1 overflow-auto pr-1">
-          <div v-for="environment in filteredTree" :key="environment.host" class="mb-2">
-            <button
-              type="button"
-              class="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              @click="toggle('environment', environment.host)"
-            >
-              <ChevronDown v-if="isExpanded('environment', environment.host)" class="h-4 w-4" />
-              <ChevronRight v-else class="h-4 w-4" />
-              <span class="truncate">{{ environment.label }}</span>
-              <span class="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{{
-                environment.workspaces.length
-              }}</span>
-            </button>
-
-            <div
-              v-if="isExpanded('environment', environment.host)"
-              class="ml-3 border-l border-slate-100 pl-2"
-            >
-              <div v-for="workspace in environment.workspaces" :key="workspace.id" class="mb-2">
-                <button
-                  type="button"
-                  class="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-slate-600 transition hover:bg-slate-50"
-                  @click="toggle('workspace', workspace.id)"
+          <TreeRoot
+            v-model="selectedTreeNodes"
+            v-model:expanded="expandedTreeKeys"
+            :items="treeNodes"
+            :default-value="[]"
+            :default-expanded="defaultExpandedTreeKeys"
+            multiple
+            :get-key="(node: SessionTreeNode) => node.id"
+            :get-children="(node: SessionTreeNode) => node.children"
+            selection-behavior="replace"
+            class="grid gap-0.5 outline-none"
+          >
+            <template #default="{ flattenItems }">
+              <TreeItem
+                v-for="item in flattenItems"
+                :key="item._id"
+                v-slot="{ isExpanded }"
+                v-bind="item.bind"
+                as-child
+                @select.prevent="handleTreeSelect(item.value)"
+              >
+                <div
+                  class="flex w-full items-center gap-2 rounded-lg py-1.5 pr-2 text-left text-sm transition focus:outline-none"
+                  :class="
+                    isSelectedNode(item.value)
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
+                  "
+                  :style="{ paddingLeft: `${(item.level - 1) * 16 + 8}px` }"
                 >
-                  <ChevronDown v-if="isExpanded('workspace', workspace.id)" class="h-4 w-4" />
-                  <ChevronRight v-else class="h-4 w-4" />
-                  <span class="min-w-0 flex-1">
-                    <span class="block truncate font-medium text-slate-800">{{
-                      workspace.name
-                    }}</span>
-                    <span v-if="!compact" class="block truncate text-xs text-slate-400">{{
-                      workspace.path
-                    }}</span>
+                  <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center">
+                    <ChevronDown v-if="item.value.children?.length && isExpanded" class="h-4 w-4" />
+                    <ChevronRight
+                      v-else-if="item.value.children?.length"
+                      class="h-4 w-4"
+                    />
                   </span>
-                  <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{{
-                    workspace.entries.length
-                  }}</span>
-                </button>
-
-                <div v-if="isExpanded('workspace', workspace.id)" class="grid gap-2 py-1 pl-4">
-                  <SessionCard
-                    v-for="session in workspace.entries"
-                    :key="session.id"
-                    :session="session"
-                    :active="session.id === activeSessionId"
-                    :compact="compact"
-                    @select="emit('select', $event)"
-                    @restart="emit('restart', $event)"
-                    @stop="emit('stop', $event)"
-                    @remove="emit('remove', $event)"
+                  <component
+                    :is="environmentLogo(item.value.host)"
+                    v-if="item.value.kind === 'environment' && environmentLogo(item.value.host)"
+                    class="shrink-0"
                   />
+                  <Folder
+                    v-if="item.value.kind === 'workspace'"
+                    class="h-4 w-4 shrink-0 text-slate-400"
+                  />
+                  <SquareTerminal
+                    v-if="item.value.kind === 'session'"
+                    class="h-4 w-4 shrink-0 text-slate-400"
+                  />
+                  <span class="min-w-0 flex-1 truncate">{{ item.value.label }}</span>
+                  <span
+                    v-if="item.value.session"
+                    class="inline-flex shrink-0 items-center gap-1"
+                  >
+                    <button
+                      v-if="item.value.session.status === 'running'"
+                      type="button"
+                      class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-amber-50 hover:text-amber-600"
+                      :aria-label="t('session.card.stopLabel')"
+                      :title="t('session.card.stopLabel')"
+                      @click="stopSession($event, item.value.session)"
+                    >
+                      <Pause class="h-4 w-4" />
+                    </button>
+                    <button
+                      v-if="item.value.session.status === 'stopped'"
+                      type="button"
+                      class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+                      :aria-label="t('session.card.restartLabel')"
+                      :title="t('session.card.restartLabel')"
+                      @click="restartSession($event, item.value.session)"
+                    >
+                      <RotateCw class="h-4 w-4" />
+                    </button>
+                    <button
+                      v-if="item.value.session.status === 'stopped'"
+                      type="button"
+                      class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                      :aria-label="t('session.card.deleteLabel')"
+                      :title="t('session.card.deleteLabel')"
+                      @click="removeSession($event, item.value.session)"
+                    >
+                      <Trash2 class="h-4 w-4" />
+                    </button>
+                  </span>
                 </div>
-              </div>
-            </div>
-          </div>
+              </TreeItem>
+            </template>
+          </TreeRoot>
         </div>
       </div>
     </div>
 
-    <div class="mt-auto border-t border-slate-200 p-3">
+    <div class="mt-auto flex items-center justify-between gap-3 border-t border-slate-200 p-3">
       <DropdownMenuRoot>
         <DropdownMenuTrigger
-          class="inline-flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-950 focus:outline-none focus:ring-4 focus:ring-blue-100"
+          class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-950 focus:outline-none"
         >
           <Settings class="h-4 w-4" />
           {{ t('app.settings.trigger') }}
@@ -301,6 +448,9 @@ function toggle(kind: string, id: string) {
           </DropdownMenuContent>
         </DropdownMenuPortal>
       </DropdownMenuRoot>
+      <span v-if="selectedShortcutLabel" class="min-w-0 truncate text-sm text-slate-500">
+        {{ t('session.card.shortcut', { shortcut: selectedShortcutLabel }) }}
+      </span>
     </div>
   </section>
 </template>

@@ -10,6 +10,7 @@ import shlex
 import shutil
 import subprocess
 from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -128,8 +129,9 @@ class WorkspaceBrowserService:
 
 
 class TerminalService:
-    def __init__(self, repository: FileTerminalRepository) -> None:
+    def __init__(self, repository: FileTerminalRepository, *, tmux_command_timeout_seconds: float = 10) -> None:
         self._repository = repository
+        self._tmux_command_timeout_seconds = tmux_command_timeout_seconds
 
     def list_shortcuts(self) -> ShortcutListResponse:
         state = self._ensure_default_shortcuts(self._repository.get_state())
@@ -471,7 +473,7 @@ class TerminalService:
             self._runtime_shell_command(host, workspace, command),
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=self._tmux_command_timeout_seconds,
             check=False,
         )
 
@@ -975,7 +977,7 @@ class SessionService:
             entries=entries,
         )
 
-    def _get_or_create_workspace(self, host: ShortcutHost, workspace_path: Path, now: object) -> WorkspaceRecord:
+    def _get_or_create_workspace(self, host: ShortcutHost, workspace_path: Path, now: datetime) -> WorkspaceRecord:
         workspace_id = self._workspace_id(host, workspace_path)
         state = self._repository.get_state()
         existing = state.workspaces.get(workspace_id)

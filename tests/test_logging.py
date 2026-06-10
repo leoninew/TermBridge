@@ -20,6 +20,27 @@ def test_settings_default_logging_level() -> None:
     assert settings.logging_level == "INFO"
 
 
+def test_settings_default_session_port_range() -> None:
+    settings = Settings()
+
+    assert settings.port_start == 19001
+    assert settings.port_end == 19999
+
+
+def test_settings_default_tmux_command_timeout() -> None:
+    settings = Settings()
+
+    assert settings.tmux_command_timeout_seconds == 10
+
+
+def test_settings_tmux_command_timeout_uses_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TERMBRIDGE_TMUX_COMMAND_TIMEOUT_SECONDS", "12.5")
+
+    settings = Settings()
+
+    assert settings.tmux_command_timeout_seconds == 12.5
+
+
 def test_settings_logging_level_uses_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TERMBRIDGE_LOGGING_LEVEL", "DEBUG")
 
@@ -131,6 +152,10 @@ def make_logging_test_client() -> TestClient:
     def ok() -> dict[str, str]:
         return {"status": "ok"}
 
+    @app.post("/echo")
+    def echo(payload: dict[str, str]) -> dict[str, dict[str, str]]:
+        return {"received": payload}
+
     @app.get("/missing")
     def missing() -> None:
         raise HTTPException(status_code=404, detail="missing")
@@ -153,10 +178,38 @@ def test_request_logging_includes_query_string_and_duration(
     assert response.status_code == 200
     assert any(
         record.levelno == logging.INFO
+        and "Request begin" in record.message
+        and "method=GET" in record.message
+        and "path=/ok?q=hello" in record.message
+        for record in caplog.records
+    )
+    assert any(
+        record.levelno == logging.INFO
+        and "Request end" in record.message
         and "method=GET" in record.message
         and "path=/ok?q=hello" in record.message
         and "status=200" in record.message
         and "duration_ms=" in record.message
+        for record in caplog.records
+    )
+
+
+def test_request_logging_includes_json_request_and_response_bodies(
+    caplog: pytest.LogCaptureFixture, middleware_logger_for_caplog: None
+) -> None:
+    client = make_logging_test_client()
+
+    with caplog.at_level(logging.INFO, logger="termbridge.middleware"):
+        response = client.post("/echo", json={"name": "demo"})
+
+    assert response.status_code == 200
+    assert response.json() == {"received": {"name": "demo"}}
+    assert any(
+        record.levelno == logging.INFO and 'Request body={"name":"demo"}' in record.message
+        for record in caplog.records
+    )
+    assert any(
+        record.levelno == logging.INFO and 'Response body={"received":{"name":"demo"}}' in record.message
         for record in caplog.records
     )
 
@@ -186,5 +239,6 @@ def test_request_logging_uses_error_for_unhandled_exception(
         record.levelno == logging.ERROR
         and "Request failed" in record.message
         and "path=/broken" in record.message
+        and record.exc_info is not None
         for record in caplog.records
     )

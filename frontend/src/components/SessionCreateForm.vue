@@ -8,7 +8,7 @@ import {
   SelectValue,
   SelectViewport,
 } from 'reka-ui'
-import { FolderOpen, Loader2, Plus } from '@lucide/vue'
+import { FolderOpen, Loader2 } from '@lucide/vue'
 import { computed, reactive, ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listShortcuts } from '../api/sessions'
@@ -25,6 +25,8 @@ const props = defineProps<{
   environments: EnvironmentSummary[]
   submitting: boolean
   error: string
+  initialHost?: ShortcutHost
+  initialWorkspace?: string
 }>()
 const emit = defineEmits<{
   create: [payload: CreateSessionPayload]
@@ -32,12 +34,12 @@ const emit = defineEmits<{
 }>()
 
 const hosts: ShortcutHost[] = ['windows_cygwin', 'windows_wsl', 'linux']
-const selectedHost = ref<ShortcutHost>('windows_cygwin')
+const selectedHost = ref<ShortcutHost>(props.initialHost || 'windows_cygwin')
 const shortcuts = ref<Shortcut[]>([])
 const shortcutError = ref('')
 const form = reactive<CreateSessionPayload>({
   name: '',
-  workspace: '',
+  workspace: props.initialWorkspace || '',
   shortcut_id: '',
 })
 const loadingShortcuts = ref(false)
@@ -53,6 +55,22 @@ const availableHosts = computed(() =>
 )
 const filteredShortcuts = computed(() =>
   shortcuts.value.filter((shortcut) => shortcut.host === selectedHost.value),
+)
+
+watch(
+  () => props.initialHost,
+  (host) => {
+    if (host) {
+      selectedHost.value = host
+    }
+  },
+)
+
+watch(
+  () => props.initialWorkspace,
+  (workspace) => {
+    form.workspace = workspace || ''
+  },
 )
 
 watch([availableHosts, filteredShortcuts], () => {
@@ -112,7 +130,6 @@ function hostDisabledReason(host: ShortcutHost): string {
   <form class="grid gap-5" @submit.prevent="submit">
     <div>
       <h2 class="text-lg font-semibold text-slate-950">{{ t('session.create.title') }}</h2>
-      <p class="mt-1 text-sm text-slate-500">{{ t('session.create.description') }}</p>
     </div>
 
     <p v-if="props.error" class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -129,7 +146,7 @@ function hostDisabledReason(host: ShortcutHost): string {
         <input
           v-model.trim="form.workspace"
           required
-          class="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          class="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500"
           :placeholder="t('session.create.workspacePlaceholder')"
         />
         <button
@@ -153,7 +170,7 @@ function hostDisabledReason(host: ShortcutHost): string {
       <input
         v-model.trim="form.name"
         required
-        class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+        class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500"
         :placeholder="t('session.create.namePlaceholder')"
       />
     </label>
@@ -162,7 +179,7 @@ function hostDisabledReason(host: ShortcutHost): string {
       {{ t('session.create.host') }}
       <select
         v-model="selectedHost"
-        class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+        class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500"
       >
         <option
           v-for="host in hosts"
@@ -187,7 +204,7 @@ function hostDisabledReason(host: ShortcutHost): string {
       </p>
       <SelectRoot v-else v-model="form.shortcut_id" required>
         <SelectTrigger
-          class="flex items-center justify-between rounded-xl border border-slate-300 bg-white px-3 py-2 text-left outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          class="flex items-center justify-between rounded-xl border border-slate-300 bg-white px-3 py-2 text-left outline-none transition focus:border-blue-500"
         >
           <SelectValue />
         </SelectTrigger>
@@ -211,7 +228,8 @@ function hostDisabledReason(host: ShortcutHost): string {
     <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
       <button
         type="button"
-        class="rounded-xl border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50"
+        :disabled="props.submitting"
+        class="rounded-xl border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
         @click="emit('cancel')"
       >
         {{ t('app.actions.cancel') }}
@@ -222,8 +240,7 @@ function hostDisabledReason(host: ShortcutHost): string {
         class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
       >
         <Loader2 v-if="props.submitting" class="h-4 w-4 animate-spin" />
-        <Plus v-else class="h-4 w-4" />
-        {{ t('session.create.submit') }}
+        {{ props.submitting ? t('session.create.submitting') : t('session.create.submit') }}
       </button>
     </div>
   </form>

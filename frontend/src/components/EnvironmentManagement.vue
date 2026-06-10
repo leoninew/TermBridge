@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
-import { Loader2, Monitor, RefreshCw, Terminal } from '@lucide/vue'
+import { Loader2, Monitor, RefreshCw } from '@lucide/vue'
 import {
   TabsContent,
   TabsList,
@@ -12,6 +12,8 @@ import {
   ToastViewport,
 } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
+import CygwinLogo from './CygwinLogo.vue'
+import WslLogo from './WslLogo.vue'
 import {
   checkLinux,
   checkTtyd,
@@ -67,12 +69,12 @@ const tabs = computed(() => [
   {
     id: 'windows_cygwin' as const,
     label: t('environmentManagement.tabs.windowsCygwin'),
-    icon: Terminal,
+    icon: CygwinLogo,
   },
   {
     id: 'windows_wsl' as const,
     label: t('environmentManagement.tabs.windowsWsl'),
-    icon: Terminal,
+    icon: WslLogo,
   },
   { id: 'linux' as const, label: t('environmentManagement.tabs.linux'), icon: Monitor },
 ])

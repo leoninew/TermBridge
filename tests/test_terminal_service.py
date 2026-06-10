@@ -189,9 +189,22 @@ def test_terminal_service_creates_wsl_tmux_window_from_wsl_cd_workspace(tmp_path
     run.assert_called_once()
     command = run.call_args.args[0]
     assert command[:4] == ["wsl", "--cd", str(workspace), "sh"]
+    assert run.call_args.kwargs["timeout"] == 10
     assert f"-c {workspace}" not in command[5]
     assert "tmux new-session -d -s tb_wsl_workspace -c ." in command[5]
     assert "tmux new-window -P -F '#{window_id}' -t tb_wsl_workspace -n Agent -c . 'agent run'" in command[5]
+
+
+def test_terminal_service_uses_configured_tmux_command_timeout(tmp_path: Path) -> None:
+    service = TerminalService(FileTerminalRepository(tmp_path / "terminals.json"), tmux_command_timeout_seconds=12.5)
+    service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))
+    shortcut = service.create_shortcut(CreateShortcutRequest(name="WSL", command="agent run", host="windows_wsl"))
+    completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="@3\n", stderr="")
+
+    with patch("termbridge.services.subprocess.run", return_value=completed) as run:
+        service.create_tmux_window(shortcut, tmp_path, tmux_session_name="tb_wsl_workspace", window_name="Agent")
+
+    assert run.call_args.kwargs["timeout"] == 12.5
 
 
 def test_shortcut_service_resolves_linux_command_when_ready(tmp_path: Path) -> None:

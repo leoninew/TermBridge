@@ -32,6 +32,7 @@ import type {
   EnvironmentSummary,
   Session,
   SessionEnvironment,
+  ShortcutHost,
 } from './types/sessions'
 
 const { t } = useI18n()
@@ -39,12 +40,14 @@ const sessions = ref<Session[]>([])
 const sessionTree = ref<SessionEnvironment[]>([])
 const environments = ref<EnvironmentSummary[]>([])
 const activeSessionId = ref<string>()
+const openTerminalSessionIds = ref<string[]>([])
 const loading = ref(false)
 const environmentsLoading = ref(false)
 const error = ref('')
 const showCreatePanel = ref(false)
 const creatingSession = ref(false)
 const createError = ref('')
+const createSessionContext = ref<{ host?: ShortcutHost; workspace?: string }>({})
 const currentPath = ref(window.location.pathname)
 const deletingSession = ref<Session>()
 const sidebarCollapsed = ref(false)
@@ -62,6 +65,11 @@ const deleteDialogOpen = computed({
 })
 const activeSession = computed(() =>
   sessions.value.find((session) => session.id === activeSessionId.value),
+)
+const openTerminalSessions = computed(() =>
+  openTerminalSessionIds.value
+    .map((sessionId) => sessions.value.find((session) => session.id === sessionId))
+    .filter((session): session is Session => !!session),
 )
 const hasReadyEnvironment = computed(() =>
   environments.value.some(
@@ -85,11 +93,12 @@ async function loadSessions() {
     sessions.value = tree.flatMap((environment) =>
       environment.workspaces.flatMap((workspace) => workspace.entries),
     )
-    if (
-      !activeSessionId.value ||
-      !sessions.value.some((session) => session.id === activeSessionId.value)
-    ) {
-      activeSessionId.value = sessions.value[0]?.id
+    const sessionIds = new Set(sessions.value.map((session) => session.id))
+    openTerminalSessionIds.value = openTerminalSessionIds.value.filter((sessionId) =>
+      sessionIds.has(sessionId),
+    )
+    if (activeSessionId.value && !sessionIds.has(activeSessionId.value)) {
+      activeSessionId.value = openTerminalSessionIds.value[0]
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('app.errors.loadSessions')
@@ -108,13 +117,37 @@ function updateEnvironments(nextEnvironments: EnvironmentSummary[]) {
   environments.value = nextEnvironments
 }
 
+function openTerminalSession(session: Session) {
+  if (!openTerminalSessionIds.value.includes(session.id)) {
+    openTerminalSessionIds.value = [...openTerminalSessionIds.value, session.id]
+  }
+  activeSessionId.value = session.id
+}
+
+function updateCreateSessionContext(context: { host?: ShortcutHost; workspace?: string }) {
+  createSessionContext.value = context
+}
+
+function closeTerminalSession(session: Session) {
+  const closingIndex = openTerminalSessionIds.value.indexOf(session.id)
+  if (closingIndex === -1) {
+    return
+  }
+
+  const nextOpenIds = openTerminalSessionIds.value.filter((sessionId) => sessionId !== session.id)
+  openTerminalSessionIds.value = nextOpenIds
+  if (activeSessionId.value === session.id) {
+    activeSessionId.value = nextOpenIds[closingIndex] || nextOpenIds[closingIndex - 1]
+  }
+}
+
 async function handleCreate(payload: CreateSessionPayload) {
   creatingSession.value = true
   createError.value = ''
   try {
     const session = await createSession(payload)
     await loadSessions()
-    activeSessionId.value = session.id
+    openTerminalSession(session)
     showCreatePanel.value = false
     navigate('/')
   } catch (err) {
@@ -138,8 +171,9 @@ async function confirmRemove() {
   try {
     await deleteSession(sessionId)
     await loadSessions()
+    openTerminalSessionIds.value = openTerminalSessionIds.value.filter((id) => id !== sessionId)
     if (activeSessionId.value === sessionId) {
-      activeSessionId.value = sessions.value[0]?.id
+      activeSessionId.value = openTerminalSessionIds.value[0]
     }
     deletingSession.value = undefined
   } catch (err) {
@@ -152,7 +186,7 @@ async function handleRestart(session: Session) {
   try {
     const restarted = await restartSession(session.id)
     await loadSessions()
-    activeSessionId.value = restarted.id
+    openTerminalSession(restarted)
     navigate('/')
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('app.errors.restartSession')
@@ -164,7 +198,7 @@ async function handleStop(session: Session) {
   try {
     const stopped = await stopSession(session.id)
     await loadSessions()
-    activeSessionId.value = stopped.id
+    openTerminalSession(stopped)
     navigate('/')
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('app.errors.stopSession')
@@ -172,7 +206,7 @@ async function handleStop(session: Session) {
 }
 
 function selectSession(session: Session) {
-  activeSessionId.value = session.id
+  openTerminalSession(session)
   showCreatePanel.value = false
   navigate('/')
 }
@@ -235,6 +269,7 @@ onUnmounted(() => {
           :has-ready-environment="hasReadyEnvironment"
           @create="showCreate"
           @collapse="sidebarCollapsed = true"
+          @create-context="updateCreateSessionContext"
           @select="selectSession"
           @restart="handleRestart"
           @stop="handleStop"
@@ -246,7 +281,7 @@ onUnmounted(() => {
       <SplitterResizeHandle
         v-if="!sidebarCollapsed"
         :aria-label="t('app.sidebar.resizeLabel')"
-        class="group hidden w-4 cursor-col-resize items-stretch justify-center outline-none focus:ring-4 focus:ring-blue-100 lg:flex"
+        class="group hidden w-4 cursor-col-resize items-stretch justify-center outline-none lg:flex"
       >
         <span
           class="my-2 w-px rounded-full bg-slate-200 transition group-hover:w-1 group-hover:bg-blue-300 group-focus:w-1 group-focus:bg-blue-500"
@@ -286,6 +321,8 @@ onUnmounted(() => {
                 :environments="environments"
                 :submitting="creatingSession"
                 :error="createError"
+                :initial-host="createSessionContext.host"
+                :initial-workspace="createSessionContext.workspace"
                 @create="handleCreate"
                 @cancel="showCreatePanel = false"
               />
@@ -294,7 +331,11 @@ onUnmounted(() => {
           <SessionTerminal
             v-else
             key="terminal"
+            :sessions="openTerminalSessions"
             :session="activeSession"
+            @close="closeTerminalSession"
+            @create="showCreate"
+            @select="selectSession"
             @restart="handleRestart"
           />
         </Transition>
