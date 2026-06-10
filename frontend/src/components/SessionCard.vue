@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RotateCw, Trash2 } from '@lucide/vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Session } from '../types/sessions'
 
@@ -23,6 +24,10 @@ const statusClass: Record<Session['status'], string> = {
   stopped: 'bg-slate-200 text-slate-700',
   failed: 'bg-red-100 text-red-700',
 }
+const shortcutLabel = computed(() => {
+  const name = props.session.shortcut_name || props.session.runtime
+  return props.session.host ? `${t(`hosts.${props.session.host}`)} · ${name}` : name
+})
 
 function requestRemove() {
   emit('remove', props.session)
@@ -50,9 +55,7 @@ function requestRemove() {
       </span>
       <span class="truncate text-sm text-slate-500">{{ session.workspace }}</span>
       <span v-if="!compact" class="flex items-center gap-3 text-sm text-slate-500">
-        <span>{{
-          t('session.card.shortcut', { shortcut: session.shortcut_name || session.runtime })
-        }}</span>
+        <span>{{ t('session.card.shortcut', { shortcut: shortcutLabel }) }}</span>
       </span>
     </button>
     <div class="absolute right-3 top-3 z-10 flex gap-1">

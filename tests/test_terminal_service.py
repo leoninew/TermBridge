@@ -65,6 +65,27 @@ def test_shortcut_service_updates_shortcut(tmp_path: Path) -> None:
     assert updated.command == "agent run --verbose"
 
 
+def test_shortcut_service_rejects_duplicate_name_in_same_host(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="windows_cygwin"))
+
+    with pytest.raises(InvalidTerminalConfigError, match="Shortcut name already exists"):
+        service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent other", host="windows_cygwin"))
+
+    shortcut = service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="windows_wsl"))
+
+    assert shortcut.name == "Agent"
+
+
+def test_shortcut_service_rejects_duplicate_name_when_updating_host(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="windows_cygwin"))
+    other = service.create_shortcut(CreateShortcutRequest(name="Other", command="agent other", host="windows_wsl"))
+
+    with pytest.raises(InvalidTerminalConfigError, match="Shortcut name already exists"):
+        service.update_shortcut(other.id, UpdateShortcutRequest(name="Agent", host="windows_cygwin"))
+
+
 def test_shortcut_service_deletes_default_shortcut(tmp_path: Path) -> None:
     service = make_service(tmp_path)
 
@@ -128,25 +149,21 @@ def test_shortcut_service_resolves_windows_wsl_command(tmp_path: Path) -> None:
     service = make_service(tmp_path)
     service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))
     shortcut = service.create_shortcut(CreateShortcutRequest(name="WSL", command="agent run", host="windows_wsl"))
-    completed = subprocess.CompletedProcess(
-        args=["wsl", "wslpath", "-a", str(tmp_path / "workspace with spaces")],
-        returncode=0,
-        stdout="/mnt/d/workspace with spaces\n",
-        stderr="",
-    )
+    workspace = Path(r"D:\SourceCodes\agentic\cc-switch")
 
     with patch.object(service, "resolve_ttyd_executable", return_value="ttyd"):
-        with patch("termbridge.services.subprocess.run", return_value=completed):
+        with patch("termbridge.services.subprocess.run") as run:
             command, resolved, cleanup_command = service.resolve_shortcut_command(
-                shortcut.id, tmp_path / "workspace with spaces", tmux_session_name="sess_test"
+                shortcut.id, workspace, tmux_session_name="sess_test"
             )
 
+    run.assert_not_called()
     assert resolved.id == shortcut.id
     assert cleanup_command == ["wsl", "sh", "-lc", "tmux kill-session -t sess_test"]
     assert command == [
         "wsl",
         "--cd",
-        "/mnt/d/workspace with spaces",
+        str(workspace),
         "sh",
         "-lc",
         "exec tmux new-session -A -s sess_test 'agent run'",

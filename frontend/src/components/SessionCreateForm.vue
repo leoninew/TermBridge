@@ -12,7 +12,12 @@ import { FolderOpen, Loader2, Plus } from '@lucide/vue'
 import { computed, reactive, ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listShortcuts } from '../api/sessions'
-import type { CreateSessionPayload, EnvironmentSummary, Shortcut, ShortcutHost } from '../types/sessions'
+import type {
+  CreateSessionPayload,
+  EnvironmentSummary,
+  Shortcut,
+  ShortcutHost,
+} from '../types/sessions'
 import WorkspaceBrowser from './WorkspaceBrowser.vue'
 
 const { t } = useI18n()
@@ -36,8 +41,8 @@ const form = reactive<CreateSessionPayload>({
 })
 const loadingShortcuts = ref(false)
 const showWorkspaceBrowser = ref(false)
-const environmentsByHost = computed(() =>
-  new Map(props.environments.map((environment) => [environment.host, environment])),
+const environmentsByHost = computed(
+  () => new Map(props.environments.map((environment) => [environment.host, environment])),
 )
 const availableHosts = computed(() =>
   hosts.filter((host) => {
@@ -76,21 +81,6 @@ async function loadShortcuts() {
 
 function selectWorkspace(path: string) {
   form.workspace = path
-  fillNameFromWorkspace()
-}
-
-function fillNameFromWorkspace() {
-  if (form.name.trim()) {
-    return
-  }
-  const workspaceName = form.workspace
-    .trim()
-    .replace(/[\\/]+$/, '')
-    .split(/[\\/]/)
-    .pop()
-  if (workspaceName) {
-    form.name = workspaceName
-  }
 }
 
 async function submit() {
@@ -136,7 +126,6 @@ function hostDisabledReason(host: ShortcutHost): string {
           required
           class="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
           :placeholder="t('session.create.workspacePlaceholder')"
-          @change="fillNameFromWorkspace"
         />
         <button
           type="button"
@@ -170,8 +159,14 @@ function hostDisabledReason(host: ShortcutHost): string {
         v-model="selectedHost"
         class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
       >
-        <option v-for="host in hosts" :key="host" :value="host" :disabled="!availableHosts.includes(host)">
-          {{ hostLabel(host) }}{{ hostDisabledReason(host) ? ` - ${hostDisabledReason(host)}` : '' }}
+        <option
+          v-for="host in hosts"
+          :key="host"
+          :value="host"
+          :disabled="!availableHosts.includes(host)"
+        >
+          {{ hostLabel(host)
+          }}{{ hostDisabledReason(host) ? ` - ${hostDisabledReason(host)}` : '' }}
         </option>
       </select>
     </label>
@@ -201,7 +196,7 @@ function hostDisabledReason(host: ShortcutHost): string {
               :value="shortcut.id"
               class="cursor-pointer rounded-lg px-3 py-2 text-sm outline-none hover:bg-blue-50 data-[highlighted]:bg-blue-50"
             >
-              <SelectItemText>{{ hostLabel(shortcut.host) }} · {{ shortcut.name }}</SelectItemText>
+              <SelectItemText>{{ shortcut.name }}</SelectItemText>
             </SelectItem>
           </SelectViewport>
         </SelectContent>

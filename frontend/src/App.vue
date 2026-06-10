@@ -14,7 +14,13 @@ import {
   SplitterResizeHandle,
 } from 'reka-ui'
 import { PanelLeftOpen } from '@lucide/vue'
-import { createSession, deleteSession, listEnvironments, listSessions, restartSession } from './api/sessions'
+import {
+  createSession,
+  deleteSession,
+  listEnvironments,
+  listSessions,
+  restartSession,
+} from './api/sessions'
 import EnvironmentManagement from './components/EnvironmentManagement.vue'
 import SessionCreateForm from './components/SessionCreateForm.vue'
 import SessionList from './components/SessionList.vue'
@@ -50,7 +56,9 @@ const activeSession = computed(() =>
   sessions.value.find((session) => session.id === activeSessionId.value),
 )
 const hasReadyEnvironment = computed(() =>
-  environments.value.some((environment) => environment.readiness === 'ready' && environment.available_on_host),
+  environments.value.some(
+    (environment) => environment.readiness === 'ready' && environment.available_on_host,
+  ),
 )
 
 async function refresh() {
@@ -141,17 +149,21 @@ async function handleRestart(session: Session) {
 
 function selectSession(session: Session) {
   activeSessionId.value = session.id
+  showCreatePanel.value = false
   navigate('/')
 }
 
 function showCreate() {
-  sidebarCollapsed.value = false
   showCreatePanel.value = true
+  navigate('/')
 }
 
 function navigate(path: string) {
   window.history.pushState({}, '', path)
   currentPath.value = path
+  if (path !== '/') {
+    showCreatePanel.value = false
+  }
   if (path === '/') {
     void loadEnvironments()
   }
@@ -184,36 +196,23 @@ onUnmounted(() => {
         class="relative h-full min-h-0"
         @resize="sidebarWidth = $event"
       >
-        <Transition name="sidebar-panel" mode="out-in">
-          <SessionCreateForm
-            v-if="showCreatePanel"
-            key="create"
-            class="rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-blue-900/5"
-            :environments="environments"
-            :submitting="creatingSession"
-            @create="handleCreate"
-            @cancel="showCreatePanel = false"
-          />
-          <SessionList
-            v-else
-            key="list"
-            class="h-full min-h-0"
-            :sessions="sessions"
-            :active-session-id="activeSessionId"
-            :loading="loading"
-            :environments-loading="environmentsLoading"
-            :error="error"
-            :compact="compactSidebar"
-            :environments="environments"
-            :has-ready-environment="hasReadyEnvironment"
-            @create="showCreate"
-            @collapse="sidebarCollapsed = true"
-            @select="selectSession"
-            @restart="handleRestart"
-            @remove="askRemove"
-            @navigate="navigate"
-          />
-        </Transition>
+        <SessionList
+          class="h-full min-h-0"
+          :sessions="sessions"
+          :active-session-id="activeSessionId"
+          :loading="loading"
+          :environments-loading="environmentsLoading"
+          :error="error"
+          :compact="compactSidebar"
+          :environments="environments"
+          :has-ready-environment="hasReadyEnvironment"
+          @create="showCreate"
+          @collapse="sidebarCollapsed = true"
+          @select="selectSession"
+          @restart="handleRestart"
+          @remove="askRemove"
+          @navigate="navigate"
+        />
       </SplitterPanel>
 
       <SplitterResizeHandle
@@ -238,9 +237,38 @@ onUnmounted(() => {
             <PanelLeftOpen class="h-4 w-4" />
           </button>
         </div>
-        <EnvironmentManagement v-if="currentPath === '/environment'" @environments-updated="updateEnvironments" />
-        <ShortcutManagement v-else-if="currentPath === '/shortcuts'" :sessions="sessions" />
-        <SessionTerminal v-else :session="activeSession" @restart="handleRestart" />
+        <Transition name="main-panel" mode="out-in">
+          <EnvironmentManagement
+            v-if="currentPath === '/environment'"
+            key="environment"
+            @environments-updated="updateEnvironments"
+          />
+          <ShortcutManagement
+            v-else-if="currentPath === '/shortcuts'"
+            key="shortcuts"
+            :sessions="sessions"
+          />
+          <section
+            v-else-if="showCreatePanel"
+            key="create"
+            class="flex h-full min-h-0 overflow-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-blue-900/5"
+          >
+            <div class="m-auto w-full max-w-3xl">
+              <SessionCreateForm
+                :environments="environments"
+                :submitting="creatingSession"
+                @create="handleCreate"
+                @cancel="showCreatePanel = false"
+              />
+            </div>
+          </section>
+          <SessionTerminal
+            v-else
+            key="terminal"
+            :session="activeSession"
+            @restart="handleRestart"
+          />
+        </Transition>
       </SplitterPanel>
     </SplitterGroup>
 
@@ -277,24 +305,16 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.sidebar-panel-enter-active,
-.sidebar-panel-leave-active,
-.sidebar-rail-enter-active,
-.sidebar-rail-leave-active {
+.main-panel-enter-active,
+.main-panel-leave-active {
   transition:
     opacity 160ms ease,
     transform 160ms ease;
 }
 
-.sidebar-panel-enter-from,
-.sidebar-panel-leave-to {
+.main-panel-enter-from,
+.main-panel-leave-to {
   opacity: 0;
-  transform: translateX(-8px);
-}
-
-.sidebar-rail-enter-from,
-.sidebar-rail-leave-to {
-  opacity: 0;
-  transform: translateX(-6px);
+  transform: translateY(8px);
 }
 </style>

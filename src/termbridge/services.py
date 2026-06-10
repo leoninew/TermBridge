@@ -140,6 +140,7 @@ class TerminalService:
             description=request.description,
         )
         self._validate_shortcut(shortcut)
+        self._ensure_unique_shortcut_name(state.shortcuts, shortcut)
         state.shortcuts.append(shortcut)
         self._repository.save_state(state)
         return shortcut
@@ -155,6 +156,7 @@ class TerminalService:
                     update["command"] = update["command"].strip()
                 updated = shortcut.model_copy(update=update)
                 self._validate_shortcut(updated)
+                self._ensure_unique_shortcut_name(state.shortcuts, updated, ignored_shortcut_id=shortcut.id)
                 state.shortcuts[index] = updated
                 self._repository.save_state(state)
                 return updated
@@ -370,13 +372,12 @@ class TerminalService:
             return [bash_path, "-lc", command], shortcut, cleanup_command
         if shortcut.host == "windows_wsl":
             self._ensure_windows_wsl_ready()
-            workspace_path = self.resolve_wsl_workspace_path(workspace)
             command = (
                 f"exec tmux new-session -A -s {shlex.quote(tmux_session_name)} "
                 f"{shlex.quote(shortcut.command)}"
             )
             cleanup_command = ["wsl", "sh", "-lc", f"tmux kill-session -t {shlex.quote(tmux_session_name)}"]
-            return ["wsl", "--cd", workspace_path, "sh", "-lc", command], shortcut, cleanup_command
+            return ["wsl", "--cd", str(workspace), "sh", "-lc", command], shortcut, cleanup_command
         shell_path = self._ensure_linux_ready()
         workspace_path = str(workspace)
         command = (
@@ -385,23 +386,6 @@ class TerminalService:
         )
         cleanup_command = [shell_path, "-lc", f"tmux kill-session -t {shlex.quote(tmux_session_name)}"]
         return [shell_path, "-lc", command], shortcut, cleanup_command
-
-    def resolve_wsl_workspace_path(self, workspace: Path) -> str:
-        try:
-            result = subprocess.run(
-                ["wsl", "wslpath", "-a", str(workspace)],
-                capture_output=True,
-                text=True,
-                timeout=5,
-                check=False,
-            )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise InvalidTerminalConfigError("Workspace path cannot be converted to WSL path") from exc
-        output = result.stdout.strip().splitlines()
-        if result.returncode != 0 or not output:
-            reason = result.stderr.strip() or "workspace path cannot be converted to WSL path"
-            raise InvalidTerminalConfigError(reason)
-        return output[0]
 
     def resolve_ttyd_executable(self, host: ShortcutHost | str, cygwin_bash_path: str | None = None) -> str:
         settings = self.get_settings()
@@ -483,6 +467,15 @@ class TerminalService:
             raise InvalidTerminalConfigError("Shortcut name is required")
         if not shortcut.command.strip():
             raise InvalidTerminalConfigError("Shortcut command is required")
+
+    def _ensure_unique_shortcut_name(
+        self, shortcuts: Sequence[Shortcut], shortcut: Shortcut, *, ignored_shortcut_id: str | None = None
+    ) -> None:
+        for existing in shortcuts:
+            if existing.id == ignored_shortcut_id:
+                continue
+            if existing.host == shortcut.host and existing.name == shortcut.name:
+                raise InvalidTerminalConfigError("Shortcut name already exists in this environment")
 
     def _ensure_windows_cygwin_ready(self) -> str:
         settings = self.get_windows_cygwin_settings()
