@@ -241,7 +241,7 @@ function readinessLabel(host: EnvironmentTab): string {
 
 <template>
   <section
-    class="grid min-h-full content-start gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-blue-900/5"
+    class="grid min-h-full content-start gap-4 bg-slate-100 p-4 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
   >
     <div>
       <h2 class="text-lg font-semibold text-slate-950">{{ t('environmentManagement.title') }}</h2>

@@ -46,7 +46,7 @@ function closeTab(event: globalThis.MouseEvent, session: Session) {
 
 <template>
   <section
-    class="flex h-full min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-blue-900/5"
+    class="flex h-full min-h-0 flex-col bg-slate-100 p-3 dark:bg-slate-950"
   >
     <TabsRoot
       :model-value="activeTab"
@@ -84,7 +84,7 @@ function closeTab(event: globalThis.MouseEvent, session: Session) {
 
     <div
       v-if="!session"
-      class="flex min-h-0 flex-1 items-center justify-center rounded-2xl bg-slate-950 text-slate-300"
+      class="flex min-h-0 flex-1 items-center justify-center bg-slate-950 text-slate-300"
     >
       <div class="grid justify-items-center gap-3 text-sm">
         <Monitor class="h-10 w-10" />
@@ -103,7 +103,7 @@ function closeTab(event: globalThis.MouseEvent, session: Session) {
     </div>
     <div
       v-else-if="session.status !== 'running'"
-      class="flex min-h-0 flex-1 items-center justify-center rounded-2xl bg-slate-950 text-slate-300"
+      class="flex min-h-0 flex-1 items-center justify-center bg-slate-950 text-slate-300"
     >
       <div class="grid justify-items-center gap-3">
         <span>{{
@@ -124,7 +124,7 @@ function closeTab(event: globalThis.MouseEvent, session: Session) {
     </div>
     <div
       v-else-if="!session.url"
-      class="flex min-h-0 flex-1 items-center justify-center rounded-2xl bg-slate-950 text-slate-300"
+      class="flex min-h-0 flex-1 items-center justify-center bg-slate-950 text-slate-300"
     >
       {{ t('session.terminal.missingUrl') }}
     </div>

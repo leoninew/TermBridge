@@ -6,12 +6,15 @@ import {
   ChevronRight,
   Folder,
   Languages,
+  LaptopMinimal,
   PanelLeftClose,
   Loader2,
+  Moon,
   Plus,
   Search,
   Settings,
   Ban,
+  Sun,
   SquareTerminal,
   Trash2,
   XCircle,
@@ -36,6 +39,7 @@ import { useI18n } from 'vue-i18n'
 import CygwinLogo from './CygwinLogo.vue'
 import LinuxLogo from './LinuxLogo.vue'
 import WslLogo from './WslLogo.vue'
+import { useThemeStore } from '../stores/theme'
 import type {
   EnvironmentSummary,
   Session,
@@ -56,6 +60,7 @@ type SessionTreeNode = {
 }
 
 const { locale, t } = useI18n()
+const theme = useThemeStore()
 const query = ref('')
 const selectedTreeNodes = ref<SessionTreeNode[]>([])
 const expandedTreeKeys = ref<string[]>([])
@@ -253,9 +258,9 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
 
 <template>
   <section
-    class="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-blue-900/5"
+    class="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950"
   >
-    <div class="flex items-center justify-between gap-3 p-4 pb-2">
+    <div class="flex items-center justify-between gap-3 px-4 pb-2 pt-4">
       <div class="flex min-w-0 items-center gap-2">
         <button
           type="button"
@@ -266,12 +271,12 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
         >
           <PanelLeftClose class="h-4 w-4" />
         </button>
-        <h2 class="truncate text-lg font-semibold text-slate-950">{{ t('session.list.title') }}</h2>
+        <h2 class="truncate text-lg font-semibold text-slate-950 dark:text-slate-100">{{ t('session.list.title') }}</h2>
       </div>
       <button
         type="button"
         :disabled="!hasReadyEnvironment"
-        class="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-3 py-2 text-sm text-white shadow-sm transition hover:bg-blue-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        class="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-blue-600 px-3 py-2 text-sm text-white transition hover:bg-blue-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         @click="handleCreate"
       >
         <Plus class="h-4 w-4" />
@@ -439,7 +444,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
       </div>
     </div>
 
-    <div class="mt-auto flex items-center justify-between gap-3 border-t border-slate-200 p-3">
+    <div class="mt-auto flex items-center justify-between gap-3 border-t border-slate-200 p-3 dark:border-slate-800">
       <DropdownMenuRoot>
         <DropdownMenuTrigger
           class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-950 focus:outline-none"
@@ -462,7 +467,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
               @select="emit('navigate', '/environment')"
             >
               <span class="inline-flex items-center gap-2">
-                <Settings class="h-4 w-4 text-slate-500" />
+                <LaptopMinimal class="h-4 w-4 text-slate-500 dark:text-slate-400" />
                 {{ t('app.nav.environment') }}
               </span>
               <ChevronRight class="h-4 w-4 text-slate-400" />
@@ -488,10 +493,52 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
             </DropdownMenuItem>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger
-                class="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50"
+                class="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
               >
                 <span class="inline-flex items-center gap-2">
-                  <Languages class="h-4 w-4 text-slate-500" />
+                  <Sun class="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  {{ t('app.theme.label') }}
+                </span>
+                <ChevronRight class="h-4 w-4 text-slate-400" />
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent
+                  :side-offset="8"
+                  class="z-50 min-w-40 rounded-xl border border-slate-200 bg-white p-1 text-sm text-slate-700 shadow-xl shadow-blue-900/10 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  <DropdownMenuRadioGroup v-model="theme.mode">
+                    <DropdownMenuRadioItem
+                      value="light"
+                      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
+                    >
+                      <Check
+                        :class="theme.mode === 'light' ? 'opacity-100' : 'opacity-0'"
+                        class="h-4 w-4 text-blue-600"
+                      />
+                      <Sun class="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                      {{ t('app.theme.light') }}
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem
+                      value="dark"
+                      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
+                    >
+                      <Check
+                        :class="theme.mode === 'dark' ? 'opacity-100' : 'opacity-0'"
+                        class="h-4 w-4 text-blue-600"
+                      />
+                      <Moon class="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                      {{ t('app.theme.dark') }}
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger
+                class="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
+              >
+                <span class="inline-flex items-center gap-2">
+                  <Languages class="h-4 w-4 text-slate-500 dark:text-slate-400" />
                   {{ t('app.language.label') }}
                 </span>
                 <ChevronRight class="h-4 w-4 text-slate-400" />

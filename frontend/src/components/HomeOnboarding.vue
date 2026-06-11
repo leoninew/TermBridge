@@ -35,15 +35,15 @@ const options: Array<{ host: ShortcutHost; icon: Component; titleKey: string; de
 </script>
 
 <template>
-  <main class="min-h-screen bg-slate-100 p-5 text-sm text-slate-900">
+  <main class="min-h-screen bg-slate-100 p-5 text-sm text-slate-900 dark:bg-slate-950 dark:text-slate-100">
     <section
-      class="mx-auto grid min-h-[calc(100vh-2.5rem)] max-w-6xl content-center gap-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-blue-900/5 md:p-10"
+      class="mx-auto grid min-h-[calc(100vh-2.5rem)] max-w-6xl content-center gap-8 p-6 md:p-10"
     >
       <div class="mx-auto max-w-3xl text-center">
-        <h1 class="text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">
+        <h1 class="text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl dark:text-slate-100">
           {{ t('homeOnboarding.title') }}
         </h1>
-        <p class="mt-4 text-base leading-7 text-slate-600">
+        <p class="mt-4 text-base leading-7 text-slate-600 dark:text-slate-400">
           {{ t('homeOnboarding.description') }}
         </p>
         <p
@@ -63,14 +63,14 @@ const options: Array<{ host: ShortcutHost; icon: Component; titleKey: string; de
           v-for="option in options"
           :key="option.host"
           :to="{ path: '/environment', query: { tab: option.host } }"
-          class="group grid min-h-44 gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:shadow-lg hover:shadow-blue-900/10"
+          class="group grid min-h-44 gap-4 border-l border-slate-200 bg-white/50 p-5 text-left transition hover:border-blue-400 hover:bg-white dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-blue-500 dark:hover:bg-slate-900"
         >
-          <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm">
+          <span class="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
             <component :is="option.icon" class="h-5 w-5" />
           </span>
           <span>
-            <span class="block text-lg font-semibold text-slate-950">{{ t(option.titleKey) }}</span>
-            <span class="mt-2 block leading-6 text-slate-600">{{ t(option.descriptionKey) }}</span>
+            <span class="block text-lg font-semibold text-slate-950 dark:text-slate-100">{{ t(option.titleKey) }}</span>
+            <span class="mt-2 block leading-6 text-slate-600 dark:text-slate-400">{{ t(option.descriptionKey) }}</span>
           </span>
           <span class="mt-auto inline-flex items-center gap-1 font-medium text-blue-700">
             {{ t('homeOnboarding.configure') }}
@@ -79,7 +79,7 @@ const options: Array<{ host: ShortcutHost; icon: Component; titleKey: string; de
         </RouterLink>
       </div>
 
-      <div class="mx-auto flex flex-wrap items-center justify-center gap-3 text-slate-600">
+      <div class="mx-auto flex flex-wrap items-center justify-center gap-3 text-slate-600 dark:text-slate-400">
         <BookOpen class="h-4 w-4" />
         <span>{{ t('homeOnboarding.docsPrompt') }}</span>
         <RouterLink class="font-medium text-blue-700 hover:text-blue-800" to="/help">

@@ -12,6 +12,11 @@
       "zhCN": "中文",
       "enUS": "English"
     },
+    "theme": {
+      "label": "Theme",
+      "light": "Light",
+      "dark": "Dark"
+    },
     "settings": {
       "trigger": "Settings",
       "navigation": "Navigation",

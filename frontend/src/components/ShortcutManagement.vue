@@ -216,7 +216,7 @@ function hostDisabledReason(host: ShortcutHost): string {
 
 <template>
   <section
-    class="flex h-full min-h-0 flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-blue-900/5"
+    class="flex h-full min-h-0 flex-col gap-3 bg-slate-100 p-4 dark:bg-slate-950"
   >
     <div class="flex items-start justify-between gap-3">
       <div>

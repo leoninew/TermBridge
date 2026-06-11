@@ -7,9 +7,9 @@ const { locale, t } = useI18n()
 </script>
 
 <template>
-  <main class="min-h-screen bg-slate-100 p-5 text-sm text-slate-900">
+  <main class="min-h-screen bg-slate-100 p-5 text-sm text-slate-900 dark:bg-slate-950 dark:text-slate-100">
     <section
-      class="mx-auto flex min-h-[calc(100vh-2.5rem)] max-w-3xl flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-blue-900/5 md:p-10"
+      class="mx-auto flex min-h-[calc(100vh-2.5rem)] max-w-3xl flex-col p-6 md:p-10"
     >
       <RouterLink
         to="/"
@@ -19,7 +19,7 @@ const { locale, t } = useI18n()
         {{ t('environmentHelp.back') }}
       </RouterLink>
       <div class="flex flex-1 items-center justify-center text-center">
-        <h1 class="text-4xl font-semibold tracking-tight text-slate-950">
+        <h1 class="text-4xl font-semibold tracking-tight text-slate-950 dark:text-slate-100">
           {{ locale === 'zh-CN' ? '即将到来' : 'Comming Soon' }}
         </h1>
       </div>

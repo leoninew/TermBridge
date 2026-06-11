@@ -292,8 +292,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="h-screen overflow-hidden bg-slate-100 p-4 text-sm text-slate-900 md:p-5">
-    <SplitterGroup direction="horizontal" class="flex h-full">
+  <main class="h-screen overflow-hidden bg-slate-100 text-sm text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <SplitterGroup direction="horizontal" class="flex h-full bg-slate-100 dark:bg-slate-950">
       <SplitterPanel
         v-if="!sidebarCollapsed"
         id="session-sidebar"
@@ -335,7 +335,7 @@ onMounted(() => {
         class="group hidden w-4 cursor-col-resize items-stretch justify-center outline-none lg:flex"
       >
         <span
-          class="my-2 w-px rounded-full bg-slate-200 transition group-hover:w-1 group-hover:bg-blue-300 group-focus:w-1 group-focus:bg-blue-500"
+          class="w-px bg-slate-300 transition group-hover:w-1 group-hover:bg-blue-400 group-focus:w-1 group-focus:bg-blue-500 dark:bg-slate-800 dark:group-hover:bg-blue-500 dark:group-focus:bg-blue-500"
         />
       </SplitterResizeHandle>
 
@@ -344,7 +344,7 @@ onMounted(() => {
           <section
             v-if="showCreatePanel"
             key="create"
-            class="flex h-full min-h-0 overflow-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-blue-900/5"
+            class="flex h-full min-h-0 overflow-auto bg-slate-50 p-5"
           >
             <div class="m-auto w-full max-w-3xl">
               <SessionCreateForm
