@@ -377,7 +377,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                   </span>
                   <span
                     v-if="item.value.kind === 'workspace'"
-                    class="inline-flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100"
+                    class="ml-auto inline-flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100"
                   >
                     <button
                       type="button"
