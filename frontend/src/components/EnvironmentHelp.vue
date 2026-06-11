@@ -13,7 +13,7 @@ const { locale, t } = useI18n()
     >
       <RouterLink
         to="/"
-        class="inline-flex items-center gap-2 self-start text-sm font-medium text-blue-700 hover:text-blue-800"
+        class="inline-flex items-center gap-2 self-start text-sm font-medium text-blue-700 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
       >
         <ArrowLeft class="h-4 w-4" />
         {{ t('environmentHelp.back') }}

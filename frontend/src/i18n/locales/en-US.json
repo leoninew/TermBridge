@@ -101,7 +101,7 @@
       "empty": "No sessions yet. Create one first.",
       "noReadyEnvironment": "No runtime environment is ready. Open environment management to run checks or fill required paths.",
       "goToEnvironment": "Go to environment management",
-      "searchPlaceholder": "Search environments, directories, or sessions",
+      "searchPlaceholder": "Search directory paths",
       "collapse": "Collapse"
     },
     "card": {

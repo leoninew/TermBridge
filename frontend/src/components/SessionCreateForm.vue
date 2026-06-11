@@ -129,7 +129,7 @@ function hostDisabledReason(host: ShortcutHost): string {
 <template>
   <form class="grid gap-5" @submit.prevent="submit">
     <div>
-      <h2 class="text-lg font-semibold text-slate-950">{{ t('session.create.title') }}</h2>
+      <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-100">{{ t('session.create.title') }}</h2>
     </div>
 
     <p v-if="props.error" class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -140,18 +140,18 @@ function hostDisabledReason(host: ShortcutHost): string {
       {{ shortcutError }}
     </p>
 
-    <div class="grid gap-2 text-sm text-slate-700">
+    <div class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
       <span>{{ t('session.create.workspace') }}</span>
       <div class="flex gap-2">
         <input
           v-model.trim="form.workspace"
           required
-          class="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500"
+          class="min-w-0 flex-1 rounded-md border border-slate-300 bg-white/60 px-3 py-2 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
           :placeholder="t('session.create.workspacePlaceholder')"
         />
         <button
           type="button"
-          class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+          class="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
           @click="showWorkspaceBrowser = !showWorkspaceBrowser"
         >
           <FolderOpen class="h-4 w-4" />
@@ -165,21 +165,21 @@ function hostDisabledReason(host: ShortcutHost): string {
       />
     </div>
 
-    <label class="grid gap-2 text-sm text-slate-700">
+    <label class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
       {{ t('session.create.name') }}
       <input
         v-model.trim="form.name"
         required
-        class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500"
+        class="rounded-md border border-slate-300 bg-white/60 px-3 py-2 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
         :placeholder="t('session.create.namePlaceholder')"
       />
     </label>
 
-    <label class="grid gap-2 text-sm text-slate-700">
+    <label class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
       {{ t('session.create.host') }}
       <select
         v-model="selectedHost"
-        class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500"
+        class="rounded-md border border-slate-300 bg-white/60 px-3 py-2 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
       >
         <option
           v-for="host in hosts"
@@ -193,7 +193,7 @@ function hostDisabledReason(host: ShortcutHost): string {
       </select>
     </label>
 
-    <label class="grid gap-2 text-sm text-slate-700">
+    <label class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
       {{ t('session.create.shortcut') }}
       <p v-if="loadingShortcuts" class="inline-flex items-center gap-2 text-sm text-slate-500">
         <Loader2 class="h-4 w-4 animate-spin" />
@@ -204,19 +204,19 @@ function hostDisabledReason(host: ShortcutHost): string {
       </p>
       <SelectRoot v-else v-model="form.shortcut_id" required>
         <SelectTrigger
-          class="flex items-center justify-between rounded-xl border border-slate-300 bg-white px-3 py-2 text-left outline-none transition focus:border-blue-500"
+          class="flex items-center justify-between rounded-md border border-slate-300 bg-white/60 px-3 py-2 text-left outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
         >
           <SelectValue />
         </SelectTrigger>
         <SelectContent
-          class="z-50 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+          class="z-50 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-blue-900/5 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:shadow-none"
         >
           <SelectViewport class="p-1">
             <SelectItem
               v-for="shortcut in filteredShortcuts"
               :key="shortcut.id"
               :value="shortcut.id"
-              class="cursor-pointer rounded-lg px-3 py-2 text-sm outline-none hover:bg-blue-50 data-[highlighted]:bg-blue-50"
+              class="cursor-pointer rounded-md px-3 py-2 text-sm outline-none hover:bg-blue-50 data-[highlighted]:bg-blue-50 dark:hover:bg-slate-800 dark:data-[highlighted]:bg-slate-800"
             >
               <SelectItemText>{{ shortcut.name }}</SelectItemText>
             </SelectItem>
@@ -229,7 +229,7 @@ function hostDisabledReason(host: ShortcutHost): string {
       <button
         type="button"
         :disabled="props.submitting"
-        class="rounded-xl border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+        class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
         @click="emit('cancel')"
       >
         {{ t('app.actions.cancel') }}
@@ -237,7 +237,7 @@ function hostDisabledReason(host: ShortcutHost): string {
       <button
         type="submit"
         :disabled="props.submitting || !form.shortcut_id || !availableHosts.includes(selectedHost)"
-        class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
+        class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:opacity-60"
       >
         <Loader2 v-if="props.submitting" class="h-4 w-4 animate-spin" />
         {{ props.submitting ? t('session.create.submitting') : t('session.create.submit') }}

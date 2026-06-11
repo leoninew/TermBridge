@@ -101,7 +101,7 @@
       "empty": "暂无会话，先新建一个。",
       "noReadyEnvironment": "当前没有就绪的运行环境。请先进入环境管理执行检测或填写必要路径。",
       "goToEnvironment": "去环境管理",
-      "searchPlaceholder": "搜索环境、目录或会话",
+      "searchPlaceholder": "搜索目录路径",
       "collapse": "收起"
     },
     "card": {

@@ -48,12 +48,12 @@ const options: Array<{ host: ShortcutHost; icon: Component; titleKey: string; de
         </p>
         <p
           v-if="environmentStore.loading"
-          class="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-slate-500"
+          class="mt-4 inline-flex items-center gap-2 border-l border-slate-200 bg-white/40 px-4 py-2 text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400"
         >
           <Loader2 class="h-4 w-4 animate-spin" />
           {{ t('homeOnboarding.loading') }}
         </p>
-        <p v-else-if="environmentStore.error" class="mt-4 rounded-xl bg-red-50 px-4 py-3 text-red-700">
+        <p v-else-if="environmentStore.error" class="mt-4 border-l border-red-300 bg-red-50/70 px-4 py-3 text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
           {{ environmentStore.error }}
         </p>
       </div>
@@ -63,7 +63,7 @@ const options: Array<{ host: ShortcutHost; icon: Component; titleKey: string; de
           v-for="option in options"
           :key="option.host"
           :to="{ path: '/environment', query: { tab: option.host } }"
-          class="group grid min-h-44 gap-4 border-l border-slate-200 bg-white/50 p-5 text-left transition hover:border-blue-400 hover:bg-white dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-blue-500 dark:hover:bg-slate-900"
+          class="group grid min-h-44 gap-4 border border-slate-200 bg-white/35 p-5 text-left transition hover:border-blue-400 hover:bg-white/70 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-blue-500 dark:hover:bg-slate-900/50"
         >
           <span class="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
             <component :is="option.icon" class="h-5 w-5" />
@@ -72,7 +72,7 @@ const options: Array<{ host: ShortcutHost; icon: Component; titleKey: string; de
             <span class="block text-lg font-semibold text-slate-950 dark:text-slate-100">{{ t(option.titleKey) }}</span>
             <span class="mt-2 block leading-6 text-slate-600 dark:text-slate-400">{{ t(option.descriptionKey) }}</span>
           </span>
-          <span class="mt-auto inline-flex items-center gap-1 font-medium text-blue-700">
+          <span class="mt-auto inline-flex items-center gap-1 font-medium text-blue-700 dark:text-blue-400">
             {{ t('homeOnboarding.configure') }}
             <ChevronRight class="h-4 w-4 transition group-hover:translate-x-0.5" />
           </span>
@@ -82,7 +82,7 @@ const options: Array<{ host: ShortcutHost; icon: Component; titleKey: string; de
       <div class="mx-auto flex flex-wrap items-center justify-center gap-3 text-slate-600 dark:text-slate-400">
         <BookOpen class="h-4 w-4" />
         <span>{{ t('homeOnboarding.docsPrompt') }}</span>
-        <RouterLink class="font-medium text-blue-700 hover:text-blue-800" to="/help">
+        <RouterLink class="font-medium text-blue-700 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300" to="/help">
           {{ t('homeOnboarding.docsLink') }}
         </RouterLink>
       </div>

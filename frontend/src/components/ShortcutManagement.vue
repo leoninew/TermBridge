@@ -216,14 +216,14 @@ function hostDisabledReason(host: ShortcutHost): string {
 
 <template>
   <section
-    class="flex h-full min-h-0 flex-col gap-3 bg-slate-100 p-4 dark:bg-slate-950"
+    class="flex h-full min-h-0 flex-col gap-4 bg-slate-100 p-4 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
   >
-    <div class="flex items-start justify-between gap-3">
+    <div class="flex items-start justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
       <div>
-        <h2 class="text-lg font-semibold text-slate-950">{{ t('shortcutManagement.title') }}</h2>
+        <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-100">{{ t('shortcutManagement.title') }}</h2>
       </div>
       <button
-        class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-sm text-white shadow-sm transition hover:bg-blue-700"
+        class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm text-white transition hover:bg-blue-700"
         @click="showModal = true"
       >
         <Plus class="h-4 w-4" />
@@ -239,40 +239,38 @@ function hostDisabledReason(host: ShortcutHost): string {
 
     <div class="grid min-h-0 flex-1 content-start gap-4 overflow-auto pr-1">
       <section v-for="group in shortcutGroups" :key="group.host" class="grid gap-2.5">
-        <div class="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <div class="flex items-center gap-2 border-b border-slate-200 pb-2 dark:border-slate-800">
           <component :is="hostLogo(group.host)" class="shrink-0" />
-          <h3 class="text-sm font-semibold text-slate-950">{{ hostLabel(group.host) }}</h3>
-          <span class="rounded-full bg-slate-100 px-2 py-0.5 text-sm text-slate-600">
-            {{ group.shortcuts.length }}
-          </span>
+          <h3 class="text-sm font-semibold text-slate-950 dark:text-slate-100">{{ hostLabel(group.host) }}</h3>
         </div>
 
         <div class="grid gap-2.5 md:grid-cols-3 xl:grid-cols-4">
           <article
             v-for="shortcut in group.shortcuts"
             :key="shortcut.id"
-            class="group relative flex flex-col justify-between rounded-xl border border-slate-200 p-2.5 pb-12 shadow-md shadow-blue-900/5 transition-shadow hover:shadow-xl hover:shadow-blue-900/10"
+            class="group relative flex flex-col justify-between border border-slate-200 bg-white/35 p-2.5 pb-12 transition hover:border-blue-400 hover:bg-white/70 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-blue-500 dark:hover:bg-slate-900/50"
           >
             <div>
-              <p class="truncate text-sm font-semibold text-slate-950">{{ shortcut.name }}</p>
+              <p class="truncate text-sm font-semibold text-slate-950 dark:text-slate-100">{{ shortcut.name }}</p>
               <p
-                class="mt-1.5 truncate rounded-lg bg-white px-2 py-1.5 font-mono text-sm text-slate-700"
+                class="mt-1.5 truncate rounded-md border border-slate-300 bg-slate-200/80 px-2 py-1.5 font-mono text-xs text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                :title="shortcut.command"
               >
                 {{ shortcut.command }}
               </p>
             </div>
 
             <div
-              class="absolute bottom-2.5 right-2.5 flex gap-1.5 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100"
+              class="absolute bottom-2.5 right-2.5 flex gap-1.5"
             >
               <button
-                class="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                class="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                 @click="edit(shortcut)"
               >
                 {{ t('app.actions.edit') }}
               </button>
               <button
-                class="rounded-md border border-red-200 px-2 py-1 text-sm text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                class="rounded-md border border-red-200 px-2 py-1 text-sm text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
                 :disabled="usedShortcutIds.has(shortcut.id)"
                 :title="
                   usedShortcutIds.has(shortcut.id)
@@ -293,44 +291,44 @@ function hostDisabledReason(host: ShortcutHost): string {
       <DialogPortal>
         <DialogOverlay class="fixed inset-0 z-50 bg-slate-950/40" />
         <DialogContent
-          class="fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl bg-white p-5 text-sm shadow-2xl"
+          class="fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-xl shadow-blue-900/10 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:shadow-none"
         >
           <div>
-            <DialogTitle class="text-lg font-semibold text-slate-950">
+            <DialogTitle class="text-lg font-semibold text-slate-950 dark:text-slate-100">
               {{
                 editingId
                   ? t('shortcutManagement.dialog.editTitle')
                   : t('shortcutManagement.dialog.createTitle')
               }}
             </DialogTitle>
-            <DialogDescription class="mt-1 text-sm text-slate-500">
+            <DialogDescription class="mt-1 text-sm text-slate-500 dark:text-slate-400">
               {{ t('shortcutManagement.dialog.description') }}
             </DialogDescription>
           </div>
 
           <form class="grid gap-3" @submit.prevent="saveShortcut">
-            <label class="grid gap-1.5 text-sm text-slate-700">
+            <label class="grid gap-1.5 text-sm text-slate-700 dark:text-slate-300">
               {{ t('shortcutManagement.fields.name') }}
               <input
                 v-model.trim="form.name"
                 required
-                class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500"
+                class="rounded-md border border-slate-300 bg-white/60 px-3 py-2 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
               />
             </label>
-            <label class="grid gap-1.5 text-sm text-slate-700">
+            <label class="grid gap-1.5 text-sm text-slate-700 dark:text-slate-300">
               {{ t('shortcutManagement.fields.command') }}
               <input
                 v-model.trim="form.command"
                 required
-                class="rounded-xl border border-slate-300 px-3 py-2 font-mono outline-none transition focus:border-blue-500"
+                class="rounded-md border border-slate-300 bg-white/60 px-3 py-2 font-mono text-xs outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
               />
             </label>
-            <label class="grid gap-1.5 text-sm text-slate-700">
+            <label class="grid gap-1.5 text-sm text-slate-700 dark:text-slate-300">
               {{ t('shortcutManagement.fields.host') }}
               <select
                 v-model="form.host"
                 required
-                class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500"
+                class="rounded-md border border-slate-300 bg-white/60 px-3 py-2 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
               >
                 <option value="" disabled>{{ t('shortcutManagement.fields.selectHost') }}</option>
                 <option
@@ -344,19 +342,19 @@ function hostDisabledReason(host: ShortcutHost): string {
                 </option>
               </select>
             </label>
-            <label class="grid gap-1.5 text-sm text-slate-700">
+            <label class="grid gap-1.5 text-sm text-slate-700 dark:text-slate-300">
               {{ t('shortcutManagement.fields.description') }}
               <textarea
                 v-model.trim="form.description"
                 rows="3"
-                class="rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500"
+                class="rounded-md border border-slate-300 bg-white/60 px-3 py-2 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
               />
             </label>
             <div class="mt-2 flex justify-end gap-2">
               <DialogClose as-child>
                 <button
                   type="button"
-                  class="rounded-xl border border-slate-300 px-4 py-2 text-slate-700"
+                  class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
                 >
                   {{ t('app.actions.cancel') }}
                 </button>
@@ -364,7 +362,7 @@ function hostDisabledReason(host: ShortcutHost): string {
               <button
                 type="submit"
                 :disabled="saving"
-                class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white disabled:opacity-60"
+                class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:opacity-60"
               >
                 <Loader2 v-if="saving" class="h-4 w-4 animate-spin" />
                 {{ t('app.actions.save') }}
@@ -379,22 +377,22 @@ function hostDisabledReason(host: ShortcutHost): string {
       <AlertDialogPortal>
         <AlertDialogOverlay class="fixed inset-0 z-50 bg-slate-950/40" />
         <AlertDialogContent
-          class="fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl bg-white p-5 text-sm shadow-2xl"
+          class="fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-xl shadow-blue-900/10 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:shadow-none"
         >
           <div>
-            <AlertDialogTitle class="text-lg font-semibold text-slate-950">
+            <AlertDialogTitle class="text-lg font-semibold text-slate-950 dark:text-slate-100">
               {{ t('shortcutManagement.delete.title') }}
             </AlertDialogTitle>
-            <AlertDialogDescription class="mt-1 text-sm text-slate-500">
+            <AlertDialogDescription class="mt-1 text-sm text-slate-500 dark:text-slate-400">
               {{ t('shortcutManagement.delete.description', { name: deletingShortcut?.name }) }}
             </AlertDialogDescription>
           </div>
           <div class="flex justify-end gap-2">
-            <AlertDialogCancel class="rounded-xl border border-slate-300 px-4 py-2 text-slate-700">
+            <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900">
               {{ t('app.actions.cancel') }}
             </AlertDialogCancel>
             <AlertDialogAction
-              class="rounded-xl bg-red-600 px-4 py-2 text-white"
+              class="rounded-lg bg-red-600 px-4 py-2 text-white transition hover:bg-red-700"
               @click="confirmRemoveShortcut"
             >
               {{ t('app.actions.delete') }}

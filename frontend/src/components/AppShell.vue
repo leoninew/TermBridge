@@ -50,9 +50,9 @@ const deletingWorkspace = ref<{ id: string; path: string }>()
 const closeAllDialogOpen = ref(false)
 const closingAllSessions = ref(false)
 const sidebarCollapsed = ref(false)
-const sidebarMinWidth = 400
-const sidebarWidth = ref(400)
-const sidebarMaxWidth = 560
+const sidebarMinWidth = 320
+const sidebarWidth = ref(360)
+const sidebarMaxWidth = 480
 const compactSidebar = computed(() => sidebarWidth.value < 360)
 const deleteDialogOpen = computed({
   get: () => !!deletingSession.value,
@@ -332,10 +332,10 @@ onMounted(() => {
       <SplitterResizeHandle
         v-if="!sidebarCollapsed"
         :aria-label="t('app.sidebar.resizeLabel')"
-        class="group hidden w-4 cursor-col-resize items-stretch justify-center outline-none lg:flex"
+        class="group relative hidden w-px cursor-col-resize bg-slate-200/70 outline-none before:absolute before:inset-y-0 before:-left-2 before:-right-2 dark:bg-slate-800 lg:block"
       >
         <span
-          class="w-px bg-slate-300 transition group-hover:w-1 group-hover:bg-blue-400 group-focus:w-1 group-focus:bg-blue-500 dark:bg-slate-800 dark:group-hover:bg-blue-500 dark:group-focus:bg-blue-500"
+          class="absolute inset-y-0 left-0 w-px bg-transparent transition group-hover:bg-blue-400 group-focus:bg-blue-500 dark:group-hover:bg-blue-500 dark:group-focus:bg-blue-500"
         />
       </SplitterResizeHandle>
 
@@ -344,9 +344,9 @@ onMounted(() => {
           <section
             v-if="showCreatePanel"
             key="create"
-            class="flex h-full min-h-0 overflow-auto bg-slate-50 p-5"
+            class="flex h-full min-h-0 overflow-auto bg-slate-100 p-5 dark:bg-slate-950"
           >
-            <div class="m-auto w-full max-w-3xl">
+            <div class="m-auto w-full max-w-3xl border border-slate-200 bg-white/35 p-5 dark:border-slate-800 dark:bg-slate-950">
               <SessionCreateForm
                 :environments="environmentStore.environments"
                 :submitting="creatingSession"
@@ -378,7 +378,7 @@ onMounted(() => {
     <button
       v-if="sidebarCollapsed"
       type="button"
-      class="fixed left-1 top-1 z-40 inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-xl shadow-blue-900/15 transition hover:bg-blue-50 hover:text-blue-700"
+      class="fixed bottom-3 left-3 z-40 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300/70 bg-slate-100/90 text-slate-600 shadow-lg shadow-blue-900/10 transition hover:bg-white/70 hover:text-blue-700 dark:border-slate-800 dark:bg-slate-900/95 dark:text-slate-400 dark:shadow-none dark:hover:bg-slate-800 dark:hover:text-slate-100"
       :aria-label="t('app.sidebar.expandLabel')"
       :title="t('app.sidebar.expandLabel')"
       @click="sidebarCollapsed = false"
@@ -390,18 +390,18 @@ onMounted(() => {
       <AlertDialogPortal>
         <AlertDialogOverlay class="fixed inset-0 z-50 bg-slate-950/40" />
         <AlertDialogContent
-          class="fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl bg-white p-5 text-sm shadow-2xl"
+          class="fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-xl shadow-blue-900/10 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:shadow-none"
         >
           <div>
-            <AlertDialogTitle class="text-lg font-semibold text-slate-950">{{
+            <AlertDialogTitle class="text-lg font-semibold text-slate-950 dark:text-slate-100">{{
               t('app.deleteSession.title')
             }}</AlertDialogTitle>
-            <AlertDialogDescription class="mt-2 text-sm text-slate-600">
+            <AlertDialogDescription class="mt-2 text-sm text-slate-600 dark:text-slate-400">
               {{ t('app.deleteSession.description', { name: deletingSession?.name }) }}
             </AlertDialogDescription>
           </div>
           <div class="flex justify-end gap-2">
-            <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2">
+            <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900">
               {{ t('app.actions.cancel') }}
             </AlertDialogCancel>
             <button
@@ -420,16 +420,20 @@ onMounted(() => {
       <AlertDialogPortal>
         <AlertDialogOverlay class="fixed inset-0 z-50 bg-slate-950/40" />
         <AlertDialogContent
-          class="fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl bg-white p-5 text-sm shadow-2xl"
+          class="fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-xl shadow-blue-900/10 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:shadow-none"
         >
           <div>
             <AlertDialogTitle
               class="text-lg font-semibold"
-              :class="deletingWorkspaceSessionCount > 0 ? 'text-amber-700' : 'text-slate-950'"
+              :class="
+                deletingWorkspaceSessionCount > 0
+                  ? 'text-amber-700 dark:text-amber-400'
+                  : 'text-slate-950 dark:text-slate-100'
+              "
             >
               {{ t('app.deleteWorkspace.title') }}
             </AlertDialogTitle>
-            <AlertDialogDescription class="mt-2 text-sm text-slate-600">
+            <AlertDialogDescription class="mt-2 text-sm text-slate-600 dark:text-slate-400">
               {{
                 t(
                   deletingWorkspaceSessionCount > 0
@@ -441,13 +445,13 @@ onMounted(() => {
             </AlertDialogDescription>
           </div>
           <div class="flex justify-end gap-2">
-            <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2">
+            <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900">
               {{ t('app.actions.cancel') }}
             </AlertDialogCancel>
             <button
               type="button"
               class="rounded-lg px-4 py-2 text-white"
-              :class="deletingWorkspaceSessionCount > 0 ? 'bg-amber-600' : 'bg-slate-900'"
+              :class="deletingWorkspaceSessionCount > 0 ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600'"
               @click="confirmRemoveWorkspace"
             >
               {{ t('app.deleteWorkspace.confirm') }}
@@ -461,18 +465,18 @@ onMounted(() => {
       <AlertDialogPortal>
         <AlertDialogOverlay class="fixed inset-0 z-50 bg-slate-950/40" />
         <AlertDialogContent
-          class="fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl bg-white p-5 text-sm shadow-2xl"
+          class="fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-xl shadow-blue-900/10 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:shadow-none"
         >
           <div>
-            <AlertDialogTitle class="text-lg font-semibold text-amber-700">
+            <AlertDialogTitle class="text-lg font-semibold text-amber-700 dark:text-amber-400">
               {{ t('app.closeAllSessions.title') }}
             </AlertDialogTitle>
-            <AlertDialogDescription class="mt-2 text-sm text-slate-600">
+            <AlertDialogDescription class="mt-2 text-sm text-slate-600 dark:text-slate-400">
               {{ t('app.closeAllSessions.description') }}
             </AlertDialogDescription>
           </div>
           <div class="flex justify-end gap-2">
-            <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2">
+            <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900">
               {{ t('app.actions.cancel') }}
             </AlertDialogCancel>
             <button

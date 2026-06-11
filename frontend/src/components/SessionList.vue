@@ -44,7 +44,6 @@ import type {
   EnvironmentSummary,
   Session,
   SessionEnvironment,
-  SessionWorkspace,
   ShortcutHost,
 } from '../types/sessions'
 
@@ -98,22 +97,10 @@ const filteredTree = computed(() => {
   }
   return props.sessionTree
     .map((environment) => {
-      const environmentMatches = matches(environment.label, environment.host, needle)
-      const workspaces = environment.workspaces
-        .map((workspace) => {
-          const workspaceMatches = matches(workspace.name, workspace.path, needle)
-          const entries = workspace.entries.filter(
-            (entry) =>
-              workspaceMatches ||
-              environmentMatches ||
-              matches(entry.name, entry.shortcut_name || '', entry.runtime, needle),
-          )
-          return entries.length > 0 || workspaceMatches ? { ...workspace, entries } : undefined
-        })
-        .filter((workspace): workspace is SessionWorkspace => !!workspace)
-      return workspaces.length > 0 || environmentMatches
-        ? { ...environment, workspaces }
-        : undefined
+      const workspaces = environment.workspaces.filter((workspace) =>
+        workspace.path.toLowerCase().includes(needle),
+      )
+      return workspaces.length > 0 ? { ...environment, workspaces } : undefined
     })
     .filter((environment): environment is SessionEnvironment => !!environment)
 })
@@ -166,11 +153,6 @@ watch(
   },
   { immediate: true },
 )
-
-function matches(...values: string[]) {
-  const needle = values.pop() || ''
-  return values.some((value) => value.toLowerCase().includes(needle))
-}
 
 function collectExpandableKeys(nodes: SessionTreeNode[]): string[] {
   return nodes.flatMap((node) => [
@@ -258,33 +240,9 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
 
 <template>
   <section
-    class="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950"
+    class="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-200/70 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 lg:border-r-0"
   >
-    <div class="flex items-center justify-between gap-3 px-4 pb-2 pt-4">
-      <div class="flex min-w-0 items-center gap-2">
-        <button
-          type="button"
-          class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-          :aria-label="t('session.list.collapse')"
-          :title="t('session.list.collapse')"
-          @click="emit('collapse')"
-        >
-          <PanelLeftClose class="h-4 w-4" />
-        </button>
-        <h2 class="truncate text-lg font-semibold text-slate-950 dark:text-slate-100">{{ t('session.list.title') }}</h2>
-      </div>
-      <button
-        type="button"
-        :disabled="!hasReadyEnvironment"
-        class="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-blue-600 px-3 py-2 text-sm text-white transition hover:bg-blue-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-        @click="handleCreate"
-      >
-        <Plus class="h-4 w-4" />
-        {{ t('session.terminal.createTab') }}
-      </button>
-    </div>
-
-    <div class="flex min-h-0 flex-1 flex-col gap-3 p-4 pt-2">
+    <div class="flex min-h-0 flex-1 flex-col gap-2.5 p-3 pt-3">
       <p
         v-if="loading || environmentsLoading"
         class="inline-flex items-center gap-2 text-sm text-slate-500"
@@ -298,7 +256,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
       </p>
       <div
         v-else-if="sessions.length === 0 && !hasReadyEnvironment"
-        class="grid gap-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900"
+        class="grid gap-3 border-l border-amber-300 bg-amber-50/70 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200"
       >
         <p>{{ t('session.list.noReadyEnvironment') }}</p>
         <button
@@ -312,15 +270,26 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
       <p v-else-if="shouldShowEmptySessions" class="text-sm text-slate-500">
         {{ t('session.list.empty') }}
       </p>
-      <div v-else class="flex min-h-0 flex-1 flex-col gap-3">
-        <label class="relative block">
-          <Search class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <input
-            v-model.trim="query"
-            class="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-500"
-            :placeholder="t('session.list.searchPlaceholder')"
-          />
-        </label>
+      <div v-else class="flex min-h-0 flex-1 flex-col gap-2.5">
+        <div class="flex items-center gap-2">
+          <label class="relative min-w-0 flex-1">
+            <Search class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
+            <input
+              v-model.trim="query"
+              class="h-9 w-full rounded-md border border-slate-300/70 bg-white/45 py-1.5 pl-8 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white/65 dark:border-slate-700/80 dark:bg-slate-950/35 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-blue-500 dark:focus:bg-slate-950/60"
+              :placeholder="t('session.list.searchPlaceholder')"
+            />
+          </label>
+          <button
+            type="button"
+            :disabled="!hasReadyEnvironment"
+            class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-blue-500/40 bg-blue-600/90 px-2.5 text-sm font-medium text-white transition hover:bg-blue-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-400/25 dark:bg-blue-500/85 dark:hover:bg-blue-500"
+            @click="handleCreate"
+          >
+            <Plus class="h-4 w-4" />
+            {{ t('session.terminal.createTab') }}
+          </button>
+        </div>
 
         <div class="min-h-0 flex-1 overflow-auto pr-1">
           <TreeRoot
@@ -333,7 +302,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
             :get-key="(node: SessionTreeNode) => node.id"
             :get-children="(node: SessionTreeNode) => node.children"
             selection-behavior="replace"
-            class="grid gap-0.5 outline-none"
+            class="grid gap-px outline-none"
           >
             <template #default="{ flattenItems }">
               <TreeItem
@@ -345,15 +314,15 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                 @select.prevent="handleTreeSelect(item.value)"
               >
                 <div
-                  class="group flex w-full items-center gap-2 rounded-lg py-1.5 pr-2 text-left text-sm transition focus:outline-none"
+                  class="group flex w-full items-center gap-1.5 rounded-md py-1 pr-1.5 text-left text-[13px] leading-5 transition focus:outline-none"
                   :class="
                     isSelectedNode(item.value)
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
+                      ? 'bg-blue-100/65 text-blue-800 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/45 dark:text-blue-200 dark:ring-blue-800/40'
+                      : 'text-slate-600 hover:bg-white/45 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/55 dark:hover:text-slate-100'
                   "
-                  :style="{ paddingLeft: `${(item.level - 1) * 16 + 8}px` }"
+                  :style="{ paddingLeft: `${(item.level - 1) * 14 + 6}px` }"
                 >
-                  <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center">
+                  <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 dark:text-slate-500">
                     <ChevronDown v-if="item.value.children?.length && isExpanded" class="h-4 w-4" />
                     <ChevronRight
                       v-else-if="item.value.children?.length"
@@ -367,15 +336,15 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                   />
                   <Folder
                     v-if="item.value.kind === 'workspace'"
-                    class="h-4 w-4 shrink-0 text-slate-400"
+                    class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500"
                   />
                   <SquareTerminal
                     v-if="item.value.kind === 'session'"
-                    class="h-4 w-4 shrink-0 text-slate-400"
+                    class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500"
                   />
                   <span
                     class="min-w-0 flex-1 truncate"
-                    :class="item.value.kind === 'workspace' ? 'max-w-36' : ''"
+                    :class="item.value.kind === 'workspace' ? 'max-w-48' : ''"
                     :title="item.value.kind === 'workspace' ? item.value.label : undefined"
                   >
                     {{ item.value.label }}
@@ -386,7 +355,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                   >
                     <button
                       type="button"
-                      class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-300 transition hover:bg-blue-50 hover:text-blue-600 focus:opacity-100"
+                      class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-blue-100/60 hover:text-blue-700 focus:opacity-100 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-blue-300"
                       :aria-label="t('session.workspace.createLabel')"
                       :title="t('session.workspace.createLabel')"
                       @click="createFromWorkspace($event, item.value)"
@@ -395,7 +364,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                     </button>
                     <button
                       type="button"
-                      class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-300 transition hover:bg-red-50 hover:text-red-600 focus:opacity-100"
+                      class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-red-100/60 hover:text-red-600 focus:opacity-100 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
                       :aria-label="t('session.workspace.deleteLabel')"
                       :title="t('session.workspace.deleteLabel')"
                       @click="removeWorkspace($event, item.value)"
@@ -410,7 +379,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                     <button
                       v-if="item.value.session.status === 'running'"
                       type="button"
-                      class="relative inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-amber-50 hover:text-amber-600"
+                      class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 dark:text-slate-500 dark:hover:bg-amber-950/40 dark:hover:text-amber-300"
                       :aria-label="t('session.card.stopLabel')"
                       :title="t('session.card.stopLabel')"
                       @click="stopSession($event, item.value.session)"
@@ -419,7 +388,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                     </button>
                     <span
                       v-if="item.value.session.status === 'stopped' && isStartingSession(item.value.session)"
-                      class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400"
+                      class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 dark:text-slate-500"
                       :aria-label="t('session.card.startLabel')"
                       :title="t('session.card.startLabel')"
                     >
@@ -428,7 +397,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                     <button
                       v-if="item.value.session.status === 'stopped'"
                       type="button"
-                      class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                      class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-red-100/60 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
                       :aria-label="t('session.card.deleteLabel')"
                       :title="t('session.card.deleteLabel')"
                       @click="removeSession($event, item.value.session)"
@@ -444,26 +413,27 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
       </div>
     </div>
 
-    <div class="mt-auto flex items-center justify-between gap-3 border-t border-slate-200 p-3 dark:border-slate-800">
+    <div class="mt-auto flex items-center gap-2 border-t border-slate-200/70 bg-slate-100/80 p-2.5 dark:border-slate-800 dark:bg-slate-900/80">
       <DropdownMenuRoot>
         <DropdownMenuTrigger
-          class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-950 focus:outline-none"
+          class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-white/50 hover:text-slate-800 focus:outline-none dark:text-slate-400 dark:hover:bg-slate-800/70 dark:hover:text-slate-100"
+          :aria-label="t('app.settings.trigger')"
+          :title="t('app.settings.trigger')"
         >
           <Settings class="h-4 w-4" />
-          {{ t('app.settings.trigger') }}
         </DropdownMenuTrigger>
         <DropdownMenuPortal>
           <DropdownMenuContent
             :side-offset="8"
             align="start"
             side="top"
-            class="z-50 min-w-56 rounded-xl border border-slate-200 bg-white p-1 text-sm text-slate-700 shadow-xl shadow-blue-900/10"
+            class="z-50 min-w-56 rounded-lg border border-slate-200 bg-white p-1 text-sm text-slate-700 shadow-lg shadow-blue-900/5 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:shadow-none"
           >
             <DropdownMenuLabel class="px-3 py-2 text-sm uppercase tracking-wide text-slate-400">
               {{ t('app.settings.navigation') }}
             </DropdownMenuLabel>
             <DropdownMenuItem
-              class="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50"
+              class="flex cursor-pointer items-center justify-between rounded-md px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
               @select="emit('navigate', '/environment')"
             >
               <span class="inline-flex items-center gap-2">
@@ -473,7 +443,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
               <ChevronRight class="h-4 w-4 text-slate-400" />
             </DropdownMenuItem>
             <DropdownMenuItem
-              class="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50"
+              class="flex cursor-pointer items-center justify-between rounded-md px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
               @select="emit('navigate', '/shortcuts')"
             >
               <span class="inline-flex items-center gap-2">
@@ -483,7 +453,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
               <ChevronRight class="h-4 w-4 text-slate-400" />
             </DropdownMenuItem>
             <DropdownMenuItem
-              class="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-amber-700 outline-none hover:bg-amber-50 focus:bg-amber-50"
+              class="flex cursor-pointer items-center justify-between rounded-md px-3 py-2 text-amber-700 outline-none hover:bg-amber-50 focus:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40 dark:focus:bg-amber-950/40"
               @select="emit('closeAll')"
             >
               <span class="inline-flex items-center gap-2">
@@ -493,7 +463,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
             </DropdownMenuItem>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger
-                class="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
+                class="flex cursor-pointer items-center justify-between rounded-md px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
               >
                 <span class="inline-flex items-center gap-2">
                   <Sun class="h-4 w-4 text-slate-500 dark:text-slate-400" />
@@ -504,12 +474,12 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
               <DropdownMenuPortal>
                 <DropdownMenuSubContent
                   :side-offset="8"
-                  class="z-50 min-w-40 rounded-xl border border-slate-200 bg-white p-1 text-sm text-slate-700 shadow-xl shadow-blue-900/10 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                  class="z-50 min-w-40 rounded-lg border border-slate-200 bg-white p-1 text-sm text-slate-700 shadow-lg shadow-blue-900/5 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:shadow-none"
                 >
                   <DropdownMenuRadioGroup v-model="theme.mode">
                     <DropdownMenuRadioItem
                       value="light"
-                      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
+                      class="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
                     >
                       <Check
                         :class="theme.mode === 'light' ? 'opacity-100' : 'opacity-0'"
@@ -520,7 +490,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                     </DropdownMenuRadioItem>
                     <DropdownMenuRadioItem
                       value="dark"
-                      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
+                      class="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
                     >
                       <Check
                         :class="theme.mode === 'dark' ? 'opacity-100' : 'opacity-0'"
@@ -535,7 +505,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
             </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger
-                class="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
+                class="flex cursor-pointer items-center justify-between rounded-md px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
               >
                 <span class="inline-flex items-center gap-2">
                   <Languages class="h-4 w-4 text-slate-500 dark:text-slate-400" />
@@ -546,12 +516,12 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
               <DropdownMenuPortal>
                 <DropdownMenuSubContent
                   :side-offset="8"
-                  class="z-50 min-w-40 rounded-xl border border-slate-200 bg-white p-1 text-sm text-slate-700 shadow-xl shadow-blue-900/10"
+                  class="z-50 min-w-40 rounded-lg border border-slate-200 bg-white p-1 text-sm text-slate-700 shadow-lg shadow-blue-900/5 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:shadow-none"
                 >
                   <DropdownMenuRadioGroup v-model="locale">
                     <DropdownMenuRadioItem
                       value="zh-CN"
-                      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50"
+                      class="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
                     >
                       <Check
                         :class="locale === 'zh-CN' ? 'opacity-100' : 'opacity-0'"
@@ -561,7 +531,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                     </DropdownMenuRadioItem>
                     <DropdownMenuRadioItem
                       value="en-US"
-                      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50"
+                      class="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
                     >
                       <Check
                         :class="locale === 'en-US' ? 'opacity-100' : 'opacity-0'"
@@ -576,9 +546,19 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
           </DropdownMenuContent>
         </DropdownMenuPortal>
       </DropdownMenuRoot>
-      <span v-if="selectedShortcutLabel" class="min-w-0 truncate text-sm text-slate-500">
-        {{ t('session.card.shortcut', { shortcut: selectedShortcutLabel }) }}
+      <span v-if="selectedShortcutLabel" class="ml-auto min-w-0 truncate text-right text-xs text-slate-500 dark:text-slate-500">
+        {{ selectedShortcutLabel }}
       </span>
+      <button
+        type="button"
+        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-white/50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800/70 dark:hover:text-slate-100"
+        :class="selectedShortcutLabel ? 'ml-1' : 'ml-auto'"
+        :aria-label="t('session.list.collapse')"
+        :title="t('session.list.collapse')"
+        @click="emit('collapse')"
+      >
+        <PanelLeftClose class="h-4 w-4" />
+      </button>
     </div>
   </section>
 </template>

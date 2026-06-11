@@ -8,5 +8,6 @@ __pycache__
 
 
 .termbridge
+.pomelo-pw
 
 src/termbridge/static

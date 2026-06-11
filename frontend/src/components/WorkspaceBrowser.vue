@@ -181,7 +181,7 @@ function collapse(entry: TreeEntry, index: number) {
 <template>
   <section
     ref="browserRef"
-    class="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 font-normal"
+    class="overflow-hidden border border-slate-200 bg-white/35 font-normal dark:border-slate-800 dark:bg-slate-950"
   >
     <div class="max-h-64 overflow-auto p-2">
       <p
@@ -203,8 +203,8 @@ function collapse(entry: TreeEntry, index: number) {
           v-for="(entry, index) in entries"
           :key="entry.path"
           type="button"
-          class="flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition hover:bg-blue-50"
-          :class="selectedPath === entry.path ? 'bg-blue-100 text-blue-800' : 'text-slate-700'"
+          class="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition hover:bg-blue-50 dark:hover:bg-slate-900"
+          :class="selectedPath === entry.path ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'"
           :style="{ paddingLeft: `${8 + entry.depth * 18}px` }"
           :data-selected-workspace="selectedPath === entry.path"
           @click="toggle(entry, index)"
@@ -212,12 +212,12 @@ function collapse(entry: TreeEntry, index: number) {
           <Loader2 v-if="entry.loading" class="h-4 w-4 animate-spin text-slate-400" />
           <ChevronRight
             v-else-if="entry.hasChildren"
-            class="h-4 w-4 text-slate-400 transition"
+            class="h-4 w-4 text-slate-400 transition dark:text-slate-500"
             :class="{ 'rotate-90': entry.expanded }"
           />
           <span v-else class="h-4 w-4" />
-          <HardDrive v-if="entry.kind === 'root'" class="h-4 w-4 shrink-0 text-slate-500" />
-          <Folder v-else class="h-4 w-4 shrink-0 text-slate-500" />
+          <HardDrive v-if="entry.kind === 'root'" class="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
+          <Folder v-else class="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
           <span class="truncate">{{ entry.name }}</span>
         </button>
       </div>

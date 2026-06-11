@@ -244,7 +244,7 @@ function readinessLabel(host: EnvironmentTab): string {
     class="grid min-h-full content-start gap-4 bg-slate-100 p-4 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
   >
     <div>
-      <h2 class="text-lg font-semibold text-slate-950">{{ t('environmentManagement.title') }}</h2>
+      <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-100">{{ t('environmentManagement.title') }}</h2>
     </div>
 
     <p v-if="loading" class="inline-flex items-center gap-2 text-sm text-slate-500">
@@ -253,25 +253,25 @@ function readinessLabel(host: EnvironmentTab): string {
     </p>
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
 
-    <section class="rounded-xl border border-slate-200 p-4">
+    <section class="border-b border-slate-200 pb-4 dark:border-slate-800">
       <div>
-        <h3 class="text-lg font-semibold text-slate-950">
+        <h3 class="text-lg font-semibold text-slate-950 dark:text-slate-100">
           {{ t('environmentManagement.ttyd.title') }}
         </h3>
       </div>
 
       <div class="mt-4 grid gap-2">
-        <label class="grid gap-2 text-sm text-slate-700">
+        <label class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
           {{ t('environmentManagement.ttyd.path') }}
           <div class="flex gap-2">
             <input
               v-model.trim="ttydSettings.ttyd_path"
-              class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
+              class="min-w-0 flex-1 rounded-md border border-slate-300 bg-white/60 px-3 py-2 text-sm font-normal text-slate-800 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
               placeholder="ttyd"
             />
             <button
               type="button"
-              class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
               :disabled="checking === 'ttyd'"
               @click="refreshTtyd"
             >
@@ -290,12 +290,12 @@ function readinessLabel(host: EnvironmentTab): string {
     </section>
 
     <TabsRoot :model-value="activeTab" class="grid gap-4" @update:model-value="updateActiveTab">
-      <TabsList class="flex flex-wrap gap-4 border-b border-slate-200">
+      <TabsList class="flex flex-wrap gap-4 border-b border-slate-200 dark:border-slate-800">
         <TabsTrigger
           v-for="tab in tabs"
           :key="tab.id"
           :value="tab.id"
-          class="-mb-px inline-flex items-center gap-2 border-b-2 border-transparent px-1 py-2 text-sm text-slate-600 transition hover:text-slate-950 data-[state=active]:border-blue-600 data-[state=active]:text-blue-700"
+          class="-mb-px inline-flex items-center gap-2 border-b-2 border-transparent px-1 py-2 text-sm text-slate-600 transition hover:text-slate-950 data-[state=active]:border-blue-600 data-[state=active]:text-blue-700 dark:text-slate-400 dark:hover:text-slate-100 dark:data-[state=active]:text-blue-400"
         >
           <component
             :is="tab.icon"
@@ -307,8 +307,8 @@ function readinessLabel(host: EnvironmentTab): string {
             class="rounded-full px-2 py-0.5 text-sm"
             :class="
               environmentSummary(tab.id)?.readiness === 'ready'
-                ? 'bg-emerald-50 text-emerald-700'
-                : 'bg-slate-200 text-slate-600'
+                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                : 'bg-slate-200 text-slate-600 dark:bg-slate-900 dark:text-slate-300'
             "
           >
             {{ readinessLabel(tab.id) }}
@@ -316,14 +316,14 @@ function readinessLabel(host: EnvironmentTab): string {
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="windows_cygwin" class="grid gap-4 rounded-xl border border-slate-200 p-4">
+      <TabsContent value="windows_cygwin" class="grid gap-4 border-b border-slate-200 py-4 dark:border-slate-800">
         <div class="flex items-start justify-between gap-3">
-          <h3 class="text-lg font-semibold text-slate-950">
+          <h3 class="text-lg font-semibold text-slate-950 dark:text-slate-100">
             {{ t('environmentManagement.windowsCygwin.title') }}
           </h3>
           <button
             type="button"
-            class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
             :disabled="checking === 'windows_cygwin'"
             @click="() => refreshWindowsCygwin()"
           >
@@ -336,11 +336,11 @@ function readinessLabel(host: EnvironmentTab): string {
         </div>
 
         <div class="grid gap-2">
-          <label class="grid gap-2 text-sm text-slate-700">
+          <label class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
             {{ t('environmentManagement.windowsCygwin.bashPath') }}
             <input
               v-model.trim="windowsCygwinSettings.bash_path"
-              class="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
+              class="min-w-0 rounded-md border border-slate-300 bg-white/60 px-3 py-2 text-sm font-normal text-slate-800 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
               placeholder="bash"
             />
           </label>
@@ -359,11 +359,11 @@ function readinessLabel(host: EnvironmentTab): string {
         </div>
 
         <div class="grid gap-2">
-          <label class="grid gap-2 text-sm text-slate-700">
+          <label class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
             {{ t('environmentManagement.windowsCygwin.tmuxPath') }}
             <input
               v-model.trim="tmuxPath"
-              class="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
+              class="min-w-0 rounded-md border border-slate-300 bg-white/60 px-3 py-2 text-sm font-normal text-slate-800 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
               placeholder="tmux"
               readonly
             />
@@ -383,14 +383,14 @@ function readinessLabel(host: EnvironmentTab): string {
         </div>
       </TabsContent>
 
-      <TabsContent value="windows_wsl" class="grid gap-4 rounded-xl border border-slate-200 p-4">
+      <TabsContent value="windows_wsl" class="grid gap-4 border-b border-slate-200 py-4 dark:border-slate-800">
         <div class="flex items-start justify-between gap-3">
-          <h3 class="text-lg font-semibold text-slate-950">
+          <h3 class="text-lg font-semibold text-slate-950 dark:text-slate-100">
             {{ t('environmentManagement.windowsWsl.title') }}
           </h3>
           <button
             type="button"
-            class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
             :disabled="checking === 'windows_wsl'"
             @click="refreshTab('windows_wsl')"
           >
@@ -400,11 +400,11 @@ function readinessLabel(host: EnvironmentTab): string {
         </div>
 
         <div class="grid gap-2">
-          <label class="grid gap-2 text-sm text-slate-700">
+          <label class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
             {{ t('environmentManagement.windowsWsl.wslPath') }}
             <input
               :value="windowsWslSettings.wsl_path || ''"
-              class="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
+              class="min-w-0 rounded-md border border-slate-300 bg-white/60 px-3 py-2 text-sm font-normal text-slate-800 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
               placeholder="wsl"
               readonly
             />
@@ -427,11 +427,11 @@ function readinessLabel(host: EnvironmentTab): string {
         </div>
 
         <div class="grid gap-2">
-          <label class="grid gap-2 text-sm text-slate-700">
+          <label class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
             {{ t('environmentManagement.windowsWsl.tmuxPath') }}
             <input
               :value="windowsWslSettings.tmux_path || ''"
-              class="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
+              class="min-w-0 rounded-md border border-slate-300 bg-white/60 px-3 py-2 text-sm font-normal text-slate-800 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
               placeholder="tmux"
               readonly
             />
@@ -454,14 +454,14 @@ function readinessLabel(host: EnvironmentTab): string {
         </div>
       </TabsContent>
 
-      <TabsContent value="linux" class="grid gap-3 rounded-xl border border-slate-200 p-4">
+      <TabsContent value="linux" class="grid gap-3 border-b border-slate-200 py-4 dark:border-slate-800">
         <div class="flex items-start justify-between gap-3">
-          <h3 class="text-lg font-semibold text-slate-950">
+          <h3 class="text-lg font-semibold text-slate-950 dark:text-slate-100">
             {{ t('environmentManagement.linux.title') }}
           </h3>
           <button
             type="button"
-            class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
             :disabled="checking === 'linux'"
             @click="refreshTab('linux')"
           >
