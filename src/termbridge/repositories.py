@@ -10,7 +10,7 @@ from termbridge.exceptions import (
     SessionRepositoryError,
     ShortcutRepositoryError,
 )
-from termbridge.models import SessionEntryRecord, SessionState, TerminalState, WorkspaceRecord
+from termbridge.models import SessionEntryRecord, SessionState, ShortcutHost, TerminalState, WorkspaceRecord
 
 
 class FileSessionRepository:
@@ -39,12 +39,14 @@ class FileSessionRepository:
         self._write_state(state)
         return workspace
 
-    def delete_workspace(self, workspace_id: str) -> None:
+    def delete_workspace(self, workspace_id: str) -> WorkspaceRecord:
         state = self._read_state()
-        if workspace_id not in state.workspaces:
+        workspace = state.workspaces.get(workspace_id)
+        if workspace is None:
             raise SessionNotFoundError(workspace_id)
         del state.workspaces[workspace_id]
         self._write_state(state)
+        return workspace
 
     def list_entries(self) -> list[tuple[WorkspaceRecord, SessionEntryRecord]]:
         return [(workspace, entry) for workspace in self.list_workspaces() for entry in workspace.entries]
@@ -67,20 +69,16 @@ class FileSessionRepository:
         self._write_state(state)
         return entry
 
-    def delete_entry(self, entry_id: str) -> WorkspaceRecord | None:
+    def delete_entry(self, entry_id: str) -> WorkspaceRecord:
         state = self._read_state()
         for workspace in state.workspaces.values():
             entries = [entry for entry in workspace.entries if entry.id != entry_id]
             if len(entries) == len(workspace.entries):
                 continue
-            if entries:
-                updated = workspace.model_copy(update={"entries": entries})
-                state.workspaces[workspace.id] = updated
-                self._write_state(state)
-                return updated
-            del state.workspaces[workspace.id]
+            updated = workspace.model_copy(update={"entries": entries})
+            state.workspaces[workspace.id] = updated
             self._write_state(state)
-            return None
+            return updated
         raise SessionNotFoundError(entry_id)
 
     def _read_state(self) -> SessionState:
@@ -90,13 +88,31 @@ class FileSessionRepository:
             raw = json.loads(self._sessions_file.read_text(encoding="utf-8"))
             if not isinstance(raw, dict):
                 raise SessionRepositoryError("Session registry must be a JSON object")
-            if any(key != "workspaces" for key in raw):
-                raise SessionRepositoryError("Session registry uses an incompatible schema")
-            return SessionState.model_validate(raw)
+            return self._decode_state(raw)
         except json.JSONDecodeError as exc:
             raise SessionRepositoryError("Session registry contains invalid JSON") from exc
         except ValidationError as exc:
             raise SessionRepositoryError("Session registry contains invalid session data") from exc
+
+    def _decode_state(self, raw: dict) -> SessionState:
+        if set(raw) == {"environments"}:
+            workspaces: dict[str, WorkspaceRecord] = {}
+            environments = raw["environments"]
+            if not isinstance(environments, dict):
+                raise SessionRepositoryError("Session registry environments must be a JSON object")
+            for workspaces_by_path in environments.values():
+                if not isinstance(workspaces_by_path, dict):
+                    raise SessionRepositoryError("Session registry workspaces must be JSON objects")
+                for workspace_data in workspaces_by_path.values():
+                    if not isinstance(workspace_data, dict):
+                        raise SessionRepositoryError("Session registry workspace must be a JSON object")
+                    sessions = workspace_data.get("sessions", {})
+                    if not isinstance(sessions, dict):
+                        raise SessionRepositoryError("Session registry sessions must be a JSON object")
+                    workspace = WorkspaceRecord.model_validate({**workspace_data, "entries": list(sessions.values())})
+                    workspaces[workspace.id] = workspace
+            return SessionState(workspaces=workspaces)
+        raise SessionRepositoryError("Session registry uses an incompatible schema")
 
     def _write_state(self, state: SessionState) -> None:
         self._sessions_file.parent.mkdir(parents=True, exist_ok=True)
@@ -109,12 +125,29 @@ class FileSessionRepository:
         temp_path = Path(temp_name)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as temp_file:
-                json.dump(state.model_dump(mode="json"), temp_file, ensure_ascii=False, indent=2)
+                json.dump(self._encode_state(state), temp_file, ensure_ascii=False, indent=2)
                 temp_file.write("\n")
             os.replace(temp_path, self._sessions_file)
         except Exception:
             temp_path.unlink(missing_ok=True)
             raise
+
+    def _encode_state(self, state: SessionState) -> dict:
+        environments: dict[ShortcutHost, dict[str, dict]] = {
+            "windows_cygwin": {},
+            "windows_wsl": {},
+            "linux": {},
+        }
+        for workspace in state.workspaces.values():
+            sessions = {entry.name: entry.model_dump(mode="json") for entry in workspace.entries}
+            workspace_data = workspace.model_dump(mode="json", exclude={"entries"})
+            workspace_data["sessions"] = sessions
+            environments[workspace.host][self._workspace_key(workspace.host, workspace.path)] = workspace_data
+        return {"environments": environments}
+
+    def _workspace_key(self, host: ShortcutHost, path: Path) -> str:
+        normalized = str(path).replace("\\", "/").rstrip("/")
+        return normalized.lower() if host == "windows_cygwin" else normalized
 
 
 class FileTerminalRepository:

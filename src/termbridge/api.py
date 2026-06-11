@@ -249,6 +249,17 @@ def close_all_sessions(service: SessionServiceDep) -> CloseAllSessionsResponse:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
+@router.delete("/api/session-workspaces/{workspace_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_session_workspace(workspace_id: str, service: SessionServiceDep) -> Response:
+    try:
+        service.delete_workspace(workspace_id)
+    except SessionNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session workspace not found") from exc
+    except SessionRepositoryError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.get("/api/sessions/{session_id}", response_model=SessionResponse)
 def get_session(session_id: str, service: SessionServiceDep) -> SessionResponse:
     try:

@@ -24,12 +24,14 @@
       "restartSession": "重新启动会话失败",
       "stopSession": "停止会话失败",
       "deleteSession": "删除会话失败",
+      "deleteWorkspace": "删除目录失败",
       "closeAllSessions": "关闭所有会话失败"
     },
     "success": {
       "restartSession": "会话已重新启动。",
       "stopSession": "会话已停止。",
       "deleteSession": "会话已删除。",
+      "deleteWorkspace": "目录已删除。",
       "closeAllSessions": "已关闭 {count} 个会话。"
     },
     "actions": {
@@ -43,10 +45,15 @@
       "title": "删除会话",
       "description": "确认删除会话「{name}」？此操作只会删除管理记录。"
     },
+    "deleteWorkspace": {
+      "title": "删除目录",
+      "descriptionEmpty": "确认从会话管理中移除目录「{path}」？",
+      "descriptionWithSessions": "确认删除目录「{path}」？该目录下的 {count} 个会话记录、tmux window 和 workspace tmux session 都会被清理。",
+      "confirm": "删除目录"
+    },
     "closeAllSessions": {
       "title": "关闭所有会话",
-      "description": "确认关闭当前所有会话？会话管理记录会保留，但所有正在运行的 tmux window 和 tmux session 会被关闭。",
-      "warning": "这是高影响操作，正在运行的终端进程会被停止。",
+      "description": "确认关闭当前所有会话？会话管理记录会保留，但所有正在运行的 tmux window、tmux session 和终端进程会被关闭。",
       "confirm": "关闭所有会话"
     },
     "sidebar": {
@@ -97,6 +104,9 @@
       "stopLabel": "停止会话",
       "deleteLabel": "删除会话",
       "shortcut": "快捷方式：{shortcut}"
+    },
+    "workspace": {
+      "deleteLabel": "删除目录"
     },
     "terminal": {
       "title": "终端",

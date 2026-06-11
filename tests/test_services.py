@@ -148,6 +148,14 @@ def test_service_reuses_workspace_for_same_host_and_path(tmp_path: Path) -> None
     assert [item[3] for item in shortcuts.created_windows] == ["One", "Two"]
 
 
+def test_service_rejects_duplicate_session_name_in_workspace(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.create(CreateSessionRequest(name="Same", workspace=tmp_path, shortcut_id="claude-code"))
+
+    with pytest.raises(InvalidTerminalConfigError, match="Session name already exists"):
+        service.create(CreateSessionRequest(name="Same", workspace=tmp_path, shortcut_id="claude-code"))
+
+
 def test_service_uses_different_workspace_for_different_paths(tmp_path: Path) -> None:
     other = tmp_path / "other"
     other.mkdir()
@@ -181,7 +189,7 @@ def test_service_cleans_tmux_window_when_create_process_start_fails(tmp_path: Pa
     assert service.list_sessions() == []
 
 
-def test_service_stop_keeps_record_and_removes_window(tmp_path: Path) -> None:
+def test_service_stop_keeps_record_and_managed_window(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
     shortcuts = FakeShortcutService()
     service = make_service(tmp_path, process, shortcut_service=shortcuts)
@@ -192,8 +200,9 @@ def test_service_stop_keeps_record_and_removes_window(tmp_path: Path) -> None:
     assert stopped.status == "stopped"
     assert stopped.url == ""
     assert process.terminated == [ProcessHandle(pid=100)]
-    assert shortcuts.killed_windows == [("windows_cygwin", tmp_path.resolve(), "@1")]
+    assert shortcuts.killed_windows == []
     assert service.get(response.id).status == "stopped"
+    assert service.get(response.id).tmux_session_name == response.tmux_session_name
 
 
 def test_service_close_all_keeps_records_and_removes_windows_and_sessions(tmp_path: Path) -> None:
@@ -218,18 +227,22 @@ def test_service_close_all_keeps_records_and_removes_windows_and_sessions(tmp_pa
     assert [session.status for session in sessions] == ["stopped", "stopped"]
 
 
-def test_service_delete_last_entry_removes_workspace_session(tmp_path: Path) -> None:
+def test_service_delete_last_entry_keeps_workspace_and_removes_workspace_session(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
     shortcuts = FakeShortcutService()
     service = make_service(tmp_path, process, shortcut_service=shortcuts)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
 
     service.delete(response.id)
+    tree = service.list_tree()
 
+    cygwin = next(environment for environment in tree.environments if environment.host == "windows_cygwin")
     assert process.terminated == [ProcessHandle(pid=100)]
     assert shortcuts.killed_windows == [("windows_cygwin", tmp_path.resolve(), "@1")]
     assert shortcuts.killed_sessions == [("windows_cygwin", tmp_path.resolve(), response.tmux_session_name)]
     assert service.list_sessions() == []
+    assert len(cygwin.workspaces) == 1
+    assert cygwin.workspaces[0].entries == []
 
 
 def test_service_delete_one_entry_keeps_workspace_session(tmp_path: Path) -> None:
@@ -242,6 +255,26 @@ def test_service_delete_one_entry_keeps_workspace_session(tmp_path: Path) -> Non
 
     assert shortcuts.killed_sessions == []
     assert [session.id for session in service.list_sessions()] == [second.id]
+
+
+def test_service_delete_workspace_removes_entries_and_workspace_session(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    shortcuts = FakeShortcutService()
+    service = make_service(tmp_path, process, shortcut_service=shortcuts)
+    first = service.create(CreateSessionRequest(name="One", workspace=tmp_path, shortcut_id="claude-code"))
+    service.create(CreateSessionRequest(name="Two", workspace=tmp_path, shortcut_id="claude-code"))
+
+    service.delete_workspace(first.workspace_id)
+
+    assert process.terminated == [ProcessHandle(pid=100), ProcessHandle(pid=101)]
+    assert shortcuts.killed_windows == [
+        ("windows_cygwin", tmp_path.resolve(), "@1"),
+        ("windows_cygwin", tmp_path.resolve(), "@2"),
+    ]
+    assert shortcuts.killed_sessions == [("windows_cygwin", tmp_path.resolve(), first.tmux_session_name)]
+    assert service.list_sessions() == []
+    cygwin = next(environment for environment in service.list_tree().environments if environment.host == "windows_cygwin")
+    assert cygwin.workspaces == []
 
 
 def test_service_refresh_stops_entry_when_tmux_window_disappears(tmp_path: Path) -> None:
@@ -258,12 +291,28 @@ def test_service_refresh_stops_entry_when_tmux_window_disappears(tmp_path: Path)
     assert service.get(response.id).status == "stopped"
 
 
-def test_service_restarts_stopped_entry_with_new_window(tmp_path: Path) -> None:
+def test_service_restarts_stopped_entry_with_existing_window(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
     shortcuts = FakeShortcutService()
     service = make_service(tmp_path, process, shortcut_service=shortcuts)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
     stopped = service.stop(response.id)
+
+    restarted = service.restart(stopped.id)
+
+    assert restarted.status == "running"
+    assert restarted.port == 9201
+    assert [item[3] for item in shortcuts.created_windows] == ["Test"]
+    assert process.started[-1][0][8] == f"tmux select-window -t @1 && exec tmux attach -t {response.tmux_session_name}"
+
+
+def test_service_restarts_stopped_entry_with_new_window_when_existing_window_missing(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    shortcuts = FakeShortcutService()
+    service = make_service(tmp_path, process, shortcut_service=shortcuts)
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    stopped = service.stop(response.id)
+    shortcuts.window_exists = False
 
     restarted = service.restart(stopped.id)
 

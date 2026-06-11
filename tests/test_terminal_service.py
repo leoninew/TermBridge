@@ -191,7 +191,8 @@ def test_terminal_service_creates_wsl_tmux_window_from_wsl_cd_workspace(tmp_path
     assert command[:4] == ["wsl", "--cd", str(workspace), "sh"]
     assert run.call_args.kwargs["timeout"] == 10
     assert f"-c {workspace}" not in command[5]
-    assert "tmux new-session -d -s tb_wsl_workspace -c ." in command[5]
+    assert "tmux has-session -t tb_wsl_workspace 2>/dev/null" in command[5]
+    assert "tmux new-session -d -P -F '#{window_id}' -s tb_wsl_workspace -n Agent -c . 'agent run'" in command[5]
     assert "tmux new-window -P -F '#{window_id}' -t tb_wsl_workspace -n Agent -c . 'agent run'" in command[5]
 
 

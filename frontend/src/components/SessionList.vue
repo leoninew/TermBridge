@@ -6,12 +6,13 @@ import {
   ChevronRight,
   Folder,
   Languages,
+  PanelLeftClose,
   Loader2,
   Plus,
-  RotateCw,
   Search,
   Settings,
   Pause,
+  Play,
   SquareTerminal,
   Trash2,
   XCircle,
@@ -49,6 +50,7 @@ type SessionTreeNode = {
   label: string
   kind: 'environment' | 'workspace' | 'session'
   host: ShortcutHost
+  workspaceId?: string
   workspacePath?: string
   children?: SessionTreeNode[]
   session?: Session
@@ -79,6 +81,7 @@ const emit = defineEmits<{
   restart: [session: Session]
   stop: [session: Session]
   remove: [session: Session]
+  removeWorkspace: [workspace: { id: string; path: string }]
   closeAll: []
   navigate: [path: string]
 }>()
@@ -121,6 +124,7 @@ const treeNodes = computed<SessionTreeNode[]>(() =>
       kind: 'workspace',
       label: workspace.path,
       host: workspace.host,
+      workspaceId: workspace.id,
       workspacePath: workspace.path,
       children: workspace.entries.map((session) => ({
         id: `session:${session.id}`,
@@ -133,6 +137,9 @@ const treeNodes = computed<SessionTreeNode[]>(() =>
     })),
   })),
 )
+
+const hasWorkspaceNodes = computed(() => props.sessionTree.some((environment) => environment.workspaces.length > 0))
+const shouldShowEmptySessions = computed(() => props.sessions.length === 0 && !hasWorkspaceNodes.value)
 
 const defaultExpandedTreeKeys = computed(() => collectExpandableKeys(treeNodes.value))
 const selectedSession = computed(() => selectedTreeNodes.value[0]?.session)
@@ -151,7 +158,6 @@ watch(
   ([nodes, activeSessionId]) => {
     const selectedNode = activeSessionId ? findTreeNode(nodes, `session:${activeSessionId}`) : undefined
     selectedTreeNodes.value = asSelectedList(selectedNode)
-    emit('createContext', selectedNode ? { host: selectedNode.host, workspace: selectedNode.workspacePath } : {})
   },
   { immediate: true },
 )
@@ -199,6 +205,12 @@ function environmentLogo(host: ShortcutHost) {
   return LinuxLogo
 }
 
+function handleCreate() {
+  const node = selectedTreeNodes.value[0]
+  emit('createContext', node ? { host: node.host, workspace: node.workspacePath } : {})
+  emit('create')
+}
+
 function handleTreeSelect(node: SessionTreeNode) {
   selectedTreeNodes.value = [node]
   emit('createContext', { host: node.host, workspace: node.workspacePath })
@@ -224,6 +236,14 @@ function removeSession(event: globalThis.MouseEvent, session: Session) {
   event.stopPropagation()
   emit('remove', session)
 }
+
+function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
+  event.preventDefault()
+  event.stopPropagation()
+  if (node.workspaceId && node.workspacePath) {
+    emit('removeWorkspace', { id: node.workspaceId, path: node.workspacePath })
+  }
+}
 </script>
 
 <template>
@@ -231,12 +251,23 @@ function removeSession(event: globalThis.MouseEvent, session: Session) {
     class="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-blue-900/5"
   >
     <div class="flex items-center justify-between gap-3 p-4 pb-2">
-      <h2 class="text-lg font-semibold text-slate-950">{{ t('session.list.title') }}</h2>
+      <div class="flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          :aria-label="t('session.list.collapse')"
+          :title="t('session.list.collapse')"
+          @click="emit('collapse')"
+        >
+          <PanelLeftClose class="h-4 w-4" />
+        </button>
+        <h2 class="truncate text-lg font-semibold text-slate-950">{{ t('session.list.title') }}</h2>
+      </div>
       <button
         type="button"
         :disabled="!hasReadyEnvironment"
         class="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-3 py-2 text-sm text-white shadow-sm transition hover:bg-blue-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-        @click="emit('create')"
+        @click="handleCreate"
       >
         <Plus class="h-4 w-4" />
         {{ t('session.terminal.createTab') }}
@@ -268,7 +299,7 @@ function removeSession(event: globalThis.MouseEvent, session: Session) {
           {{ t('session.list.goToEnvironment') }}
         </button>
       </div>
-      <p v-else-if="sessions.length === 0" class="text-sm text-slate-500">
+      <p v-else-if="shouldShowEmptySessions" class="text-sm text-slate-500">
         {{ t('session.list.empty') }}
       </p>
       <div v-else class="flex min-h-0 flex-1 flex-col gap-3">
@@ -304,7 +335,7 @@ function removeSession(event: globalThis.MouseEvent, session: Session) {
                 @select.prevent="handleTreeSelect(item.value)"
               >
                 <div
-                  class="flex w-full items-center gap-2 rounded-lg py-1.5 pr-2 text-left text-sm transition focus:outline-none"
+                  class="group flex w-full items-center gap-2 rounded-lg py-1.5 pr-2 text-left text-sm transition focus:outline-none"
                   :class="
                     isSelectedNode(item.value)
                       ? 'bg-blue-50 text-blue-700'
@@ -333,6 +364,16 @@ function removeSession(event: globalThis.MouseEvent, session: Session) {
                     class="h-4 w-4 shrink-0 text-slate-400"
                   />
                   <span class="min-w-0 flex-1 truncate">{{ item.value.label }}</span>
+                  <button
+                    v-if="item.value.kind === 'workspace'"
+                    type="button"
+                    class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-300 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 focus:opacity-100"
+                    :aria-label="t('session.workspace.deleteLabel')"
+                    :title="t('session.workspace.deleteLabel')"
+                    @click="removeWorkspace($event, item.value)"
+                  >
+                    <Trash2 class="h-4 w-4" />
+                  </button>
                   <span
                     v-if="item.value.session"
                     class="inline-flex shrink-0 items-center gap-1"
@@ -340,7 +381,7 @@ function removeSession(event: globalThis.MouseEvent, session: Session) {
                     <button
                       v-if="item.value.session.status === 'running'"
                       type="button"
-                      class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-amber-50 hover:text-amber-600"
+                      class="relative inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-amber-50 hover:text-amber-600"
                       :aria-label="t('session.card.stopLabel')"
                       :title="t('session.card.stopLabel')"
                       @click="stopSession($event, item.value.session)"
@@ -355,7 +396,7 @@ function removeSession(event: globalThis.MouseEvent, session: Session) {
                       :title="t('session.card.restartLabel')"
                       @click="restartSession($event, item.value.session)"
                     >
-                      <RotateCw class="h-4 w-4" />
+                      <Play class="h-4 w-4" />
                     </button>
                     <button
                       v-if="item.value.session.status === 'stopped'"

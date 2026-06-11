@@ -462,12 +462,15 @@ class TerminalService:
         quoted_window = shlex.quote(window_name)
         quoted_command = shlex.quote(shortcut.command)
         quoted_workspace = shlex.quote(self._workspace_shell_path(shortcut.host, workspace))
-        return (
-            f"tmux has-session -t {quoted_session} 2>/dev/null || "
-            f"tmux new-session -d -s {quoted_session} -c {quoted_workspace}; "
+        create_session = (
+            f"tmux new-session -d -P -F '#{{window_id}}' -s {quoted_session} "
+            f"-n {quoted_window} -c {quoted_workspace} {quoted_command}"
+        )
+        create_window = (
             f"tmux new-window -P -F '#{{window_id}}' -t {quoted_session} "
             f"-n {quoted_window} -c {quoted_workspace} {quoted_command}"
         )
+        return f"tmux has-session -t {quoted_session} 2>/dev/null && {create_window} || {create_session}"
 
     def _run_tmux_command(self, host: ShortcutHost, workspace: Path, command: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -792,6 +795,8 @@ class SessionService:
         shortcut = terminal_service.resolve_shortcut(request.shortcut_id)
         now = utc_now()
         workspace = self._get_or_create_workspace(shortcut.host, workspace_path, now)
+        if any(entry.name == request.name for entry in workspace.entries):
+            raise InvalidTerminalConfigError("Session name already exists in this workspace")
         entry_id = f"sess_{uuid4().hex}"
         tmux_window_id = terminal_service.create_tmux_window(
             shortcut,
@@ -861,13 +866,14 @@ class SessionService:
         shortcut = terminal_service.resolve_shortcut(entry.shortcut_id)
         if shortcut.host != workspace.host:
             raise InvalidTerminalConfigError("Shortcut host does not match session workspace")
-        tmux_window_id = terminal_service.create_tmux_window(
-            shortcut,
-            workspace.path,
-            tmux_session_name=workspace.tmux_session_name,
-            window_name=entry.name,
-        )
-        entry = entry.model_copy(update={"tmux_window_id": tmux_window_id})
+        if not terminal_service.tmux_window_exists(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id):
+            tmux_window_id = terminal_service.create_tmux_window(
+                shortcut,
+                workspace.path,
+                tmux_session_name=workspace.tmux_session_name,
+                window_name=entry.name,
+            )
+            entry = entry.model_copy(update={"tmux_window_id": tmux_window_id})
         try:
             entry = self._start_entry(entry, workspace)
             self._repository.update_entry(entry)
@@ -893,8 +899,14 @@ class SessionService:
         for workspace in state.workspaces.values():
             updated_entries = []
             for entry in workspace.entries:
-                updated = self._stop_entry(workspace, entry, now=now)
-                updated_entries.append(updated)
+                if entry.pid is not None:
+                    self._process_adapter.terminate(ProcessHandle(pid=entry.pid))
+                terminal_service.kill_tmux_window(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id)
+                updated_entries.append(
+                    entry.model_copy(
+                        update={"status": SessionStatus.STOPPED, "pid": None, "url": "", "tmux_window_id": None, "updated_at": now}
+                    )
+                )
                 stopped_count += int(entry.status != SessionStatus.STOPPED or entry.pid is not None or entry.tmux_window_id is not None)
             if workspace.entries:
                 terminal_service.kill_tmux_session(
@@ -914,7 +926,7 @@ class SessionService:
             self._process_adapter.terminate(ProcessHandle(pid=entry.pid))
         self._require_terminal_service().kill_tmux_window(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id)
         remaining_workspace = self._repository.delete_entry(session_id)
-        if remaining_workspace is None:
+        if not remaining_workspace.entries:
             self._require_terminal_service().kill_tmux_session(
                 workspace.host,
                 workspace.path,
@@ -922,18 +934,26 @@ class SessionService:
             )
         logger.info("Session entry deleted entry_id=%s", session_id)
 
+    def delete_workspace(self, workspace_id: str) -> None:
+        logger.info("Deleting workspace workspace_id=%s", workspace_id)
+        workspace = self._repository.delete_workspace(workspace_id)
+        terminal_service = self._require_terminal_service()
+        for entry in workspace.entries:
+            if entry.pid is not None:
+                self._process_adapter.terminate(ProcessHandle(pid=entry.pid))
+            terminal_service.kill_tmux_window(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id)
+        terminal_service.kill_tmux_session(workspace.host, workspace.path, tmux_session_name=workspace.tmux_session_name)
+
     def _stop_entry(
         self, workspace: WorkspaceRecord, entry: SessionEntryRecord, *, now: datetime | None = None
     ) -> SessionEntryRecord:
         if entry.pid is not None:
             self._process_adapter.terminate(ProcessHandle(pid=entry.pid))
-        self._require_terminal_service().kill_tmux_window(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id)
         return entry.model_copy(
             update={
                 "status": SessionStatus.STOPPED,
                 "pid": None,
                 "url": "",
-                "tmux_window_id": None,
                 "updated_at": now or utc_now(),
             }
         )

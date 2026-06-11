@@ -52,8 +52,9 @@ def test_repository_workspace_and_entry_crud(tmp_path: Path) -> None:
     repository.update_entry(updated_entry)
     assert repository.get_entry("sess_1")[1].status == SessionStatus.STOPPED
 
-    assert repository.delete_entry("sess_1") is None
-    assert repository.list_workspaces() == []
+    empty_workspace = repository.delete_entry("sess_1")
+    assert empty_workspace.entries == []
+    assert repository.list_workspaces()[0].entries == []
 
 
 def test_repository_missing_file_lists_empty(tmp_path: Path) -> None:

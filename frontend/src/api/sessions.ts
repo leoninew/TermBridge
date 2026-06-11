@@ -98,6 +98,12 @@ export function deleteSession(id: string): Promise<void> {
   })
 }
 
+export function deleteSessionWorkspace(id: string): Promise<void> {
+  return request<void>(`/api/session-workspaces/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+}
+
 export function getWorkspaceRoots(): Promise<WorkspaceRootsResponse> {
   return request<WorkspaceRootsResponse>('/api/workspaces/roots')
 }

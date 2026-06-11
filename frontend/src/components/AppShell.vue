@@ -19,6 +19,7 @@ import {
   closeAllSessions,
   createSession,
   deleteSession,
+  deleteSessionWorkspace,
   listSessionTree,
   restartSession,
   stopSession,
@@ -44,13 +45,14 @@ const creatingSession = ref(false)
 const createError = ref('')
 const createSessionContext = ref<{ host?: ShortcutHost; workspace?: string }>({})
 const deletingSession = ref<Session>()
+const deletingWorkspace = ref<{ id: string; path: string }>()
 const closeAllDialogOpen = ref(false)
 const closingAllSessions = ref(false)
 const sidebarCollapsed = ref(false)
-const sidebarWidth = ref(360)
-const sidebarMinWidth = 240
-const sidebarMaxWidth = 520
-const compactSidebar = computed(() => sidebarWidth.value < 320)
+const sidebarMinWidth = 400
+const sidebarWidth = ref(400)
+const sidebarMaxWidth = 560
+const compactSidebar = computed(() => sidebarWidth.value < 360)
 const deleteDialogOpen = computed({
   get: () => !!deletingSession.value,
   set: (open: boolean) => {
@@ -59,8 +61,21 @@ const deleteDialogOpen = computed({
     }
   },
 })
+const deleteWorkspaceDialogOpen = computed({
+  get: () => !!deletingWorkspace.value,
+  set: (open: boolean) => {
+    if (!open) {
+      deletingWorkspace.value = undefined
+    }
+  },
+})
 const activeSession = computed(() =>
   sessions.value.find((session) => session.id === activeSessionId.value),
+)
+const deletingWorkspaceSessionCount = computed(() =>
+  deletingWorkspace.value
+    ? sessions.value.filter((session) => session.workspace_id === deletingWorkspace.value?.id).length
+    : 0,
 )
 const openTerminalSessions = computed(() =>
   openTerminalSessionIds.value
@@ -156,6 +171,36 @@ async function confirmRemove() {
     toast.show(t('app.success.deleteSession'))
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('app.errors.deleteSession')
+  }
+}
+
+function askRemoveWorkspace(workspace: { id: string; path: string }) {
+  deletingWorkspace.value = workspace
+}
+
+async function confirmRemoveWorkspace() {
+  if (!deletingWorkspace.value) {
+    return
+  }
+
+  error.value = ''
+  const workspaceId = deletingWorkspace.value.id
+  const deletedSessionIds = sessions.value
+    .filter((session) => session.workspace_id === workspaceId)
+    .map((session) => session.id)
+  try {
+    await deleteSessionWorkspace(workspaceId)
+    await loadSessions()
+    openTerminalSessionIds.value = openTerminalSessionIds.value.filter(
+      (id) => !deletedSessionIds.includes(id),
+    )
+    if (activeSessionId.value && deletedSessionIds.includes(activeSessionId.value)) {
+      activeSessionId.value = openTerminalSessionIds.value[0]
+    }
+    deletingWorkspace.value = undefined
+    toast.show(t('app.success.deleteWorkspace'))
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : t('app.errors.deleteWorkspace')
   }
 }
 
@@ -257,6 +302,7 @@ onMounted(() => {
           @restart="handleRestart"
           @stop="handleStop"
           @remove="askRemove"
+          @remove-workspace="askRemoveWorkspace"
           @close-all="closeAllDialogOpen = true"
           @navigate="navigate"
         />
@@ -273,17 +319,6 @@ onMounted(() => {
       </SplitterResizeHandle>
 
       <SplitterPanel id="main-workspace" :min-size="320" size-unit="px" class="h-full min-h-0">
-        <div v-if="sidebarCollapsed" class="mb-3 flex justify-start">
-          <button
-            type="button"
-            class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-600 shadow-lg shadow-blue-900/10 transition hover:bg-slate-50"
-            :aria-label="t('app.sidebar.expandLabel')"
-            :title="t('app.sidebar.expandLabel')"
-            @click="sidebarCollapsed = false"
-          >
-            <PanelLeftOpen class="h-4 w-4" />
-          </button>
-        </div>
         <Transition name="main-panel" mode="out-in">
           <section
             v-if="showCreatePanel"
@@ -318,6 +353,17 @@ onMounted(() => {
       </SplitterPanel>
     </SplitterGroup>
 
+    <button
+      v-if="sidebarCollapsed"
+      type="button"
+      class="fixed left-1 top-1 z-40 inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-xl shadow-blue-900/15 transition hover:bg-blue-50 hover:text-blue-700"
+      :aria-label="t('app.sidebar.expandLabel')"
+      :title="t('app.sidebar.expandLabel')"
+      @click="sidebarCollapsed = false"
+    >
+      <PanelLeftOpen class="h-5 w-5" />
+    </button>
+
     <AlertDialogRoot v-model:open="deleteDialogOpen">
       <AlertDialogPortal>
         <AlertDialogOverlay class="fixed inset-0 z-50 bg-slate-950/40" />
@@ -348,6 +394,47 @@ onMounted(() => {
       </AlertDialogPortal>
     </AlertDialogRoot>
 
+    <AlertDialogRoot v-model:open="deleteWorkspaceDialogOpen">
+      <AlertDialogPortal>
+        <AlertDialogOverlay class="fixed inset-0 z-50 bg-slate-950/40" />
+        <AlertDialogContent
+          class="fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl bg-white p-5 text-sm shadow-2xl"
+        >
+          <div>
+            <AlertDialogTitle
+              class="text-lg font-semibold"
+              :class="deletingWorkspaceSessionCount > 0 ? 'text-amber-700' : 'text-slate-950'"
+            >
+              {{ t('app.deleteWorkspace.title') }}
+            </AlertDialogTitle>
+            <AlertDialogDescription class="mt-2 text-sm text-slate-600">
+              {{
+                t(
+                  deletingWorkspaceSessionCount > 0
+                    ? 'app.deleteWorkspace.descriptionWithSessions'
+                    : 'app.deleteWorkspace.descriptionEmpty',
+                  { path: deletingWorkspace?.path, count: deletingWorkspaceSessionCount },
+                )
+              }}
+            </AlertDialogDescription>
+          </div>
+          <div class="flex justify-end gap-2">
+            <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2">
+              {{ t('app.actions.cancel') }}
+            </AlertDialogCancel>
+            <button
+              type="button"
+              class="rounded-lg px-4 py-2 text-white"
+              :class="deletingWorkspaceSessionCount > 0 ? 'bg-amber-600' : 'bg-slate-900'"
+              @click="confirmRemoveWorkspace"
+            >
+              {{ t('app.deleteWorkspace.confirm') }}
+            </button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialogPortal>
+    </AlertDialogRoot>
+
     <AlertDialogRoot v-model:open="closeAllDialogOpen">
       <AlertDialogPortal>
         <AlertDialogOverlay class="fixed inset-0 z-50 bg-slate-950/40" />
@@ -361,9 +448,6 @@ onMounted(() => {
             <AlertDialogDescription class="mt-2 text-sm text-slate-600">
               {{ t('app.closeAllSessions.description') }}
             </AlertDialogDescription>
-          </div>
-          <div class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-700">
-            {{ t('app.closeAllSessions.warning') }}
           </div>
           <div class="flex justify-end gap-2">
             <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2">

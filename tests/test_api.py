@@ -51,6 +51,7 @@ class FakeSessionService:
         )
         self.sessions = [self.session] if with_session else []
         self.deleted: list[str] = []
+        self.deleted_workspaces: list[str] = []
         self.close_all_called = False
 
     def create(self, request: CreateSessionRequest) -> SessionResponse:
@@ -98,6 +99,9 @@ class FakeSessionService:
 
     def delete(self, session_id: str) -> None:
         self.deleted.append(session_id)
+
+    def delete_workspace(self, workspace_id: str) -> None:
+        self.deleted_workspaces.append(workspace_id)
 
 
 class FakeTerminalService:
@@ -254,6 +258,7 @@ def test_session_api_routes(tmp_path: Path) -> None:
     restarted = client.post("/api/sessions/sess_2/restart")
     stopped = client.post("/api/sessions/sess_2/stop")
     close_all = client.post("/api/sessions/close-all")
+    deleted_workspace = client.delete("/api/session-workspaces/ws_1")
     deleted = client.delete("/api/sessions/sess_2")
 
     assert created.status_code == 201
@@ -275,7 +280,9 @@ def test_session_api_routes(tmp_path: Path) -> None:
     assert close_all.status_code == 200
     assert close_all.json() == {"stopped_count": 1, "tmux_session_count": 1}
     assert service.close_all_called is True
+    assert deleted_workspace.status_code == 204
     assert deleted.status_code == 204
+    assert service.deleted_workspaces == ["ws_1"]
     assert service.deleted == ["sess_2"]
 
 

@@ -24,12 +24,14 @@
       "restartSession": "Failed to restart session",
       "stopSession": "Failed to stop session",
       "deleteSession": "Failed to delete session",
+      "deleteWorkspace": "Failed to delete directory",
       "closeAllSessions": "Failed to close all sessions"
     },
     "success": {
       "restartSession": "Session restarted.",
       "stopSession": "Session stopped.",
       "deleteSession": "Session deleted.",
+      "deleteWorkspace": "Directory deleted.",
       "closeAllSessions": "Closed {count} sessions."
     },
     "actions": {
@@ -43,10 +45,15 @@
       "title": "Delete Session",
       "description": "Delete session \"{name}\"? This only removes the management record."
     },
+    "deleteWorkspace": {
+      "title": "Delete directory",
+      "descriptionEmpty": "Remove directory \"{path}\" from session management?",
+      "descriptionWithSessions": "Delete directory \"{path}\"? {count} session records, tmux windows, and the workspace tmux session under this directory will be cleaned up.",
+      "confirm": "Delete directory"
+    },
     "closeAllSessions": {
       "title": "Close all sessions",
-      "description": "Close every current session? Session management records will stay, but all running tmux windows and tmux sessions will be closed.",
-      "warning": "This is a high-impact action. Running terminal processes will be stopped.",
+      "description": "Close every current session? Session management records will stay, but all running tmux windows, tmux sessions, and terminal processes will be closed.",
       "confirm": "Close all sessions"
     },
     "sidebar": {
@@ -97,6 +104,9 @@
       "stopLabel": "Stop session",
       "deleteLabel": "Delete session",
       "shortcut": "Shortcut: {shortcut}"
+    },
+    "workspace": {
+      "deleteLabel": "Delete directory"
     },
     "terminal": {
       "title": "Terminal",

@@ -109,13 +109,13 @@ ttyd process            浏览器访问终端的连接进程
 
 推荐操作语义：
 
-- Close connection：只停止 ttyd process，不 kill managed window，也不删除记录。
-- Stop entry：关闭该 entry 对应的 managed tmux window，保留 TermBridge record 并标记为 stopped。
-- Delete entry：从 TermBridge 中移除该 entry；如果 managed window 仍存在，应同时关闭该 managed window，避免孤儿 managed state。
-- Delete workspace：删除工作区记录及其所有 managed entries；如果没有保留状态的需求，则 kill workspace tmux session。
+- Stop entry：只停止 ttyd process，不 kill managed window，也不删除记录，并标记为 stopped。
+- Restart entry：如果 managed window 仍存在则复用原 window 并重新 attach；如果 window 已缺失则重建 managed window。
+- Delete entry：从 TermBridge 中移除该 entry；如果 managed window 仍存在，应同时关闭该 managed window，避免孤儿 managed state。删除最后一个 entry 时保留 workspace record 作为目录节点。
+- Delete workspace：删除工作区记录及其所有 managed entries，并 kill workspace tmux session。
 - Kill workspace tmux session：只在工作区下已无需要保留的 managed entry/window，或用户明确选择终止工作区状态时执行。
 
-本阶段不暴露“只移除 TermBridge record 但保留 managed tmux window”的默认高级操作。停止会话的语义是保留记录、移除对应 window；再次启动时按记录重新创建 window。
+本阶段不暴露“只移除 TermBridge record 但保留 managed tmux window”的默认高级操作。停止会话的语义是保留记录和 managed window，只关闭 ttyd 连接；再次启动时优先复用原 window。
 
 ### 6. Manual tmux operation tolerance
 
