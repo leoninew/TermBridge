@@ -270,10 +270,10 @@ def get_session(session_id: str, service: SessionServiceDep) -> SessionResponse:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
-@router.post("/api/sessions/{session_id}/restart", response_model=SessionResponse)
-def restart_session(session_id: str, service: SessionServiceDep) -> SessionResponse:
+@router.post("/api/sessions/{session_id}/start", response_model=SessionResponse)
+def start_session(session_id: str, service: SessionServiceDep) -> SessionResponse:
     try:
-        return service.restart(session_id)
+        return service.start(session_id)
     except SessionNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found") from exc
     except NoAvailablePortError as exc:

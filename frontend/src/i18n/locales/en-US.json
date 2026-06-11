@@ -21,14 +21,14 @@
       "loadSessions": "Failed to load sessions",
       "loadEnvironments": "Failed to load environments",
       "createSession": "Failed to create session",
-      "restartSession": "Failed to restart session",
+      "startSession": "Failed to start session",
       "stopSession": "Failed to stop session",
       "deleteSession": "Failed to delete session",
       "deleteWorkspace": "Failed to delete directory",
       "closeAllSessions": "Failed to close all sessions"
     },
     "success": {
-      "restartSession": "Session restarted.",
+      "startSession": "Session started.",
       "stopSession": "Session stopped.",
       "deleteSession": "Session deleted.",
       "deleteWorkspace": "Directory deleted.",
@@ -100,12 +100,13 @@
       "collapse": "Collapse"
     },
     "card": {
-      "restartLabel": "Restart session",
+      "startLabel": "Start session",
       "stopLabel": "Stop session",
       "deleteLabel": "Delete session",
       "shortcut": "Shortcut: {shortcut}"
     },
     "workspace": {
+      "createLabel": "New session in directory",
       "deleteLabel": "Delete directory"
     },
     "terminal": {
@@ -117,7 +118,7 @@
       "emptySuffix": " a session to view the terminal.",
       "missingUrl": "The current session has no available terminal URL.",
       "statusUnavailable": "Current status is {status}; the terminal is unavailable.",
-      "restart": "Restart session",
+      "start": "Start session",
       "iframeTitle": "{name} terminal"
     },
     "status": {

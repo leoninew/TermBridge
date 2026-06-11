@@ -21,7 +21,7 @@ import {
   deleteSession,
   deleteSessionWorkspace,
   listSessionTree,
-  restartSession,
+  startSession,
   stopSession,
 } from '../api/sessions'
 import SessionCreateForm from './SessionCreateForm.vue'
@@ -42,6 +42,7 @@ const loading = ref(false)
 const error = ref('')
 const showCreatePanel = ref(false)
 const creatingSession = ref(false)
+const startingSessionId = ref<string>()
 const createError = ref('')
 const createSessionContext = ref<{ host?: ShortcutHost; workspace?: string }>({})
 const deletingSession = ref<Session>()
@@ -204,16 +205,23 @@ async function confirmRemoveWorkspace() {
   }
 }
 
-async function handleRestart(session: Session) {
+async function handleStart(session: Session) {
+  if (startingSessionId.value) {
+    return
+  }
+
   error.value = ''
+  startingSessionId.value = session.id
   try {
-    const restarted = await restartSession(session.id)
+    const started = await startSession(session.id)
     await loadSessions()
-    openTerminalSession(restarted)
-    toast.show(t('app.success.restartSession'))
+    openTerminalSession(started)
+    toast.show(t('app.success.startSession'))
     await router.push('/session')
   } catch (err) {
-    error.value = err instanceof Error ? err.message : t('app.errors.restartSession')
+    error.value = err instanceof Error ? err.message : t('app.errors.startSession')
+  } finally {
+    startingSessionId.value = undefined
   }
 }
 
@@ -295,11 +303,12 @@ onMounted(() => {
           :compact="compactSidebar"
           :environments="environmentStore.environments"
           :has-ready-environment="environmentStore.hasReadyEnvironment"
+          :starting-session-id="startingSessionId"
           @create="showCreate"
           @collapse="sidebarCollapsed = true"
           @create-context="updateCreateSessionContext"
           @select="selectSession"
-          @restart="handleRestart"
+          @start="handleStart"
           @stop="handleStop"
           @remove="askRemove"
           @remove-workspace="askRemoveWorkspace"
@@ -342,10 +351,11 @@ onMounted(() => {
               :is="Component"
               :sessions="openTerminalSessions"
               :session="activeSession"
+              :starting-session-id="startingSessionId"
               @close="closeTerminalSession"
               @create="showCreate"
               @select="selectSession"
-              @restart="handleRestart"
+              @start="handleStart"
               @environments-updated="environmentStore.update"
             />
           </RouterView>

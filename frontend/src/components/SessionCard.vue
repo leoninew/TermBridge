@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Square, RotateCw, Trash2 } from '@lucide/vue'
+import { Ban, Loader2, Play, Trash2 } from '@lucide/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Session } from '../types/sessions'
@@ -10,11 +10,12 @@ const props = defineProps<{
   session: Session
   active: boolean
   compact?: boolean
+  starting?: boolean
 }>()
 
 const emit = defineEmits<{
   select: [session: Session]
-  restart: [session: Session]
+  start: [session: Session]
   stop: [session: Session]
   remove: [session: Session]
 }>()
@@ -63,22 +64,24 @@ function requestRemove() {
       <button
         v-if="session.status === 'running'"
         type="button"
-        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 opacity-0 transition hover:bg-amber-50 hover:text-amber-600 group-hover:opacity-100 group-focus-within:opacity-100"
+        class="relative inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 opacity-0 transition hover:bg-amber-50 hover:text-amber-600 group-hover:opacity-100 group-focus-within:opacity-100"
         :aria-label="t('session.card.stopLabel')"
         :title="t('session.card.stopLabel')"
         @click.stop="emit('stop', session)"
       >
-        <Square class="h-4 w-4" />
+        <Ban class="h-4 w-4" />
       </button>
       <button
         v-if="session.status === 'stopped'"
         type="button"
-        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
-        :aria-label="t('session.card.restartLabel')"
-        :title="t('session.card.restartLabel')"
-        @click.stop="emit('restart', session)"
+        :disabled="starting"
+        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 disabled:cursor-wait disabled:opacity-60"
+        :aria-label="t('session.card.startLabel')"
+        :title="t('session.card.startLabel')"
+        @click.stop="emit('start', session)"
       >
-        <RotateCw class="h-4 w-4" />
+        <Loader2 v-if="starting" class="h-4 w-4 animate-spin" />
+        <Play v-else class="h-4 w-4" />
       </button>
       <button
         type="button"

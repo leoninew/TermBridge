@@ -196,6 +196,24 @@ def test_terminal_service_creates_wsl_tmux_window_from_wsl_cd_workspace(tmp_path
     assert "tmux new-window -P -F '#{window_id}' -t tb_wsl_workspace -n Agent -c . 'agent run'" in command[5]
 
 
+def test_terminal_service_finds_tmux_window_by_name(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))
+    completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="@1\tOther\n@7\tAgent\n", stderr="")
+
+    with patch("termbridge.services.subprocess.run", return_value=completed) as run:
+        window_id = service.find_tmux_window_by_name(
+            "windows_wsl",
+            Path(r"D:\SourceCodes\agentic\cc-switch"),
+            tmux_session_name="tb_wsl_workspace",
+            window_name="Agent",
+        )
+
+    assert window_id == "@7"
+    command = run.call_args.args[0]
+    assert "tmux list-windows -t tb_wsl_workspace -F '#{window_id}\t#{window_name}'" in command[5]
+
+
 def test_terminal_service_uses_configured_tmux_command_timeout(tmp_path: Path) -> None:
     service = TerminalService(FileTerminalRepository(tmp_path / "terminals.json"), tmux_command_timeout_seconds=12.5)
     service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))

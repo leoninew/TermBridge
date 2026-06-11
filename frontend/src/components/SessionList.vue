@@ -11,7 +11,7 @@ import {
   Plus,
   Search,
   Settings,
-  Pause,
+  Ban,
   Play,
   SquareTerminal,
   Trash2,
@@ -71,6 +71,7 @@ const props = defineProps<{
   compact?: boolean
   environments: EnvironmentSummary[]
   hasReadyEnvironment: boolean
+  startingSessionId?: string
 }>()
 
 const emit = defineEmits<{
@@ -78,7 +79,7 @@ const emit = defineEmits<{
   collapse: []
   createContext: [context: { host?: ShortcutHost; workspace?: string }]
   select: [session: Session]
-  restart: [session: Session]
+  start: [session: Session]
   stop: [session: Session]
   remove: [session: Session]
   removeWorkspace: [workspace: { id: string; path: string }]
@@ -195,6 +196,10 @@ function isSelectedNode(node: SessionTreeNode): boolean {
   return selectedTreeNodes.value.some((selected) => selected.id === node.id)
 }
 
+function isStartingSession(session: Session): boolean {
+  return props.startingSessionId === session.id
+}
+
 function environmentLogo(host: ShortcutHost) {
   if (host === 'windows_cygwin') {
     return CygwinLogo
@@ -225,16 +230,23 @@ function stopSession(event: globalThis.MouseEvent, session: Session) {
   emit('stop', session)
 }
 
-function restartSession(event: globalThis.MouseEvent, session: Session) {
+function startSession(event: globalThis.MouseEvent, session: Session) {
   event.preventDefault()
   event.stopPropagation()
-  emit('restart', session)
+  emit('start', session)
 }
 
 function removeSession(event: globalThis.MouseEvent, session: Session) {
   event.preventDefault()
   event.stopPropagation()
   emit('remove', session)
+}
+
+function createFromWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
+  event.preventDefault()
+  event.stopPropagation()
+  emit('createContext', { host: node.host, workspace: node.workspacePath })
+  emit('create')
 }
 
 function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
@@ -364,16 +376,29 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                     class="h-4 w-4 shrink-0 text-slate-400"
                   />
                   <span class="min-w-0 flex-1 truncate">{{ item.value.label }}</span>
-                  <button
+                  <span
                     v-if="item.value.kind === 'workspace'"
-                    type="button"
-                    class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-300 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 focus:opacity-100"
-                    :aria-label="t('session.workspace.deleteLabel')"
-                    :title="t('session.workspace.deleteLabel')"
-                    @click="removeWorkspace($event, item.value)"
+                    class="inline-flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100"
                   >
-                    <Trash2 class="h-4 w-4" />
-                  </button>
+                    <button
+                      type="button"
+                      class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-300 transition hover:bg-blue-50 hover:text-blue-600 focus:opacity-100"
+                      :aria-label="t('session.workspace.createLabel')"
+                      :title="t('session.workspace.createLabel')"
+                      @click="createFromWorkspace($event, item.value)"
+                    >
+                      <Plus class="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-300 transition hover:bg-red-50 hover:text-red-600 focus:opacity-100"
+                      :aria-label="t('session.workspace.deleteLabel')"
+                      :title="t('session.workspace.deleteLabel')"
+                      @click="removeWorkspace($event, item.value)"
+                    >
+                      <Trash2 class="h-4 w-4" />
+                    </button>
+                  </span>
                   <span
                     v-if="item.value.session"
                     class="inline-flex shrink-0 items-center gap-1"
@@ -386,17 +411,19 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                       :title="t('session.card.stopLabel')"
                       @click="stopSession($event, item.value.session)"
                     >
-                      <Pause class="h-4 w-4" />
+                      <Ban class="h-4 w-4" />
                     </button>
                     <button
                       v-if="item.value.session.status === 'stopped'"
                       type="button"
-                      class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
-                      :aria-label="t('session.card.restartLabel')"
-                      :title="t('session.card.restartLabel')"
-                      @click="restartSession($event, item.value.session)"
+                      :disabled="isStartingSession(item.value.session)"
+                      class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 disabled:cursor-wait disabled:opacity-60"
+                      :aria-label="t('session.card.startLabel')"
+                      :title="t('session.card.startLabel')"
+                      @click="startSession($event, item.value.session)"
                     >
-                      <Play class="h-4 w-4" />
+                      <Loader2 v-if="isStartingSession(item.value.session)" class="h-4 w-4 animate-spin" />
+                      <Play v-else class="h-4 w-4" />
                     </button>
                     <button
                       v-if="item.value.session.status === 'stopped'"

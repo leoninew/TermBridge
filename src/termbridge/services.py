@@ -431,6 +431,22 @@ class TerminalService:
         result = self._run_tmux_command(host, workspace, f"tmux display-message -p -t {shlex.quote(tmux_window_id)} '#{{window_id}}'")
         return result.returncode == 0 and result.stdout.strip() == tmux_window_id
 
+    def find_tmux_window_by_name(
+        self, host: ShortcutHost, workspace: Path, *, tmux_session_name: str, window_name: str
+    ) -> str | None:
+        result = self._run_tmux_command(
+            host,
+            workspace,
+            f"tmux list-windows -t {shlex.quote(tmux_session_name)} -F '#{{window_id}}\t#{{window_name}}'",
+        )
+        if result.returncode != 0:
+            return None
+        for line in result.stdout.splitlines():
+            window_id, _, name = line.partition("\t")
+            if name == window_name:
+                return window_id
+        return None
+
     def tmux_session_exists(self, host: ShortcutHost, workspace: Path, *, tmux_session_name: str) -> bool:
         result = self._run_tmux_command(host, workspace, f"tmux has-session -t {shlex.quote(tmux_session_name)}")
         return result.returncode == 0
@@ -856,8 +872,8 @@ class SessionService:
         entry = self._refresh_entry(workspace, entry)
         return SessionResponse.from_entry(workspace, entry)
 
-    def restart(self, session_id: str) -> SessionResponse:
-        logger.info("Restarting session entry_id=%s", session_id)
+    def start(self, session_id: str) -> SessionResponse:
+        logger.info("Starting session entry_id=%s", session_id)
         workspace, entry = self._repository.get_entry(session_id)
         entry = self._refresh_entry(workspace, entry)
         if entry.status == SessionStatus.RUNNING:
@@ -867,7 +883,12 @@ class SessionService:
         if shortcut.host != workspace.host:
             raise InvalidTerminalConfigError("Shortcut host does not match session workspace")
         if not terminal_service.tmux_window_exists(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id):
-            tmux_window_id = terminal_service.create_tmux_window(
+            tmux_window_id = terminal_service.find_tmux_window_by_name(
+                workspace.host,
+                workspace.path,
+                tmux_session_name=workspace.tmux_session_name,
+                window_name=entry.name,
+            ) or terminal_service.create_tmux_window(
                 shortcut,
                 workspace.path,
                 tmux_session_name=workspace.tmux_session_name,
@@ -885,6 +906,8 @@ class SessionService:
     def stop(self, session_id: str) -> SessionResponse:
         logger.info("Stopping session entry_id=%s", session_id)
         workspace, entry = self._repository.get_entry(session_id)
+        terminal_service = self._require_terminal_service()
+        terminal_service.kill_tmux_window(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id)
         updated = self._stop_entry(workspace, entry)
         self._repository.update_entry(updated)
         return SessionResponse.from_entry(workspace, updated)
@@ -954,6 +977,7 @@ class SessionService:
                 "status": SessionStatus.STOPPED,
                 "pid": None,
                 "url": "",
+                "tmux_window_id": None,
                 "updated_at": now or utc_now(),
             }
         )
@@ -1006,8 +1030,13 @@ class SessionService:
             tmux_window_id=entry.tmux_window_id,
         ):
             return entry
+        tmux_window_id = (
+            entry.tmux_window_id
+            if terminal_service.tmux_window_exists(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id)
+            else None
+        )
         updated = entry.model_copy(
-            update={"status": SessionStatus.STOPPED, "pid": None, "url": "", "tmux_window_id": None, "updated_at": utc_now()}
+            update={"status": SessionStatus.STOPPED, "pid": None, "url": "", "tmux_window_id": tmux_window_id, "updated_at": utc_now()}
         )
         try:
             self._repository.update_entry(updated)

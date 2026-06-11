@@ -34,12 +34,10 @@ Review status: Accepted
 
 这样首个 window 就是 managed window，不留下默认 `bash` window。
 
-### 3. Stop / restart / delete semantics
+### 3. Stop / start / delete semantics
 
-- Stop entry：只停止 ttyd process，清空连接 URL，entry 标记为 stopped，保留 `tmux_window_id` 与 managed window。
-- Restart entry：
-  - 如果 `tmux_window_id` 仍存在，直接启动新的 ttyd process 并 attach/select 到原 window。
-  - 如果 `tmux_window_id` 不存在，重新创建 managed window，并更新 entry 的 `tmux_window_id`。
+- Stop entry：停止 ttyd process，kill managed window，清空连接 URL 和 `tmux_window_id`，entry 标记为 stopped。
+- Start entry：从 stopped 状态启动时优先复用 entry 记录的 `tmux_window_id`；记录 id 缺失或失效时，按同 workspace tmux session 下的同名 window 查找并复用；都不存在时创建新的 managed window，更新 entry 的 `tmux_window_id`，再启动新的 ttyd process 并 attach/select 到目标 window；不保留 restart API 命名。
 - Delete entry：停止 ttyd process，kill managed window，删除 entry；如果 workspace 已无 entries，保留 workspace record 作为目录节点，并 kill workspace tmux session。
 - Delete workspace：删除二级目录节点及所有 entries，清理所有 managed windows 和 workspace tmux session。
 - Close all sessions：作为显式高影响操作，清理所有 managed windows 和 workspace tmux sessions，但保留 records 与目录节点。
@@ -94,11 +92,11 @@ Review status: Accepted
 - workspace 不存在：`404`
 - repository 错误：`500`
 
-既有 session API 保持：
+既有 session API 随 stopped 语义改为 start 命名：
 
 - `POST /api/sessions`
 - `POST /api/sessions/{session_id}/stop`
-- `POST /api/sessions/{session_id}/restart`
+- `POST /api/sessions/{session_id}/start`
 - `DELETE /api/sessions/{session_id}`
 - `POST /api/sessions/close-all`
 - `GET /api/session-tree`
@@ -133,7 +131,7 @@ Review status: Accepted
 
 - 旧 sessions 文件会被拒绝读取，需要用户删除或重新生成。
 - session name 成为 key 后，未来如果增加 rename，需要实现 key rename 语义。
-- Stop 保留 tmux window 会保留其中运行状态；这符合恢复复用要求，但与旧“停止即 kill command”语义不同。
+- Stop 会清理 managed tmux window，不再保留 stopped entry 自己的 tmux window 内容；start 仍允许用户有意准备同 workspace + 同名 window 并复用。
 - 目录删除是 destructive 操作；当前设计为 icon 直接触发，不额外增加确认弹窗。
 
 ## Alternatives
@@ -146,9 +144,9 @@ Review status: Accepted
 
 优点：历史数据安全。缺点：用户明确要求不向后兼容、不迁移历史数据；会增加无必要复杂度。
 
-### Alternative 3: Stop 继续 kill window，restart 重建
+### Alternative 3: Stop 清理 window，start 重建
 
-优点：与旧实现一致。缺点：不符合用户确认的“恢复复用 window”语义，也会继续导致额外 window 观察问题。
+该方案已被后续 `docs/requirement/20260611-simplify-stopped-session-semantics.md` 接受并覆盖原“恢复复用 window”语义：优点是 stopped 状态与 tmux window 生命周期一致，缺点是 stop 后不保留 tmux window 内容。
 
 ## User review notes
 

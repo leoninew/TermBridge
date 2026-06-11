@@ -45,6 +45,7 @@ class FakeShortcutService:
         self.killed_windows: list[tuple[str, Path, str | None]] = []
         self.killed_sessions: list[tuple[str, Path, str]] = []
         self.window_exists = True
+        self.window_by_name: str | None = None
         self.shortcut = Shortcut(
             id="claude-code",
             name="Claude Code",
@@ -74,6 +75,9 @@ class FakeShortcutService:
 
     def tmux_window_exists(self, host: str, workspace: Path, *, tmux_window_id: str | None) -> bool:
         return self.window_exists
+
+    def find_tmux_window_by_name(self, host: str, workspace: Path, *, tmux_session_name: str, window_name: str) -> str | None:
+        return self.window_by_name
 
     def resolve_ttyd_executable(self, host: str, cygwin_bash_path: str | None = None) -> str:
         return self.ttyd_executable
@@ -189,7 +193,7 @@ def test_service_cleans_tmux_window_when_create_process_start_fails(tmp_path: Pa
     assert service.list_sessions() == []
 
 
-def test_service_stop_keeps_record_and_managed_window(tmp_path: Path) -> None:
+def test_service_stop_keeps_record_and_removes_managed_window(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
     shortcuts = FakeShortcutService()
     service = make_service(tmp_path, process, shortcut_service=shortcuts)
@@ -200,8 +204,9 @@ def test_service_stop_keeps_record_and_managed_window(tmp_path: Path) -> None:
     assert stopped.status == "stopped"
     assert stopped.url == ""
     assert process.terminated == [ProcessHandle(pid=100)]
-    assert shortcuts.killed_windows == []
+    assert shortcuts.killed_windows == [("windows_cygwin", tmp_path.resolve(), "@1")]
     assert service.get(response.id).status == "stopped"
+    assert service._repository.get_entry(response.id)[1].tmux_window_id is None
     assert service.get(response.id).tmux_session_name == response.tmux_session_name
 
 
@@ -291,38 +296,58 @@ def test_service_refresh_stops_entry_when_tmux_window_disappears(tmp_path: Path)
     assert service.get(response.id).status == "stopped"
 
 
-def test_service_restarts_stopped_entry_with_existing_window(tmp_path: Path) -> None:
+def test_service_starts_stopped_entry_with_existing_window(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
     shortcuts = FakeShortcutService()
     service = make_service(tmp_path, process, shortcut_service=shortcuts)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
-    stopped = service.stop(response.id)
+    process.running = False
+    stopped = service.get(response.id)
 
-    restarted = service.restart(stopped.id)
+    started = service.start(stopped.id)
 
-    assert restarted.status == "running"
-    assert restarted.port == 9201
+    assert started.status == "running"
+    assert started.port == 9201
     assert [item[3] for item in shortcuts.created_windows] == ["Test"]
     assert process.started[-1][0][8] == f"tmux select-window -t @1 && exec tmux attach -t {response.tmux_session_name}"
 
 
-def test_service_restarts_stopped_entry_with_new_window_when_existing_window_missing(tmp_path: Path) -> None:
+def test_service_starts_stopped_entry_with_named_window_when_recorded_window_is_missing(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
     shortcuts = FakeShortcutService()
     service = make_service(tmp_path, process, shortcut_service=shortcuts)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
-    stopped = service.stop(response.id)
+    process.running = False
+    stopped = service.get(response.id)
+    shortcuts.window_exists = False
+    shortcuts.window_by_name = "@7"
+
+    started = service.start(stopped.id)
+
+    assert started.status == "running"
+    assert started.port == 9201
+    assert [item[3] for item in shortcuts.created_windows] == ["Test"]
+    assert process.started[-1][0][8] == f"tmux select-window -t @7 && exec tmux attach -t {response.tmux_session_name}"
+
+
+def test_service_starts_stopped_entry_with_new_window_when_existing_window_is_missing(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    shortcuts = FakeShortcutService()
+    service = make_service(tmp_path, process, shortcut_service=shortcuts)
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    process.running = False
+    stopped = service.get(response.id)
     shortcuts.window_exists = False
 
-    restarted = service.restart(stopped.id)
+    started = service.start(stopped.id)
 
-    assert restarted.status == "running"
-    assert restarted.port == 9201
+    assert started.status == "running"
+    assert started.port == 9201
     assert [item[3] for item in shortcuts.created_windows] == ["Test", "Test"]
     assert process.started[-1][0][8] == f"tmux select-window -t @2 && exec tmux attach -t {response.tmux_session_name}"
 
 
-def test_service_rejects_restart_when_shortcut_host_changed(tmp_path: Path) -> None:
+def test_service_rejects_start_when_shortcut_host_changed(tmp_path: Path) -> None:
     shortcuts = FakeShortcutService()
     service = make_service(tmp_path, shortcut_service=shortcuts)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
@@ -330,17 +355,17 @@ def test_service_rejects_restart_when_shortcut_host_changed(tmp_path: Path) -> N
     shortcuts.shortcut = shortcuts.shortcut.model_copy(update={"host": "windows_wsl"})
 
     with pytest.raises(InvalidTerminalConfigError, match="Shortcut host does not match session workspace"):
-        service.restart(stopped.id)
+        service.start(stopped.id)
 
 
-def test_service_restart_running_entry_is_noop(tmp_path: Path) -> None:
+def test_service_start_running_entry_is_noop(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
     service = make_service(tmp_path, process)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
 
-    restarted = service.restart(response.id)
+    started = service.start(response.id)
 
-    assert restarted.id == response.id
+    assert started.id == response.id
     assert len(process.started) == 1
 
 

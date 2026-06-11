@@ -65,7 +65,7 @@ class FakeSessionService:
     def get(self, session_id: str) -> SessionResponse:
         return self.session.model_copy(update={"id": session_id})
 
-    def restart(self, session_id: str) -> SessionResponse:
+    def start(self, session_id: str) -> SessionResponse:
         return self.session.model_copy(update={"id": session_id, "status": SessionStatus.RUNNING})
 
     def stop(self, session_id: str) -> SessionResponse:
@@ -255,7 +255,7 @@ def test_session_api_routes(tmp_path: Path) -> None:
     listed = client.get("/api/sessions")
     detail = client.get("/api/sessions/sess_2")
     tree = client.get("/api/session-tree")
-    restarted = client.post("/api/sessions/sess_2/restart")
+    started = client.post("/api/sessions/sess_2/start")
     stopped = client.post("/api/sessions/sess_2/stop")
     close_all = client.post("/api/sessions/close-all")
     deleted_workspace = client.delete("/api/session-workspaces/ws_1")
@@ -272,9 +272,9 @@ def test_session_api_routes(tmp_path: Path) -> None:
     assert detail.json()["session_persistence"] == "tmux"
     assert tree.status_code == 200
     assert tree.json()["environments"][0]["workspaces"][0]["entries"][0]["id"] == "sess_1"
-    assert restarted.status_code == 200
-    assert restarted.json()["id"] == "sess_2"
-    assert restarted.json()["status"] == "running"
+    assert started.status_code == 200
+    assert started.json()["id"] == "sess_2"
+    assert started.json()["status"] == "running"
     assert stopped.status_code == 200
     assert stopped.json()["status"] == "stopped"
     assert close_all.status_code == 200

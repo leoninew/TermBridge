@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Monitor, Plus, RotateCw, X } from '@lucide/vue'
+import { Loader2, Monitor, Play, Plus, X } from '@lucide/vue'
 import { TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -10,16 +10,18 @@ const { t } = useI18n()
 const props = defineProps<{
   sessions: Session[]
   session?: Session
+  startingSessionId?: string
 }>()
 
 const emit = defineEmits<{
   close: [session: Session]
   create: []
-  restart: [session: Session]
+  start: [session: Session]
   select: [session: Session]
 }>()
 
 const activeTab = computed(() => props.session?.id || '')
+const isStartingActiveSession = computed(() => !!props.session && props.startingSessionId === props.session.id)
 
 const createTabValue = '__create_session__'
 
@@ -110,11 +112,13 @@ function closeTab(event: globalThis.MouseEvent, session: Session) {
         <button
           v-if="session.status === 'stopped'"
           type="button"
-          class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm text-white transition hover:bg-blue-700"
-          @click="emit('restart', session)"
+          :disabled="isStartingActiveSession"
+          class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-70"
+          @click="emit('start', session)"
         >
-          <RotateCw class="h-4 w-4" />
-          {{ t('session.terminal.restart') }}
+          <Loader2 v-if="isStartingActiveSession" class="h-4 w-4 animate-spin" />
+          <Play v-else class="h-4 w-4" />
+          {{ t('session.terminal.start') }}
         </button>
       </div>
     </div>

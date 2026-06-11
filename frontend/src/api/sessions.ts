@@ -74,8 +74,8 @@ export function getSession(id: string): Promise<Session> {
   return request<Session>(`/api/sessions/${encodeURIComponent(id)}`)
 }
 
-export function restartSession(id: string): Promise<Session> {
-  return request<Session>(`/api/sessions/${encodeURIComponent(id)}/restart`, {
+export function startSession(id: string): Promise<Session> {
+  return request<Session>(`/api/sessions/${encodeURIComponent(id)}/start`, {
     method: 'POST',
   })
 }

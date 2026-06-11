@@ -7,7 +7,7 @@ Review status: Accepted
 - `docs/requirement/20260611-tmux-window-storage-lifecycle.md`
 - `docs/spec/20260611-tmux-window-storage-lifecycle.md`
 - 当前流程已切换为严格模式 / strict。
-- 用户最新确认：停止后的会话恢复应复用原 managed tmux window。
+- 后续 `docs/requirement/20260611-simplify-stopped-session-semantics.md` 已覆盖原恢复复用决策：stop 后 stopped entry 不保留自己的 managed tmux window；start 会优先复用记录 id 或同名 window，都不存在时再创建新 window。
 - 用户提出：`.termbridge/sessions.json` 应与左侧导航一致，按环境、标准化目录完整路径、会话名称三级结构组织。
 - 用户明确：不向后兼容，不迁移历史 sessions 数据。
 
@@ -19,12 +19,9 @@ Review status: Accepted
    - 已存在 workspace session 时继续使用 `tmux new-window` 创建新 managed window。
    - 保持返回 tmux window id。
 
-2. 修正 stop/restart 生命周期
-   - `SessionService.stop()` / `_stop_entry()` 改为只停止 ttyd process，不 kill managed window，不清空 `tmux_window_id`。
-   - 清空 URL，并释放/清空连接状态字段。
-   - `SessionService.restart()` 先检查原 `tmux_window_id` 是否存在：
-     - 存在：直接 `_start_entry()` 重新 attach。
-     - 不存在：创建新 managed window 并更新 `tmux_window_id`。
+2. 修正 stop/start 生命周期
+   - `SessionService.stop()` / `_stop_entry()` 停止 ttyd process，kill managed window，清空 `tmux_window_id` 和 URL。
+   - `SessionService.start()` 优先复用记录 id 对应 window；记录 id 缺失或失效时按同名 window 复用；都不存在时创建新 managed window 并更新 `tmux_window_id`。
    - `delete()` kill managed window 并删除 entry，但保留 workspace/目录节点。
    - `close_all()` 终止 managed windows 和 workspace tmux sessions，但保留 records 与 workspace/目录节点。
 
@@ -52,7 +49,7 @@ Review status: Accepted
 
 7. 更新测试
    - `tests/test_terminal_service.py` 覆盖创建首个 window 不留下默认 window 的 tmux script。
-   - `tests/test_services.py` 覆盖 stop 保留 window、restart 复用 window、window 缺失时 restart 重建。
+   - `tests/test_services.py` 覆盖 stop 清理 window、start stopped session 复用记录 window、复用同名 window、缺失时创建新 window。
    - 覆盖重名 session 拒绝。
    - 覆盖删除 entry 后 workspace 仍保留。
    - 覆盖目录节点删除会删除 workspace 及其 managed tmux resources。
@@ -95,7 +92,7 @@ Review status: Accepted
 
 ## Rollback
 
-- tmux lifecycle 修复可回退到旧的 stop kill window / restart new window 语义。
+- tmux lifecycle 如需回退，需要重新引入 stop 保留 window 与 start/reconnect 复用 window 的区分；当前需求明确不采用该区分。
 - schema 写出改造若出现问题，可回退到旧 `workspaces` schema 并仅完成 lifecycle 修复；但这会不满足用户对三层存储结构和不兼容旧数据的要求。
 
 ## User review notes

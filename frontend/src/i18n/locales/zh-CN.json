@@ -21,14 +21,14 @@
       "loadSessions": "加载会话失败",
       "loadEnvironments": "加载环境列表失败",
       "createSession": "新建会话失败",
-      "restartSession": "重新启动会话失败",
+      "startSession": "启动会话失败",
       "stopSession": "停止会话失败",
       "deleteSession": "删除会话失败",
       "deleteWorkspace": "删除目录失败",
       "closeAllSessions": "关闭所有会话失败"
     },
     "success": {
-      "restartSession": "会话已重新启动。",
+      "startSession": "会话已启动。",
       "stopSession": "会话已停止。",
       "deleteSession": "会话已删除。",
       "deleteWorkspace": "目录已删除。",
@@ -100,12 +100,13 @@
       "collapse": "收起"
     },
     "card": {
-      "restartLabel": "重新启动会话",
+      "startLabel": "启动会话",
       "stopLabel": "停止会话",
       "deleteLabel": "删除会话",
       "shortcut": "快捷方式：{shortcut}"
     },
     "workspace": {
+      "createLabel": "在此目录新建会话",
       "deleteLabel": "删除目录"
     },
     "terminal": {
@@ -117,7 +118,7 @@
       "emptySuffix": "一个会话查看终端。",
       "missingUrl": "当前会话没有可用终端 URL。",
       "statusUnavailable": "当前状态为 {status}，终端暂不可用。",
-      "restart": "重新启动会话",
+      "start": "启动会话",
       "iframeTitle": "{name} terminal"
     },
     "status": {

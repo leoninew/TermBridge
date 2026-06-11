@@ -5,13 +5,13 @@ Review status: Accepted
 ## What changed
 
 - 修正 workspace tmux session 首次创建逻辑：首个 managed window 直接由 `tmux new-session -d -P` 创建，不再额外留下默认 `bash` window。
-- 调整 stop/restart 语义：stop 只停止 ttyd 连接并保留 managed window；restart 优先复用原 window，window 缺失时才重建。
+- 后续简化 stopped 语义已覆盖 stop/restart 决策：手动 stop 清理 managed window 并清空 `tmux_window_id`；start stopped session 优先复用记录 id 或同名 window，都不存在时才创建新的 managed window，不保留 restart API 命名。
 - delete entry 仍会清理 managed window，但删除最后一个会话时保留目录 workspace 节点。
 - 新增目录 workspace 删除能力，删除二级目录节点时清理该 workspace 下的 windows 和 tmux session。
 - `.termbridge/sessions.json` 写出为 `environments -> workspace path -> session name` 三级结构；旧 `workspaces` schema 不兼容且不会迁移。
 - 前端 session tree 的目录节点 hover 时显示删除 icon；点击后先展示确认弹窗，空目录使用轻量确认，含会话目录使用警告确认，确认后再删除目录节点；新建会话上下文改为由树节点显式选择提供。
 - 当前没有会话但仍有目录节点时继续展示目录树；只有没有会话且没有目录节点时才展示“暂无会话”空态。
-- 更新 workspace tmux session 模型文档，使 stop/restart/delete 语义与最新实现一致。
+- 更新 workspace tmux session 模型文档，使 stop/start/delete 语义与最新实现一致。
 
 ## Acceptance
 
