@@ -21,6 +21,22 @@ import type {
   WorkspaceTreeResponse,
 } from '../types/sessions'
 
+type ApiErrorResponse = {
+  code: string
+  error: string
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly code: string,
+    readonly status: number,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     headers: {
@@ -31,8 +47,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
 
   if (!response.ok) {
-    const detail = await readError(response)
-    throw new Error(detail || i18n.global.t('api.requestFailed', { status: response.status }))
+    throw await readError(response)
   }
 
   if (response.status === 204) {
@@ -42,13 +57,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-async function readError(response: Response): Promise<string> {
+async function readError(response: Response): Promise<ApiError> {
   try {
-    const data = (await response.json()) as { detail?: string; message?: string }
-    return data.detail || data.message || response.statusText
+    const data = (await response.json()) as ApiErrorResponse
+    if (data.code && data.error) {
+      return new ApiError(data.error, data.code, response.status)
+    }
   } catch {
-    return response.statusText
+    // Fall through to the generic request failure below.
   }
+  return new ApiError(
+    i18n.global.t('api.requestFailed', { status: response.status }),
+    'request_failed',
+    response.status,
+  )
 }
 
 export function getHealth(): Promise<HealthResponse> {

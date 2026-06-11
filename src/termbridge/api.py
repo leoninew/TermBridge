@@ -1,7 +1,11 @@
+import logging
 from pathlib import Path
+from typing import Any
 
-from fastapi import APIRouter, FastAPI, HTTPException, Query, Response, status
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, FastAPI, HTTPException, Query, Request, Response, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from termbridge.di import SessionServiceDep, TerminalServiceDep, WorkspaceBrowserServiceDep
 from termbridge.exceptions import (
@@ -46,6 +50,49 @@ from termbridge.models import (
 from termbridge.settings import load_settings
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+STATUS_ERROR_CODES = {
+    status.HTTP_400_BAD_REQUEST: "bad_request",
+    status.HTTP_404_NOT_FOUND: "not_found",
+    status.HTTP_409_CONFLICT: "conflict",
+    status.HTTP_422_UNPROCESSABLE_CONTENT: "validation_error",
+    status.HTTP_500_INTERNAL_SERVER_ERROR: "internal_error",
+    status.HTTP_503_SERVICE_UNAVAILABLE: "service_unavailable",
+}
+
+
+def _error_code(status_code: int) -> str:
+    return STATUS_ERROR_CODES.get(status_code, "request_failed")
+
+
+def _error_message(detail: Any, fallback: str) -> str:
+    if isinstance(detail, str) and detail:
+        return detail
+    return fallback
+
+
+def _error_response(status_code: int, code: str, error: str) -> JSONResponse:
+    return JSONResponse(status_code=status_code, content={"code": code, "error": error})
+
+
+async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    if not isinstance(exc, StarletteHTTPException):
+        return await unhandled_exception_handler(request, exc)
+    code = _error_code(exc.status_code)
+    error = _error_message(exc.detail, "Request failed")
+    return _error_response(exc.status_code, code, error)
+
+
+async def validation_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    if not isinstance(exc, RequestValidationError):
+        return await unhandled_exception_handler(request, exc)
+    return _error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, "validation_error", "Validation error")
+
+
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("Unhandled request error path=%s", request.url.path)
+    return _error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "internal_error", "Internal server error")
 
 
 @router.get("/health")
@@ -278,6 +325,8 @@ def start_session(session_id: str, service: SessionServiceDep) -> SessionRespons
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found") from exc
     except NoAvailablePortError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except InvalidTerminalConfigError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except SessionRepositoryError as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
@@ -320,6 +369,9 @@ def create_app(*, serve_frontend: bool = True, frontend_dir: Path | None = None)
     configure_logging(settings)
 
     app = FastAPI(title="TermBridge")
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(Exception, unhandled_exception_handler)
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(router)
 

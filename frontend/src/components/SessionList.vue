@@ -12,7 +12,6 @@ import {
   Search,
   Settings,
   Ban,
-  Play,
   SquareTerminal,
   Trash2,
   XCircle,
@@ -230,12 +229,6 @@ function stopSession(event: globalThis.MouseEvent, session: Session) {
   emit('stop', session)
 }
 
-function startSession(event: globalThis.MouseEvent, session: Session) {
-  event.preventDefault()
-  event.stopPropagation()
-  emit('start', session)
-}
-
 function removeSession(event: globalThis.MouseEvent, session: Session) {
   event.preventDefault()
   event.stopPropagation()
@@ -377,7 +370,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                   />
                   <span
                     class="min-w-0 flex-1 truncate"
-                    :class="item.value.kind === 'workspace' ? 'max-w-56' : ''"
+                    :class="item.value.kind === 'workspace' ? 'max-w-36' : ''"
                     :title="item.value.kind === 'workspace' ? item.value.label : undefined"
                   >
                     {{ item.value.label }}
@@ -419,18 +412,14 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                     >
                       <Ban class="h-4 w-4" />
                     </button>
-                    <button
-                      v-if="item.value.session.status === 'stopped'"
-                      type="button"
-                      :disabled="isStartingSession(item.value.session)"
-                      class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 disabled:cursor-wait disabled:opacity-60"
+                    <span
+                      v-if="item.value.session.status === 'stopped' && isStartingSession(item.value.session)"
+                      class="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400"
                       :aria-label="t('session.card.startLabel')"
                       :title="t('session.card.startLabel')"
-                      @click="startSession($event, item.value.session)"
                     >
-                      <Loader2 v-if="isStartingSession(item.value.session)" class="h-4 w-4 animate-spin" />
-                      <Play v-else class="h-4 w-4" />
-                    </button>
+                      <Loader2 class="h-4 w-4 animate-spin" />
+                    </span>
                     <button
                       v-if="item.value.session.status === 'stopped'"
                       type="button"

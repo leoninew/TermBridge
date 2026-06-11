@@ -489,13 +489,29 @@ class TerminalService:
         return f"tmux has-session -t {quoted_session} 2>/dev/null && {create_window} || {create_session}"
 
     def _run_tmux_command(self, host: ShortcutHost, workspace: Path, command: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            self._runtime_shell_command(host, workspace, command),
-            capture_output=True,
-            text=True,
-            timeout=self._tmux_command_timeout_seconds,
-            check=False,
-        )
+        args = self._runtime_shell_command(host, workspace, command)
+        try:
+            return subprocess.run(
+                args,
+                capture_output=True,
+                text=True,
+                timeout=self._tmux_command_timeout_seconds,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "tmux command timed out host=%s workspace=%s timeout_seconds=%s command=%s",
+                host,
+                workspace,
+                self._tmux_command_timeout_seconds,
+                command,
+            )
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=124,
+                stdout="",
+                stderr=f"tmux command timed out after {self._tmux_command_timeout_seconds:g} seconds",
+            )
 
     def _run_tmux_cleanup(self, host: ShortcutHost, workspace: Path, command: str) -> None:
         try:

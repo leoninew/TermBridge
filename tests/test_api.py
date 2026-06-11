@@ -30,7 +30,8 @@ from termbridge.models import (
 
 
 class FakeSessionService:
-    def __init__(self, *, with_session: bool = True) -> None:
+    def __init__(self, *, with_session: bool = True, fail_list: bool = False) -> None:
+        self.fail_list = fail_list
         now = datetime(2026, 6, 8, tzinfo=UTC)
         self.session = SessionResponse(
             id="sess_1",
@@ -60,6 +61,8 @@ class FakeSessionService:
         )
 
     def list_sessions(self) -> list[SessionResponse]:
+        if self.fail_list:
+            raise RuntimeError("boom")
         return self.sessions
 
     def get(self, session_id: str) -> SessionResponse:
@@ -240,7 +243,7 @@ def test_frontend_static_routes(tmp_path: Path) -> None:
     assert asset.status_code == 200
     assert asset.text == "console.log('termbridge')"
     assert missing_api.status_code == 404
-    assert missing_api.json() == {"detail": "Not found"}
+    assert missing_api.json() == {"code": "not_found", "error": "Not found"}
     assert health_response.status_code == 200
     assert health_response.json() == {"status": "ok"}
 
@@ -309,7 +312,24 @@ def test_shortcut_api_routes() -> None:
     assert service.deleted == ["claude-code"]
 
 
-def test_shortcut_delete_rejects_in_use_shortcut() -> None:
+def test_api_validation_error_uses_structured_error() -> None:
+    client = make_client(FakeSessionService())
+
+    response = client.post("/api/sessions", json={"name": "Missing fields"})
+
+    assert response.status_code == 422
+    assert response.json() == {"code": "validation_error", "error": "Validation error"}
+
+
+def test_api_unhandled_exception_uses_structured_error() -> None:
+    client = make_client(FakeSessionService(fail_list=True))
+
+    response = client.get("/api/sessions")
+
+    assert response.status_code == 500
+    assert response.json() == {"code": "internal_error", "error": "Internal server error"}
+
+
     service = FakeTerminalService()
     session_service = FakeSessionService()
     app = create_app()
@@ -320,7 +340,7 @@ def test_shortcut_delete_rejects_in_use_shortcut() -> None:
     response = client.delete("/api/shortcuts/claude-code")
 
     assert response.status_code == 409
-    assert response.json()["detail"] == "Shortcut is in use"
+    assert response.json() == {"code": "conflict", "error": "Shortcut is in use"}
     assert service.deleted == []
 
 

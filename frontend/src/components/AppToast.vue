@@ -1,9 +1,21 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { X } from '@lucide/vue'
 import { ToastProvider, ToastRoot, ToastTitle, ToastViewport } from 'reka-ui'
-import { useToastStore } from '../stores/toast'
+import { useToastStore, type ToastVariant } from '../stores/toast'
 
 const toast = useToastStore()
+
+const toastClasses = computed<Record<ToastVariant, { root: string; close: string }>>(() => ({
+  success: {
+    root: 'border-emerald-200 bg-emerald-50 text-emerald-900 shadow-emerald-900/10',
+    close: 'text-emerald-700 hover:bg-emerald-100 hover:text-emerald-950 focus:ring-emerald-500',
+  },
+  error: {
+    root: 'border-red-200 bg-red-50 text-red-900 shadow-red-900/10',
+    close: 'text-red-700 hover:bg-red-100 hover:text-red-950 focus:ring-red-500',
+  },
+}))
 </script>
 
 <template>
@@ -13,7 +25,8 @@ const toast = useToastStore()
       :key="item.id"
       :open="item.open"
       type="foreground"
-      class="relative overflow-hidden rounded-xl border border-blue-200 bg-blue-50 pr-10 text-sm text-blue-900 shadow-xl shadow-blue-900/10"
+      class="relative overflow-hidden rounded-xl border pr-10 text-sm shadow-xl"
+      :class="toastClasses[item.variant].root"
       @update:open="toast.updateOpen(item.id, $event)"
     >
       <ToastTitle class="px-4 py-3 font-medium">
@@ -21,7 +34,8 @@ const toast = useToastStore()
       </ToastTitle>
       <button
         type="button"
-        class="absolute right-2 top-2 rounded-md p-1 text-blue-700 transition hover:bg-blue-100 hover:text-blue-950 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="absolute right-2 top-2 rounded-md p-1 transition focus:outline-none focus:ring-2"
+        :class="toastClasses[item.variant].close"
         aria-label="Close notification"
         @click="toast.updateOpen(item.id, false)"
       >

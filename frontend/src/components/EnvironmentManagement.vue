@@ -133,7 +133,7 @@ async function refreshTtyd() {
         ttyd_path: status.path,
       })
       if (status.path !== previousPath) {
-        toast.show(t('environmentManagement.ttyd.saved'))
+        toast.show({ title: t('environmentManagement.ttyd.saved'), variant: 'success' })
       }
     }
   } catch (err) {
@@ -160,10 +160,10 @@ async function refreshTab(tab: EnvironmentTab = activeTab.value) {
         windowsWslSettings.value.tmux_path = status.tmux.path
         windowsWslSettings.value.tmux_version = status.tmux.version
       }
-      toast.show(t('environmentManagement.windowsWsl.checked'))
+      toast.show({ title: t('environmentManagement.windowsWsl.checked'), variant: 'success' })
     } else {
       linuxStatus.value = await checkLinux()
-      toast.show(t('environmentManagement.linux.checked'))
+      toast.show({ title: t('environmentManagement.linux.checked'), variant: 'success' })
     }
     const updatedEnvironments = await refreshEnvironmentSummary()
     emit('environmentsUpdated', updatedEnvironments)
@@ -203,7 +203,7 @@ async function refreshWindowsCygwin(setChecking = true) {
       (status.bash.available && status.bash.path && status.bash.path !== previousBashPath) ||
       (status.tmux?.available && status.tmux.path && status.tmux.path !== previousTmuxPath)
     ) {
-      toast.show(t('environmentManagement.windowsCygwin.saved'))
+      toast.show({ title: t('environmentManagement.windowsCygwin.saved'), variant: 'success' })
     }
     if (status.bash.available && status.bash.path) {
       windowsCygwinSettings.value.bash_path = status.bash.path

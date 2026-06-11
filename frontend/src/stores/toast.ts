@@ -1,9 +1,17 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
+export type ToastVariant = 'success' | 'error'
+
+type ToastOptions = {
+  title: string
+  variant?: ToastVariant
+}
+
 type ToastItem = {
   id: number
   title: string
+  variant: ToastVariant
   open: boolean
 }
 
@@ -11,8 +19,11 @@ export const useToastStore = defineStore('toast', () => {
   const items = ref<ToastItem[]>([])
   let nextId = 1
 
-  function show(title: string) {
-    items.value = [...items.value, { id: nextId++, title, open: true }]
+  function show(options: ToastOptions) {
+    items.value = [
+      ...items.value,
+      { id: nextId++, title: options.title, variant: options.variant ?? 'success', open: true },
+    ]
   }
 
   function updateOpen(id: number, open: boolean) {

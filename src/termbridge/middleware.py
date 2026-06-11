@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 from starlette.types import Message
 
 logger = logging.getLogger(__name__)
@@ -85,7 +85,10 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 path,
                 duration_ms,
             )
-            raise
+            response = JSONResponse(
+                status_code=500,
+                content={"code": "internal_error", "error": "Internal server error"},
+            )
 
         duration_ms = (time.perf_counter() - started) * 1000
         log = logger.info

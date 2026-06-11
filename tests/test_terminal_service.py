@@ -222,6 +222,16 @@ def test_terminal_service_finds_tmux_window_by_name(tmp_path: Path) -> None:
     assert "tmux list-windows -t tb_wsl_workspace -F '#{window_id}\t#{window_name}'" in command[5]
 
 
+def test_terminal_service_treats_tmux_window_timeout_as_missing_window(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))
+
+    with patch("termbridge.services.subprocess.run", side_effect=subprocess.TimeoutExpired(["tmux"], 10)):
+        exists = service.tmux_window_exists("windows_wsl", Path(r"D:\Projects\ExampleApp"), tmux_window_id="@2")
+
+    assert exists is False
+
+
 def test_terminal_service_uses_configured_tmux_command_timeout(tmp_path: Path) -> None:
     service = TerminalService(FileTerminalRepository(tmp_path / "terminals.json"), tmux_command_timeout_seconds=12.5)
     service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))

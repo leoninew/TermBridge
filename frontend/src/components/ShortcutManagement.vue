@@ -146,7 +146,10 @@ async function saveShortcut() {
     }
     closeModal()
     await load()
-    toast.show(t(updating ? 'shortcutManagement.success.updated' : 'shortcutManagement.success.created'))
+    toast.show({
+      title: t(updating ? 'shortcutManagement.success.updated' : 'shortcutManagement.success.created'),
+      variant: 'success',
+    })
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('shortcutManagement.errors.save')
   } finally {
@@ -170,7 +173,7 @@ async function confirmRemoveShortcut() {
     await deleteShortcut(deletingShortcut.value.id)
     deletingShortcut.value = undefined
     await load()
-    toast.show(t('shortcutManagement.success.deleted'))
+    toast.show({ title: t('shortcutManagement.success.deleted'), variant: 'success' })
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('shortcutManagement.errors.delete')
   }

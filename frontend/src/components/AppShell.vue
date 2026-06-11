@@ -84,11 +84,18 @@ const openTerminalSessions = computed(() =>
     .filter((session): session is Session => !!session),
 )
 
+function errorTitle(err: unknown, fallback: string) {
+  return err instanceof Error ? err.message : fallback
+}
+
 async function refresh() {
   loading.value = true
   error.value = ''
-  await Promise.all([loadSessions(), environmentStore.load()])
-  loading.value = false
+  try {
+    await Promise.all([loadSessions(), environmentStore.load()])
+  } finally {
+    loading.value = false
+  }
 }
 
 async function loadSessions() {
@@ -106,7 +113,12 @@ async function loadSessions() {
       activeSessionId.value = openTerminalSessionIds.value[0]
     }
   } catch (err) {
-    error.value = err instanceof Error ? err.message : t('app.errors.loadSessions')
+    const title = errorTitle(err, t('app.errors.loadSessions'))
+    if (sessionTree.value.length > 0 || sessions.value.length > 0) {
+      toast.show({ title, variant: 'error' })
+      return
+    }
+    error.value = title
   }
 }
 
@@ -169,9 +181,9 @@ async function confirmRemove() {
       activeSessionId.value = openTerminalSessionIds.value[0]
     }
     deletingSession.value = undefined
-    toast.show(t('app.success.deleteSession'))
+    toast.show({ title: t('app.success.deleteSession'), variant: 'success' })
   } catch (err) {
-    error.value = err instanceof Error ? err.message : t('app.errors.deleteSession')
+    toast.show({ title: errorTitle(err, t('app.errors.deleteSession')), variant: 'error' })
   }
 }
 
@@ -199,9 +211,9 @@ async function confirmRemoveWorkspace() {
       activeSessionId.value = openTerminalSessionIds.value[0]
     }
     deletingWorkspace.value = undefined
-    toast.show(t('app.success.deleteWorkspace'))
+    toast.show({ title: t('app.success.deleteWorkspace'), variant: 'success' })
   } catch (err) {
-    error.value = err instanceof Error ? err.message : t('app.errors.deleteWorkspace')
+    toast.show({ title: errorTitle(err, t('app.errors.deleteWorkspace')), variant: 'error' })
   }
 }
 
@@ -216,10 +228,10 @@ async function handleStart(session: Session) {
     const started = await startSession(session.id)
     await loadSessions()
     openTerminalSession(started)
-    toast.show(t('app.success.startSession'))
+    toast.show({ title: t('app.success.startSession'), variant: 'success' })
     await router.push('/session')
   } catch (err) {
-    error.value = err instanceof Error ? err.message : t('app.errors.startSession')
+    toast.show({ title: errorTitle(err, t('app.errors.startSession')), variant: 'error' })
   } finally {
     startingSessionId.value = undefined
   }
@@ -231,10 +243,10 @@ async function handleStop(session: Session) {
     const stopped = await stopSession(session.id)
     await loadSessions()
     openTerminalSession(stopped)
-    toast.show(t('app.success.stopSession'))
+    toast.show({ title: t('app.success.stopSession'), variant: 'success' })
     await router.push('/session')
   } catch (err) {
-    error.value = err instanceof Error ? err.message : t('app.errors.stopSession')
+    toast.show({ title: errorTitle(err, t('app.errors.stopSession')), variant: 'error' })
   }
 }
 
@@ -247,10 +259,10 @@ async function confirmCloseAllSessions() {
     openTerminalSessionIds.value = []
     activeSessionId.value = undefined
     closeAllDialogOpen.value = false
-    toast.show(t('app.success.closeAllSessions', { count: result.stopped_count }))
+    toast.show({ title: t('app.success.closeAllSessions', { count: result.stopped_count }), variant: 'success' })
     await router.push('/session')
   } catch (err) {
-    error.value = err instanceof Error ? err.message : t('app.errors.closeAllSessions')
+    toast.show({ title: errorTitle(err, t('app.errors.closeAllSessions')), variant: 'error' })
   } finally {
     closingAllSessions.value = false
   }
