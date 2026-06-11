@@ -14,7 +14,8 @@
     },
     "settings": {
       "trigger": "设置",
-      "navigation": "导航"
+      "navigation": "导航",
+      "closeAllSessions": "关闭所有会话"
     },
     "errors": {
       "loadSessions": "加载会话失败",
@@ -22,12 +23,14 @@
       "createSession": "新建会话失败",
       "restartSession": "重新启动会话失败",
       "stopSession": "停止会话失败",
-      "deleteSession": "删除会话失败"
+      "deleteSession": "删除会话失败",
+      "closeAllSessions": "关闭所有会话失败"
     },
     "success": {
       "restartSession": "会话已重新启动。",
       "stopSession": "会话已停止。",
-      "deleteSession": "会话已删除。"
+      "deleteSession": "会话已删除。",
+      "closeAllSessions": "已关闭 {count} 个会话。"
     },
     "actions": {
       "cancel": "取消",
@@ -39,6 +42,12 @@
     "deleteSession": {
       "title": "删除会话",
       "description": "确认删除会话「{name}」？此操作只会删除管理记录。"
+    },
+    "closeAllSessions": {
+      "title": "关闭所有会话",
+      "description": "确认关闭当前所有会话？会话管理记录会保留，但所有正在运行的 tmux window 和 tmux session 会被关闭。",
+      "warning": "这是高影响操作，正在运行的终端进程会被停止。",
+      "confirm": "关闭所有会话"
     },
     "sidebar": {
       "expandLabel": "展开会话导航",
@@ -58,7 +67,7 @@
       "title": "新建会话",
       "description": "",
       "name": "名称",
-      "namePlaceholder": "例如：preflight",
+      "namePlaceholder": "例如：项目开发",
       "workspace": "目录",
       "workspacePlaceholder": "输入路径或浏览选择",
       "browse": "浏览",

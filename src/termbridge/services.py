@@ -24,6 +24,7 @@ from termbridge.exceptions import (
     WorkspacePathNotFoundError,
 )
 from termbridge.models import (
+    CloseAllSessionsResponse,
     CreateSessionRequest,
     CreateShortcutRequest,
     EnvironmentListResponse,
@@ -878,20 +879,33 @@ class SessionService:
     def stop(self, session_id: str) -> SessionResponse:
         logger.info("Stopping session entry_id=%s", session_id)
         workspace, entry = self._repository.get_entry(session_id)
-        if entry.pid is not None:
-            self._process_adapter.terminate(ProcessHandle(pid=entry.pid))
-        self._require_terminal_service().kill_tmux_window(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id)
-        updated = entry.model_copy(
-            update={
-                "status": SessionStatus.STOPPED,
-                "pid": None,
-                "url": "",
-                "tmux_window_id": None,
-                "updated_at": utc_now(),
-            }
-        )
+        updated = self._stop_entry(workspace, entry)
         self._repository.update_entry(updated)
         return SessionResponse.from_entry(workspace, updated)
+
+    def close_all(self) -> CloseAllSessionsResponse:
+        logger.info("Closing all session entries")
+        state = self._repository.get_state()
+        terminal_service = self._require_terminal_service()
+        stopped_count = 0
+        tmux_session_count = 0
+        now = utc_now()
+        for workspace in state.workspaces.values():
+            updated_entries = []
+            for entry in workspace.entries:
+                updated = self._stop_entry(workspace, entry, now=now)
+                updated_entries.append(updated)
+                stopped_count += int(entry.status != SessionStatus.STOPPED or entry.pid is not None or entry.tmux_window_id is not None)
+            if workspace.entries:
+                terminal_service.kill_tmux_session(
+                    workspace.host,
+                    workspace.path,
+                    tmux_session_name=workspace.tmux_session_name,
+                )
+                tmux_session_count += 1
+            state.workspaces[workspace.id] = workspace.model_copy(update={"entries": updated_entries, "updated_at": now})
+        self._repository.save_state(state)
+        return CloseAllSessionsResponse(stopped_count=stopped_count, tmux_session_count=tmux_session_count)
 
     def delete(self, session_id: str) -> None:
         logger.info("Deleting session entry_id=%s", session_id)
@@ -907,6 +921,22 @@ class SessionService:
                 tmux_session_name=workspace.tmux_session_name,
             )
         logger.info("Session entry deleted entry_id=%s", session_id)
+
+    def _stop_entry(
+        self, workspace: WorkspaceRecord, entry: SessionEntryRecord, *, now: datetime | None = None
+    ) -> SessionEntryRecord:
+        if entry.pid is not None:
+            self._process_adapter.terminate(ProcessHandle(pid=entry.pid))
+        self._require_terminal_service().kill_tmux_window(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id)
+        return entry.model_copy(
+            update={
+                "status": SessionStatus.STOPPED,
+                "pid": None,
+                "url": "",
+                "tmux_window_id": None,
+                "updated_at": now or utc_now(),
+            }
+        )
 
     def _start_entry(self, entry: SessionEntryRecord, workspace: WorkspaceRecord) -> SessionEntryRecord:
         terminal_service = self._require_terminal_service()

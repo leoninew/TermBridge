@@ -196,6 +196,28 @@ def test_service_stop_keeps_record_and_removes_window(tmp_path: Path) -> None:
     assert service.get(response.id).status == "stopped"
 
 
+def test_service_close_all_keeps_records_and_removes_windows_and_sessions(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    shortcuts = FakeShortcutService()
+    service = make_service(tmp_path, process, shortcut_service=shortcuts)
+    first = service.create(CreateSessionRequest(name="One", workspace=tmp_path, shortcut_id="claude-code"))
+    second = service.create(CreateSessionRequest(name="Two", workspace=tmp_path, shortcut_id="claude-code"))
+
+    response = service.close_all()
+    sessions = service.list_sessions()
+
+    assert response.stopped_count == 2
+    assert response.tmux_session_count == 1
+    assert process.terminated == [ProcessHandle(pid=100), ProcessHandle(pid=101)]
+    assert shortcuts.killed_windows == [
+        ("windows_cygwin", tmp_path.resolve(), "@1"),
+        ("windows_cygwin", tmp_path.resolve(), "@2"),
+    ]
+    assert shortcuts.killed_sessions == [("windows_cygwin", tmp_path.resolve(), first.tmux_session_name)]
+    assert [session.id for session in sessions] == [first.id, second.id]
+    assert [session.status for session in sessions] == ["stopped", "stopped"]
+
+
 def test_service_delete_last_entry_removes_workspace_session(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
     shortcuts = FakeShortcutService()

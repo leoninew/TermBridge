@@ -41,6 +41,11 @@ export interface SessionTreeResponse {
   environments: SessionEnvironment[]
 }
 
+export interface CloseAllSessionsResponse {
+  stopped_count: number
+  tmux_session_count: number
+}
+
 export interface CreateSessionPayload {
   name: string
   workspace: string

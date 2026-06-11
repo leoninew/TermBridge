@@ -15,7 +15,14 @@ import {
   SplitterResizeHandle,
 } from 'reka-ui'
 import { PanelLeftOpen } from '@lucide/vue'
-import { createSession, deleteSession, listSessionTree, restartSession, stopSession } from '../api/sessions'
+import {
+  closeAllSessions,
+  createSession,
+  deleteSession,
+  listSessionTree,
+  restartSession,
+  stopSession,
+} from '../api/sessions'
 import SessionCreateForm from './SessionCreateForm.vue'
 import SessionList from './SessionList.vue'
 import { useEnvironmentStore } from '../stores/environment'
@@ -37,6 +44,8 @@ const creatingSession = ref(false)
 const createError = ref('')
 const createSessionContext = ref<{ host?: ShortcutHost; workspace?: string }>({})
 const deletingSession = ref<Session>()
+const closeAllDialogOpen = ref(false)
+const closingAllSessions = ref(false)
 const sidebarCollapsed = ref(false)
 const sidebarWidth = ref(360)
 const sidebarMinWidth = 240
@@ -176,6 +185,24 @@ async function handleStop(session: Session) {
   }
 }
 
+async function confirmCloseAllSessions() {
+  error.value = ''
+  closingAllSessions.value = true
+  try {
+    const result = await closeAllSessions()
+    await loadSessions()
+    openTerminalSessionIds.value = []
+    activeSessionId.value = undefined
+    closeAllDialogOpen.value = false
+    toast.show(t('app.success.closeAllSessions', { count: result.stopped_count }))
+    await router.push('/session')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : t('app.errors.closeAllSessions')
+  } finally {
+    closingAllSessions.value = false
+  }
+}
+
 async function selectSession(session: Session) {
   openTerminalSession(session)
   showCreatePanel.value = false
@@ -230,6 +257,7 @@ onMounted(() => {
           @restart="handleRestart"
           @stop="handleStop"
           @remove="askRemove"
+          @close-all="closeAllDialogOpen = true"
           @navigate="navigate"
         />
       </SplitterPanel>
@@ -314,6 +342,40 @@ onMounted(() => {
               @click="confirmRemove"
             >
               {{ t('app.actions.delete') }}
+            </button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialogPortal>
+    </AlertDialogRoot>
+
+    <AlertDialogRoot v-model:open="closeAllDialogOpen">
+      <AlertDialogPortal>
+        <AlertDialogOverlay class="fixed inset-0 z-50 bg-slate-950/40" />
+        <AlertDialogContent
+          class="fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl bg-white p-5 text-sm shadow-2xl"
+        >
+          <div>
+            <AlertDialogTitle class="text-lg font-semibold text-amber-700">
+              {{ t('app.closeAllSessions.title') }}
+            </AlertDialogTitle>
+            <AlertDialogDescription class="mt-2 text-sm text-slate-600">
+              {{ t('app.closeAllSessions.description') }}
+            </AlertDialogDescription>
+          </div>
+          <div class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            {{ t('app.closeAllSessions.warning') }}
+          </div>
+          <div class="flex justify-end gap-2">
+            <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2">
+              {{ t('app.actions.cancel') }}
+            </AlertDialogCancel>
+            <button
+              type="button"
+              :disabled="closingAllSessions"
+              class="rounded-lg bg-amber-600 px-4 py-2 text-white disabled:opacity-60"
+              @click="confirmCloseAllSessions"
+            >
+              {{ t('app.closeAllSessions.confirm') }}
             </button>
           </div>
         </AlertDialogContent>

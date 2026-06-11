@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from termbridge.api import create_app
 from termbridge.di import get_session_service, get_terminal_service
 from termbridge.models import (
+    CloseAllSessionsResponse,
     CreateSessionRequest,
     CreateShortcutRequest,
     EnvironmentListResponse,
@@ -50,6 +51,7 @@ class FakeSessionService:
         )
         self.sessions = [self.session] if with_session else []
         self.deleted: list[str] = []
+        self.close_all_called = False
 
     def create(self, request: CreateSessionRequest) -> SessionResponse:
         return self.session.model_copy(
@@ -67,6 +69,10 @@ class FakeSessionService:
 
     def stop(self, session_id: str) -> SessionResponse:
         return self.session.model_copy(update={"id": session_id, "status": SessionStatus.STOPPED, "url": ""})
+
+    def close_all(self) -> CloseAllSessionsResponse:
+        self.close_all_called = True
+        return CloseAllSessionsResponse(stopped_count=len(self.sessions), tmux_session_count=1 if self.sessions else 0)
 
     def list_tree(self) -> SessionTreeResponse:
         return SessionTreeResponse(
@@ -247,6 +253,7 @@ def test_session_api_routes(tmp_path: Path) -> None:
     tree = client.get("/api/session-tree")
     restarted = client.post("/api/sessions/sess_2/restart")
     stopped = client.post("/api/sessions/sess_2/stop")
+    close_all = client.post("/api/sessions/close-all")
     deleted = client.delete("/api/sessions/sess_2")
 
     assert created.status_code == 201
@@ -265,6 +272,9 @@ def test_session_api_routes(tmp_path: Path) -> None:
     assert restarted.json()["status"] == "running"
     assert stopped.status_code == 200
     assert stopped.json()["status"] == "stopped"
+    assert close_all.status_code == 200
+    assert close_all.json() == {"stopped_count": 1, "tmux_session_count": 1}
+    assert service.close_all_called is True
     assert deleted.status_code == 204
     assert service.deleted == ["sess_2"]
 

@@ -14,6 +14,7 @@ import {
   Pause,
   SquareTerminal,
   Trash2,
+  XCircle,
 } from '@lucide/vue'
 import {
   DropdownMenuContent,
@@ -78,6 +79,7 @@ const emit = defineEmits<{
   restart: [session: Session]
   stop: [session: Session]
   remove: [session: Session]
+  closeAll: []
   navigate: [path: string]
 }>()
 
@@ -396,15 +398,30 @@ function removeSession(event: globalThis.MouseEvent, session: Session) {
               class="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50"
               @select="emit('navigate', '/environment')"
             >
-              {{ t('app.nav.environment') }}
+              <span class="inline-flex items-center gap-2">
+                <Settings class="h-4 w-4 text-slate-500" />
+                {{ t('app.nav.environment') }}
+              </span>
               <ChevronRight class="h-4 w-4 text-slate-400" />
             </DropdownMenuItem>
             <DropdownMenuItem
               class="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 outline-none hover:bg-blue-50 focus:bg-blue-50"
               @select="emit('navigate', '/shortcuts')"
             >
-              {{ t('app.nav.shortcuts') }}
+              <span class="inline-flex items-center gap-2">
+                <SquareTerminal class="h-4 w-4 text-slate-500" />
+                {{ t('app.nav.shortcuts') }}
+              </span>
               <ChevronRight class="h-4 w-4 text-slate-400" />
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              class="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-amber-700 outline-none hover:bg-amber-50 focus:bg-amber-50"
+              @select="emit('closeAll')"
+            >
+              <span class="inline-flex items-center gap-2">
+                <XCircle class="h-4 w-4" />
+                {{ t('app.settings.closeAllSessions') }}
+              </span>
             </DropdownMenuItem>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger

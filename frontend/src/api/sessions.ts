@@ -1,5 +1,6 @@
 import { i18n } from '../i18n'
 import type {
+  CloseAllSessionsResponse,
   CreateSessionPayload,
   CreateShortcutPayload,
   EnvironmentListResponse,
@@ -81,6 +82,12 @@ export function restartSession(id: string): Promise<Session> {
 
 export function stopSession(id: string): Promise<Session> {
   return request<Session>(`/api/sessions/${encodeURIComponent(id)}/stop`, {
+    method: 'POST',
+  })
+}
+
+export function closeAllSessions(): Promise<CloseAllSessionsResponse> {
+  return request<CloseAllSessionsResponse>('/api/sessions/close-all', {
     method: 'POST',
   })
 }

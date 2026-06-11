@@ -19,6 +19,6 @@ const toast = useToastStore()
         {{ item.title }}
       </ToastTitle>
     </ToastRoot>
-    <ToastViewport class="fixed right-4 top-4 z-50 grid w-80 max-w-[calc(100vw-2rem)] gap-2" />
+    <ToastViewport class="fixed bottom-4 right-4 z-50 grid w-80 max-w-[calc(100vw-2rem)] gap-2" />
   </ToastProvider>
 </template>

@@ -135,6 +135,11 @@ class SessionTreeResponse(BaseModel):
     environments: list[SessionEnvironmentResponse]
 
 
+class CloseAllSessionsResponse(BaseModel):
+    stopped_count: int
+    tmux_session_count: int
+
+
 class Shortcut(BaseModel):
     id: str
     name: str

@@ -21,6 +21,7 @@ from termbridge.exceptions import (
 from termbridge.logging import configure_logging
 from termbridge.middleware import RequestLoggingMiddleware
 from termbridge.models import (
+    CloseAllSessionsResponse,
     CreateSessionRequest,
     CreateShortcutRequest,
     EnvironmentListResponse,
@@ -236,6 +237,14 @@ def list_sessions(service: SessionServiceDep) -> list[SessionResponse]:
 def list_session_tree(service: SessionServiceDep) -> SessionTreeResponse:
     try:
         return service.list_tree()
+    except SessionRepositoryError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
+@router.post("/api/sessions/close-all", response_model=CloseAllSessionsResponse)
+def close_all_sessions(service: SessionServiceDep) -> CloseAllSessionsResponse:
+    try:
+        return service.close_all()
     except SessionRepositoryError as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 

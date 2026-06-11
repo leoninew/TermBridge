@@ -14,7 +14,8 @@
     },
     "settings": {
       "trigger": "Settings",
-      "navigation": "Navigation"
+      "navigation": "Navigation",
+      "closeAllSessions": "Close all sessions"
     },
     "errors": {
       "loadSessions": "Failed to load sessions",
@@ -22,12 +23,14 @@
       "createSession": "Failed to create session",
       "restartSession": "Failed to restart session",
       "stopSession": "Failed to stop session",
-      "deleteSession": "Failed to delete session"
+      "deleteSession": "Failed to delete session",
+      "closeAllSessions": "Failed to close all sessions"
     },
     "success": {
       "restartSession": "Session restarted.",
       "stopSession": "Session stopped.",
-      "deleteSession": "Session deleted."
+      "deleteSession": "Session deleted.",
+      "closeAllSessions": "Closed {count} sessions."
     },
     "actions": {
       "cancel": "Cancel",
@@ -39,6 +42,12 @@
     "deleteSession": {
       "title": "Delete Session",
       "description": "Delete session \"{name}\"? This only removes the management record."
+    },
+    "closeAllSessions": {
+      "title": "Close all sessions",
+      "description": "Close every current session? Session management records will stay, but all running tmux windows and tmux sessions will be closed.",
+      "warning": "This is a high-impact action. Running terminal processes will be stopped.",
+      "confirm": "Close all sessions"
     },
     "sidebar": {
       "expandLabel": "Expand session navigation",
@@ -58,7 +67,7 @@
       "title": "New Session",
       "description": "",
       "name": "Name",
-      "namePlaceholder": "For example: preflight",
+      "namePlaceholder": "For example: Project dev",
       "workspace": "Directory",
       "workspacePlaceholder": "Enter a path or browse",
       "browse": "Browse",
