@@ -375,7 +375,13 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                     v-if="item.value.kind === 'session'"
                     class="h-4 w-4 shrink-0 text-slate-400"
                   />
-                  <span class="min-w-0 flex-1 truncate">{{ item.value.label }}</span>
+                  <span
+                    class="min-w-0 flex-1 truncate"
+                    :class="item.value.kind === 'workspace' ? 'max-w-56' : ''"
+                    :title="item.value.kind === 'workspace' ? item.value.label : undefined"
+                  >
+                    {{ item.value.label }}
+                  </span>
                   <span
                     v-if="item.value.kind === 'workspace'"
                     class="inline-flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100"

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 import pytest
 
@@ -15,13 +15,15 @@ from termbridge.settings import Settings
 
 class FakeProcessAdapter:
     def __init__(self) -> None:
-        self.started: list[tuple[list[str], Path]] = []
+        self.started: list[tuple[list[str], Path, Path | None, bool]] = []
         self.terminated: list[ProcessHandle] = []
         self.running = True
         self.next_pid = 100
 
-    def start(self, command: list[str], cwd: Path) -> ProcessHandle:
-        self.started.append((command, cwd))
+    def start(
+        self, command: list[str], cwd: Path, *, log_file: Path | None = None, suppress_output: bool = False
+    ) -> ProcessHandle:
+        self.started.append((command, cwd, log_file, suppress_output))
         handle = ProcessHandle(pid=self.next_pid)
         self.next_pid += 1
         return handle
@@ -34,7 +36,9 @@ class FakeProcessAdapter:
 
 
 class FailingProcessAdapter(FakeProcessAdapter):
-    def start(self, command: list[str], cwd: Path) -> ProcessHandle:
+    def start(
+        self, command: list[str], cwd: Path, *, log_file: Path | None = None, suppress_output: bool = False
+    ) -> ProcessHandle:
         raise RuntimeError("process failed")
 
 
@@ -88,6 +92,7 @@ def make_service(
     process: FakeProcessAdapter | None = None,
     *,
     shortcut_service: FakeShortcutService | None = None,
+    ttyd_log_mode: Literal["none", "console", "file"] = "none",
 ) -> SessionService:
     settings = Settings(
         ttyd_executable="ttyd",
@@ -95,6 +100,7 @@ def make_service(
         port_start=9201,
         port_end=9205,
         state_dir=tmp_path / "state",
+        ttyd_log_mode=ttyd_log_mode,
     )
     return SessionService(
         settings=settings,
@@ -136,8 +142,30 @@ def test_service_creates_entry_with_workspace_tmux_session(tmp_path: Path) -> No
                 f"tmux select-window -t @1 && exec tmux attach -t {response.tmux_session_name}",
             ],
             tmp_path.resolve(),
+            None,
+            True,
         )
     ]
+
+
+def test_service_uses_ttyd_log_file_when_file_mode_is_enabled(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    service = make_service(tmp_path, process, ttyd_log_mode="file")
+
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+
+    assert process.started[0][2] == tmp_path / "state" / "logs" / "ttyd" / f"{response.id}.log"
+    assert process.started[0][3] is False
+
+
+def test_service_uses_console_ttyd_log_mode_when_enabled(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    service = make_service(tmp_path, process, ttyd_log_mode="console")
+
+    service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+
+    assert process.started[0][2] is None
+    assert process.started[0][3] is False
 
 
 def test_service_reuses_workspace_for_same_host_and_path(tmp_path: Path) -> None:

@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,6 +24,7 @@ class Settings(BaseSettings):
     public_base_url: str | None = None
     logging_level: str = "INFO"
     tmux_command_timeout_seconds: float = 10
+    ttyd_log_mode: Literal["none", "console", "file"] = "none"
 
     @property
     def sessions_file(self) -> Path:

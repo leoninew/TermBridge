@@ -1022,7 +1022,13 @@ class SessionService:
         )
         ttyd_executable = terminal_service.resolve_ttyd_executable(workspace.host)
         command = self._build_ttyd_command(port, workspace.path, runtime_command, ttyd_executable)
-        handle = self._process_adapter.start(command, workspace.path)
+        log_file, suppress_output = self._ttyd_log_options(entry.id)
+        handle = self._process_adapter.start(
+            command,
+            workspace.path,
+            log_file=log_file,
+            suppress_output=suppress_output,
+        )
         return entry.model_copy(
             update={
                 "command": command,
@@ -1132,6 +1138,13 @@ class SessionService:
             "windows_wsl": "WSL",
             "linux": "Linux",
         }
+
+    def _ttyd_log_options(self, session_id: str) -> tuple[Path | None, bool]:
+        if self._settings.ttyd_log_mode == "file":
+            return self._settings.state_dir / "logs" / "ttyd" / f"{session_id}.log", False
+        if self._settings.ttyd_log_mode == "none":
+            return None, True
+        return None, False
 
     def _build_ttyd_command(
         self, port: int, workspace: Path, runtime_command: Sequence[str], ttyd_executable: str
