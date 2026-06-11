@@ -65,8 +65,8 @@
     "requestFailed": "Request failed: {status}"
   },
   "hosts": {
-    "windows_cygwin": "Windows/Cygwin",
-    "windows_wsl": "Windows/WSL",
+    "windows_cygwin": "Cygwin",
+    "windows_wsl": "WSL",
     "linux": "Linux"
   },
   "session": {
@@ -145,11 +145,11 @@
     "docsLink": "See how to configure runtime environments",
     "environments": {
       "windowsCygwin": {
-        "title": "Windows/Cygwin",
+        "title": "Cygwin on Windows",
         "description": "Use Cygwin bash and tmux on a Windows host."
       },
       "windowsWsl": {
-        "title": "Windows/WSL",
+        "title": "WSL on Windows",
         "description": "Enter the default WSL environment on Windows and use tmux there."
       },
       "linux": {
@@ -163,7 +163,7 @@
   },
   "environmentManagement": {
     "title": "Environment Management",
-    "description": "Manage Windows/Cygwin, Windows/WSL, Linux, and terminal runtime environment settings.",
+    "description": "Manage Cygwin on Windows, WSL on Windows, Linux, and terminal runtime environment settings.",
     "mode": "Mode",
     "loading": "Loading environment settings...",
     "saved": "Settings saved.",
@@ -182,28 +182,28 @@
       "load": "Failed to load environment settings",
       "check": "Failed to check environment",
       "saveTtyd": "Failed to save ttyd settings",
-      "saveCygwin": "Failed to save Windows/Cygwin settings"
+      "saveCygwin": "Failed to save Cygwin on Windows settings"
     },
     "tabs": {
-      "windowsCygwin": "Windows/Cygwin",
-      "windowsWsl": "Windows/WSL",
+      "windowsCygwin": "Cygwin on Windows",
+      "windowsWsl": "WSL on Windows",
       "linux": "Linux"
     },
     "windowsCygwin": {
-      "title": "Windows/Cygwin",
+      "title": "Cygwin on Windows",
       "description": "Check Cygwin bash and tmux capabilities on a Windows host.",
       "bashPath": "bash path",
       "tmuxPath": "tmux path",
-      "saved": "Windows/Cygwin settings saved."
+      "saved": "Cygwin on Windows settings saved."
     },
     "windowsWsl": {
-      "title": "Windows/WSL",
+      "title": "WSL on Windows",
       "description": "Check default WSL and tmux capabilities on a Windows host.",
       "wslPath": "wsl path",
       "wslVersion": "WSL version",
       "tmuxPath": "tmux path",
       "tmuxVersion": "tmux version",
-      "checked": "Windows/WSL check completed."
+      "checked": "WSL on Windows check completed."
     },
     "linux": {
       "title": "Linux",

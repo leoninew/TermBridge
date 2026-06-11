@@ -65,8 +65,8 @@
     "requestFailed": "请求失败：{status}"
   },
   "hosts": {
-    "windows_cygwin": "Windows/Cygwin",
-    "windows_wsl": "Windows/WSL",
+    "windows_cygwin": "Cygwin",
+    "windows_wsl": "WSL",
     "linux": "Linux"
   },
   "session": {
@@ -145,11 +145,11 @@
     "docsLink": "查看如何配置运行环境",
     "environments": {
       "windowsCygwin": {
-        "title": "Windows/Cygwin",
+        "title": "Cygwin on Windows",
         "description": "适合在 Windows 上通过 Cygwin bash 与 tmux 运行会话。"
       },
       "windowsWsl": {
-        "title": "Windows/WSL",
+        "title": "WSL on Windows",
         "description": "适合在 Windows 上进入默认 WSL 环境并使用 tmux。"
       },
       "linux": {
@@ -163,7 +163,7 @@
   },
   "environmentManagement": {
     "title": "环境管理",
-    "description": "管理 Windows/Cygwin、Windows/WSL、Linux 和终端运行环境配置。",
+    "description": "管理 Cygwin on Windows、WSL on Windows、Linux 和终端运行环境配置。",
     "mode": "模式",
     "loading": "正在加载环境配置...",
     "saved": "设置已保存。",
@@ -182,28 +182,28 @@
       "load": "加载环境配置失败",
       "check": "检测环境失败",
       "saveTtyd": "保存 ttyd 配置失败",
-      "saveCygwin": "保存 Windows/Cygwin 配置失败"
+      "saveCygwin": "保存 Cygwin on Windows 配置失败"
     },
     "tabs": {
-      "windowsCygwin": "Windows/Cygwin",
-      "windowsWsl": "Windows/WSL",
+      "windowsCygwin": "Cygwin on Windows",
+      "windowsWsl": "WSL on Windows",
       "linux": "Linux"
     },
     "windowsCygwin": {
-      "title": "Windows/Cygwin",
+      "title": "Cygwin on Windows",
       "description": "检查 Windows 宿主上的 Cygwin bash 与 tmux 能力。",
       "bashPath": "bash 路径",
       "tmuxPath": "tmux 路径",
-      "saved": "Windows/Cygwin 配置已保存。"
+      "saved": "Cygwin on Windows 配置已保存。"
     },
     "windowsWsl": {
-      "title": "Windows/WSL",
+      "title": "WSL on Windows",
       "description": "检查 Windows 宿主上的默认 WSL 与 tmux 能力。",
       "wslPath": "wsl 路径",
       "wslVersion": "WSL 版本",
       "tmuxPath": "tmux 路径",
       "tmuxVersion": "tmux 版本",
-      "checked": "Windows/WSL 检测已完成。"
+      "checked": "WSL on Windows 检测已完成。"
     },
     "linux": {
       "title": "Linux",

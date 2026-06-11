@@ -281,8 +281,10 @@ def test_terminal_service_lists_environments(tmp_path: Path) -> None:
         response = service.list_environments()
 
     by_host = {environment.host: environment for environment in response.environments}
+    assert by_host["windows_cygwin"].label == "Cygwin on Windows"
     assert by_host["windows_cygwin"].readiness == "ready"
     assert by_host["windows_cygwin"].available_on_host is True
+    assert by_host["windows_wsl"].label == "WSL on Windows"
     assert by_host["windows_wsl"].available_on_host is True
     assert by_host["linux"].available_on_host is False
 

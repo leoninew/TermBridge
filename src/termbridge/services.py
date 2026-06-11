@@ -200,7 +200,7 @@ class TerminalService:
             environments=[
                 EnvironmentSummary(
                     host="windows_cygwin",
-                    label="Windows/Cygwin",
+                    label="Cygwin on Windows",
                     readiness=state.windows_cygwin_settings.readiness,
                     available_on_host=is_windows,
                     checked_at=state.windows_cygwin_settings.checked_at,
@@ -209,7 +209,7 @@ class TerminalService:
                 ),
                 EnvironmentSummary(
                     host="windows_wsl",
-                    label="Windows/WSL",
+                    label="WSL on Windows",
                     readiness=state.windows_wsl_settings.readiness,
                     available_on_host=is_windows,
                     checked_at=state.windows_wsl_settings.checked_at,
@@ -1100,8 +1100,8 @@ class SessionService:
 
     def _environment_labels(self) -> dict[ShortcutHost, str]:
         return {
-            "windows_cygwin": "Windows/Cygwin",
-            "windows_wsl": "Windows/WSL",
+            "windows_cygwin": "Cygwin",
+            "windows_wsl": "WSL",
             "linux": "Linux",
         }
 
