@@ -35,7 +35,7 @@ function updateActiveTab(value: string | number) {
   }
 }
 
-function closeTab(event: MouseEvent, session: Session) {
+function closeTab(event: globalThis.MouseEvent, session: Session) {
   event.preventDefault()
   event.stopPropagation()
   emit('close', session)

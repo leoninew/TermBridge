@@ -19,6 +19,10 @@ import {
   DialogRoot,
   DialogTitle,
 } from 'reka-ui'
+import CygwinLogo from './CygwinLogo.vue'
+import LinuxLogo from './LinuxLogo.vue'
+import WslLogo from './WslLogo.vue'
+import { useToastStore } from '../stores/toast'
 import {
   createShortcut,
   deleteShortcut,
@@ -35,6 +39,7 @@ import type {
 } from '../types/sessions'
 
 const { t } = useI18n()
+const toast = useToastStore()
 const props = defineProps<{
   sessions: Session[]
 }>()
@@ -133,6 +138,7 @@ async function saveShortcut() {
   saving.value = true
   try {
     const payload = normalizePayload()
+    const updating = !!editingId.value
     if (editingId.value) {
       await updateShortcut(editingId.value, payload)
     } else {
@@ -140,6 +146,7 @@ async function saveShortcut() {
     }
     closeModal()
     await load()
+    toast.show(t(updating ? 'shortcutManagement.success.updated' : 'shortcutManagement.success.created'))
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('shortcutManagement.errors.save')
   } finally {
@@ -163,6 +170,7 @@ async function confirmRemoveShortcut() {
     await deleteShortcut(deletingShortcut.value.id)
     deletingShortcut.value = undefined
     await load()
+    toast.show(t('shortcutManagement.success.deleted'))
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('shortcutManagement.errors.delete')
   }
@@ -182,6 +190,16 @@ function normalizePayload(): CreateShortcutPayload {
 
 function hostLabel(host: ShortcutHost): string {
   return t(`hosts.${host}`)
+}
+
+function hostLogo(host: ShortcutHost) {
+  if (host === 'windows_cygwin') {
+    return CygwinLogo
+  }
+  if (host === 'windows_wsl') {
+    return WslLogo
+  }
+  return LinuxLogo
 }
 
 function hostDisabledReason(host: ShortcutHost): string {
@@ -219,6 +237,7 @@ function hostDisabledReason(host: ShortcutHost): string {
     <div class="grid min-h-0 flex-1 content-start gap-4 overflow-auto pr-1">
       <section v-for="group in shortcutGroups" :key="group.host" class="grid gap-2.5">
         <div class="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <component :is="hostLogo(group.host)" class="shrink-0" />
           <h3 class="text-sm font-semibold text-slate-950">{{ hostLabel(group.host) }}</h3>
           <span class="rounded-full bg-slate-100 px-2 py-0.5 text-sm text-slate-600">
             {{ group.shortcuts.length }}

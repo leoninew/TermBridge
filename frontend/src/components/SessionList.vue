@@ -33,6 +33,7 @@ import {
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import CygwinLogo from './CygwinLogo.vue'
+import LinuxLogo from './LinuxLogo.vue'
 import WslLogo from './WslLogo.vue'
 import type {
   EnvironmentSummary,
@@ -193,7 +194,7 @@ function environmentLogo(host: ShortcutHost) {
   if (host === 'windows_wsl') {
     return WslLogo
   }
-  return undefined
+  return LinuxLogo
 }
 
 function handleTreeSelect(node: SessionTreeNode) {
@@ -204,19 +205,19 @@ function handleTreeSelect(node: SessionTreeNode) {
   }
 }
 
-function stopSession(event: MouseEvent, session: Session) {
+function stopSession(event: globalThis.MouseEvent, session: Session) {
   event.preventDefault()
   event.stopPropagation()
   emit('stop', session)
 }
 
-function restartSession(event: MouseEvent, session: Session) {
+function restartSession(event: globalThis.MouseEvent, session: Session) {
   event.preventDefault()
   event.stopPropagation()
   emit('restart', session)
 }
 
-function removeSession(event: MouseEvent, session: Session) {
+function removeSession(event: globalThis.MouseEvent, session: Session) {
   event.preventDefault()
   event.stopPropagation()
   emit('remove', session)

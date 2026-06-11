@@ -24,6 +24,11 @@
       "stopSession": "Failed to stop session",
       "deleteSession": "Failed to delete session"
     },
+    "success": {
+      "restartSession": "Session restarted.",
+      "stopSession": "Session stopped.",
+      "deleteSession": "Session deleted."
+    },
     "actions": {
       "cancel": "Cancel",
       "delete": "Delete",
@@ -111,6 +116,31 @@
     "loadingRoots": "Loading disk roots...",
     "empty": "No accessible directories."
   },
+  "homeOnboarding": {
+    "title": "Choose how TermBridge should run",
+    "description": "TermBridge needs one ready tmux-backed runtime environment before it can create sessions. Choose the environment you want to use, then run checks or fill required paths before entering the session workspace.",
+    "loading": "Checking runtime environments...",
+    "configure": "Configure",
+    "docsPrompt": "Dependencies not ready yet?",
+    "docsLink": "See how to configure runtime environments",
+    "environments": {
+      "windowsCygwin": {
+        "title": "Windows/Cygwin",
+        "description": "Use Cygwin bash and tmux on a Windows host."
+      },
+      "windowsWsl": {
+        "title": "Windows/WSL",
+        "description": "Enter the default WSL environment on Windows and use tmux there."
+      },
+      "linux": {
+        "title": "Linux",
+        "description": "Use shell and tmux directly on a Linux host."
+      }
+    }
+  },
+  "environmentHelp": {
+    "back": "Back home"
+  },
   "environmentManagement": {
     "title": "Environment Management",
     "description": "Manage Windows/Cygwin, Windows/WSL, Linux, and terminal runtime environment settings.",
@@ -152,11 +182,13 @@
       "wslPath": "wsl path",
       "wslVersion": "WSL version",
       "tmuxPath": "tmux path",
-      "tmuxVersion": "tmux version"
+      "tmuxVersion": "tmux version",
+      "checked": "Windows/WSL check completed."
     },
     "linux": {
       "title": "Linux",
-      "description": "Check shell and tmux capabilities on a Linux host."
+      "description": "Check shell and tmux capabilities on a Linux host.",
+      "checked": "Linux check completed."
     },
     "ttyd": {
       "title": "ttyd",
@@ -171,6 +203,11 @@
     "loading": "Loading shortcuts...",
     "actions": {
       "create": "New Shortcut"
+    },
+    "success": {
+      "created": "Shortcut created.",
+      "updated": "Shortcut saved.",
+      "deleted": "Shortcut deleted."
     },
     "errors": {
       "load": "Failed to load shortcuts",

@@ -1,19 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
-import { Loader2, Monitor, RefreshCw } from '@lucide/vue'
-import {
-  TabsContent,
-  TabsList,
-  TabsRoot,
-  TabsTrigger,
-  ToastProvider,
-  ToastRoot,
-  ToastTitle,
-  ToastViewport,
-} from 'reka-ui'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { Loader2, RefreshCw } from '@lucide/vue'
+import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
 import CygwinLogo from './CygwinLogo.vue'
+import LinuxLogo from './LinuxLogo.vue'
 import WslLogo from './WslLogo.vue'
+import { useToastStore } from '../stores/toast'
 import {
   checkLinux,
   checkTtyd,
@@ -37,6 +31,8 @@ import type {
 } from '../types/sessions'
 
 const { t } = useI18n()
+const route = useRoute()
+const toast = useToastStore()
 const emit = defineEmits<{
   environmentsUpdated: [environments: EnvironmentSummary[]]
 }>()
@@ -59,8 +55,6 @@ const linuxStatus = ref<LinuxCheckResponse>()
 const loading = ref(false)
 const checking = ref('')
 const error = ref('')
-const toastMessage = ref('')
-const toastOpen = ref(false)
 const environmentsByHost = computed(
   () => new Map(environments.value.map((environment) => [environment.host, environment])),
 )
@@ -76,10 +70,18 @@ const tabs = computed(() => [
     label: t('environmentManagement.tabs.windowsWsl'),
     icon: WslLogo,
   },
-  { id: 'linux' as const, label: t('environmentManagement.tabs.linux'), icon: Monitor },
+  { id: 'linux' as const, label: t('environmentManagement.tabs.linux'), icon: LinuxLogo },
 ])
 
+function initialTab(): EnvironmentTab {
+  const tab = route.query.tab
+  return tab === 'windows_cygwin' || tab === 'windows_wsl' || tab === 'linux'
+    ? tab
+    : 'windows_cygwin'
+}
+
 onMounted(async () => {
+  activeTab.value = initialTab()
   await loadSettings()
   await refreshTtyd()
   await refreshTab()
@@ -131,7 +133,7 @@ async function refreshTtyd() {
         ttyd_path: status.path,
       })
       if (status.path !== previousPath) {
-        showToast(t('environmentManagement.ttyd.saved'))
+        toast.show(t('environmentManagement.ttyd.saved'))
       }
     }
   } catch (err) {
@@ -158,8 +160,10 @@ async function refreshTab(tab: EnvironmentTab = activeTab.value) {
         windowsWslSettings.value.tmux_path = status.tmux.path
         windowsWslSettings.value.tmux_version = status.tmux.version
       }
+      toast.show(t('environmentManagement.windowsWsl.checked'))
     } else {
       linuxStatus.value = await checkLinux()
+      toast.show(t('environmentManagement.linux.checked'))
     }
     const updatedEnvironments = await refreshEnvironmentSummary()
     emit('environmentsUpdated', updatedEnvironments)
@@ -199,7 +203,7 @@ async function refreshWindowsCygwin(setChecking = true) {
       (status.bash.available && status.bash.path && status.bash.path !== previousBashPath) ||
       (status.tmux?.available && status.tmux.path && status.tmux.path !== previousTmuxPath)
     ) {
-      showToast(t('environmentManagement.windowsCygwin.saved'))
+      toast.show(t('environmentManagement.windowsCygwin.saved'))
     }
     if (status.bash.available && status.bash.path) {
       windowsCygwinSettings.value.bash_path = status.bash.path
@@ -232,13 +236,6 @@ function readinessLabel(host: EnvironmentTab): string {
   return environmentSummary(host)?.readiness === 'ready'
     ? t('environmentManagement.readiness.ready')
     : t('environmentManagement.readiness.notReady')
-}
-
-async function showToast(message: string) {
-  toastOpen.value = false
-  toastMessage.value = message
-  await nextTick()
-  toastOpen.value = true
 }
 </script>
 
@@ -482,15 +479,5 @@ async function showToast(message: string) {
         </div>
       </TabsContent>
     </TabsRoot>
-
-    <ToastProvider>
-      <ToastRoot
-        v-model:open="toastOpen"
-        class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xl shadow-blue-900/10"
-      >
-        <ToastTitle>{{ toastMessage }}</ToastTitle>
-      </ToastRoot>
-      <ToastViewport class="fixed right-4 top-4 z-50 grid w-80 max-w-[calc(100vw-2rem)] gap-2" />
-    </ToastProvider>
   </section>
 </template>

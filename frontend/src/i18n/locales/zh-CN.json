@@ -24,6 +24,11 @@
       "stopSession": "停止会话失败",
       "deleteSession": "删除会话失败"
     },
+    "success": {
+      "restartSession": "会话已重新启动。",
+      "stopSession": "会话已停止。",
+      "deleteSession": "会话已删除。"
+    },
     "actions": {
       "cancel": "取消",
       "delete": "删除",
@@ -111,6 +116,31 @@
     "loadingRoots": "正在加载磁盘根目录...",
     "empty": "没有可访问的目录。"
   },
+  "homeOnboarding": {
+    "title": "选择你的 TermBridge 运行方式",
+    "description": "TermBridge 需要一个可用的 tmux-backed 运行环境来创建会话。请选择你要使用的环境，完成检测或填写必要路径后再进入会话工作台。",
+    "loading": "正在检查运行环境...",
+    "configure": "去配置",
+    "docsPrompt": "还没有准备好依赖？",
+    "docsLink": "查看如何配置运行环境",
+    "environments": {
+      "windowsCygwin": {
+        "title": "Windows/Cygwin",
+        "description": "适合在 Windows 上通过 Cygwin bash 与 tmux 运行会话。"
+      },
+      "windowsWsl": {
+        "title": "Windows/WSL",
+        "description": "适合在 Windows 上进入默认 WSL 环境并使用 tmux。"
+      },
+      "linux": {
+        "title": "Linux",
+        "description": "适合在 Linux 宿主上直接使用 shell 与 tmux。"
+      }
+    }
+  },
+  "environmentHelp": {
+    "back": "返回首页"
+  },
   "environmentManagement": {
     "title": "环境管理",
     "description": "管理 Windows/Cygwin、Windows/WSL、Linux 和终端运行环境配置。",
@@ -152,11 +182,13 @@
       "wslPath": "wsl 路径",
       "wslVersion": "WSL 版本",
       "tmuxPath": "tmux 路径",
-      "tmuxVersion": "tmux 版本"
+      "tmuxVersion": "tmux 版本",
+      "checked": "Windows/WSL 检测已完成。"
     },
     "linux": {
       "title": "Linux",
-      "description": "检查 Linux 宿主上的 shell 与 tmux 能力。"
+      "description": "检查 Linux 宿主上的 shell 与 tmux 能力。",
+      "checked": "Linux 检测已完成。"
     },
     "ttyd": {
       "title": "ttyd",
@@ -171,6 +203,11 @@
     "loading": "正在加载快捷方式...",
     "actions": {
       "create": "新建快捷方式"
+    },
+    "success": {
+      "created": "快捷方式已新建。",
+      "updated": "快捷方式已保存。",
+      "deleted": "快捷方式已删除。"
     },
     "errors": {
       "load": "加载快捷方式失败",
