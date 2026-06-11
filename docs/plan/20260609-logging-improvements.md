@@ -77,7 +77,7 @@ Stage: Plan
 
 ## Assumptions
 
-- `cc-ttyd` 当前 settings 体系由 `pydantic-settings` 管理，新增 `logging_level` 可直接通过 `CC_TTYD_LOGGING_LEVEL` 生效。
+- `TermBridge` 当前 settings 体系由 `pydantic-settings` 管理，新增 `logging_level` 可直接通过 `CC_TTYD_LOGGING_LEVEL` 生效。
 - request logging middleware 不记录 body，因此不涉及敏感信息脱敏。
 - 本轮不处理文件日志，也不引入 JSON 日志。
 

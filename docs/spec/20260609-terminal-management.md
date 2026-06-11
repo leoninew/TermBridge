@@ -49,7 +49,7 @@ Review status: Accepted
 - PowerShell
 - cmd
 - `claude`
-- `mini-claude`
+- `custom-cli`
 - 其他 Windows PATH 中的 CLI
 
 命令构造：
@@ -64,21 +64,21 @@ Review status: Accepted
 
 适用于需要 Cygwin 环境的命令：
 
-- `ccl run m 3 -c` 在 cygwin 模式下是整段命令，不拆分为 argv
+- `custom-agent run` 在 cygwin 模式下是整段命令，不拆分为 argv
 - 依赖 Cygwin PATH 的脚本
 - 用户 Cygwin shell alias/function
 
 配置字段应表达：
 
-- `cygwin_bash_path`：Windows 可执行文件路径，例如 `D:\ProgramFiles\Cygwin64\bin\bash.exe`
+- `cygwin_bash_path`：Windows 可执行文件路径，例如 `C:\cygwin64\bin\bash.exe`
 - `cygwin_bash_args`：默认可为 `-lc`，用户需要 alias/function 时可配置 login/interactive 参数
-- `command`：在 Cygwin 环境内执行的整段命令，例如 `ccl run m 3 -c`；该字段不拆分为 argv
+- `command`：在 Cygwin 环境内执行的整段命令，例如 `custom-agent run`；该字段不拆分为 argv
 - `workspace_strategy`：进入 workspace 的方式
 
 推荐 Cygwin 模板：
 
 ```text
-D:\ProgramFiles\Cygwin64\bin\bash.exe -lc 'cd "D:/SourceCodes/agentic/cc-ttyd" && exec ccl run m 3 -c'
+C:\cygwin64\bin\bash.exe -lc 'cd "D:/Projects/TermBridge" && exec custom-agent run'
 ```
 
 说明：
@@ -95,7 +95,7 @@ D:\ProgramFiles\Cygwin64\bin\bash.exe -lc 'cd "D:/SourceCodes/agentic/cc-ttyd" &
 
 - ttyd 仍传 `--cwd <workspace>`，作为外层进程工作目录。
 - Cygwin 命令内部也应在执行用户命令前 `cd <workspace>`，保证 Cygwin 环境内路径语义正确。
-- Windows 路径统一转为 forward slash 形式传入 Cygwin 命令，例如 `D:/SourceCodes/agentic/cc-ttyd`，避免反斜杠转义问题。
+- Windows 路径统一转为 forward slash 形式传入 Cygwin 命令，例如 `D:/Projects/TermBridge`，避免反斜杠转义问题。
 
 ### ttyd 可执行文件配置
 
@@ -200,7 +200,7 @@ interface TerminalDefinition {
 
 ## Technical questions
 
-- 系统级 Claude Code/Codex 检测清单需要明确命令名：初始建议检测 `claude`、`mini-claude`、`codex`。
+- 系统级 Claude Code/Codex 检测清单需要明确命令名：初始建议检测 `claude`、`custom-cli`、`codex`。
 - 本阶段启动方式明确为 `direct` 和 `cygwin`；MSYS/Git Bash 不混入 `cygwin`，后续如需要再扩展新的 launch type。
 - 终端管理 UI 使用独立路由/页面，入口位于右上角工具条。
 - `cygwin_bash_args` 默认是否使用 `-lc` 还是 `--login -i -c`。如果需要 alias，通常需要 login/interactive；但这可能改变启动速度和副作用。
@@ -210,7 +210,7 @@ interface TerminalDefinition {
 
 - Cygwin 命令拼接存在注入风险；cygwin 模式下用户命令作为整段命令执行，不拆分 argv，因此必须只对 workspace 等系统插入片段做集中转义，不要错误重写用户命令语义。
 - Windows/Cygwin 路径转换容易出错；必须用测试覆盖路径构造。
-- 直接检测 `PATH` 不能发现 Cygwin 环境内脚本，如 `ccl`；这类应通过 cygwin 启动方式解决。
+- 直接检测 `PATH` 不能发现仅在 Cygwin 环境内可用的脚本；这类应通过 cygwin 启动方式解决。
 - 系统终端隐藏状态持久化后，需要保留恢复入口，避免用户无法找回系统终端。
 - `runtime` 到 `terminal` 的迁移要避免破坏现有 session 数据和测试。
 
@@ -223,5 +223,5 @@ interface TerminalDefinition {
 ## User review notes
 
 - 用户补充：ttyd 配置能力由终端启动方式决定；direct 模式从服务进程/Windows PATH 找，cygwin 模式从 Cygwin PATH 找。用户直接配置完整路径时后端直接断言并使用。
-- 用户澄清：`ccl run m 3 -c` 是整段命令，cygwin 模式下不拆分为 argv。
+- 用户澄清：`custom-agent run` 是整段命令，cygwin 模式下不拆分为 argv。
 - 用户要求进入 Spec，因此 Requirement 已标记为 `Accepted`。

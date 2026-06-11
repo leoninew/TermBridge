@@ -39,7 +39,7 @@ Review status: Accepted
 - [x] Windows 系统终端和检测终端可列出。
 - [x] 系统终端不可删除。
 - [x] 用户自定义终端可新增、编辑、删除并持久化。
-- [x] `cygwin` 模式保留 `ccl run m 3 -c` 为整段命令。
+- [x] `cygwin` 模式保留 `custom-agent run` 为整段命令。
 - [x] 创建 session 可通过 `terminal_id` 使用已配置终端。
 - [x] ttyd 可使用 auto 或 explicit 配置。
 - [x] 终端管理入口在右上角工具条，使用独立页面。
@@ -47,19 +47,19 @@ Review status: Accepted
 
 ## Commands
 
-- `cd /d/SourceCodes/agentic/cc-ttyd && uv run pytest`
+- `cd /d/Projects/TermBridge && uv run pytest`
   - 结果：38 passed, 1 warning。
-- `cd /d/SourceCodes/agentic/cc-ttyd && uv run ruff check .`
+- `cd /d/Projects/TermBridge && uv run ruff check .`
   - 结果：All checks passed。
-- `cd /d/SourceCodes/agentic/cc-ttyd && uv run ruff format --check .`
+- `cd /d/Projects/TermBridge && uv run ruff format --check .`
   - 结果：19 files already formatted。
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn lint`
+- `cd /d/Projects/TermBridge/frontend && yarn lint`
   - 结果：通过。
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn format:check`
+- `cd /d/Projects/TermBridge/frontend && yarn format:check`
   - 结果：All matched files use Prettier code style。
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn typecheck`
+- `cd /d/Projects/TermBridge/frontend && yarn typecheck`
   - 结果：通过。
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn build`
+- `cd /d/Projects/TermBridge/frontend && yarn build`
   - 结果：构建通过；Vite/Rolldown 对 `node_modules/@vueuse/core` 的 `/* #__PURE__ */` 注释给出 warning，不影响构建。
 
 ## Missed or expanded scope

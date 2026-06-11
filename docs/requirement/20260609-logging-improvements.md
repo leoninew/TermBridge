@@ -55,7 +55,7 @@ uvicorn.run("cc_ttyd.main:app", host="127.0.0.1", port=9008, reload=False)
 
 ## User scenarios
 
-- 开发者启动 `cc-ttyd` 后，可以从控制台看到统一格式的应用日志和请求日志。
+- 开发者启动 `TermBridge` 后，可以从控制台看到统一格式的应用日志和请求日志。
 - 开发者排查前端请求失败时，可以看到对应 method、path、status 和 duration。
 - 开发者可以通过环境变量调整日志等级，例如从 `INFO` 切换到 `DEBUG`。
 - 服务发生未处理异常时，日志包含 traceback，同时 FastAPI 仍按原有方式处理响应。

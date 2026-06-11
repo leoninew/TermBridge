@@ -110,7 +110,7 @@ class FakeTerminalService:
             Shortcut(
                 id="claude-code",
                 name="Claude Code",
-                command="claude --dangerously-skip-permissions",
+                command="claude",
                 host="windows_cygwin",
             )
         ]

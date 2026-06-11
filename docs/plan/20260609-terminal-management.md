@@ -60,12 +60,12 @@ Review status: Accepted
   - Windows: PowerShell、cmd。
   - 非 Windows: bash/sh，按可用性检测。
 - CLI 检测：
-  - 初始检测 `claude`、`mini-claude`、`codex`。
+  - 初始检测 `claude`、`custom-cli`、`codex`。
   - 使用服务进程 `PATH` 检测可执行命令。
 - Cygwin 启动模式：
   - `cygwin_bash_path` 必须是 Windows 可执行路径。
   - Cygwin 命令内部执行 `cd <workspace-forward-slash> && exec <command>`。
-  - cygwin 模式下 `<command>` 是用户配置的整段命令，例如 `ccl run m 3 -c`，不拆分为 argv。
+  - cygwin 模式下 `<command>` 是用户配置的整段命令，例如 `custom-agent run`，不拆分为 argv。
   - workspace 转换为 forward slash 形式，例如 `D:/SourceCodes/...`。
   - Cygwin 命令字符串必须集中 quote，避免路径空格或特殊字符破坏命令。
 - ttyd executable 解析：
@@ -165,7 +165,7 @@ Review status: Accepted
 
 - `tests/test_terminal_service.py`
   - 系统终端列表生成。
-  - PATH 检测 claude/mini-claude/codex 可模拟。
+  - PATH 检测 claude/custom-cli/codex 可模拟。
   - 用户终端 create/update/delete。
   - 系统终端不可删除。
   - hidden/enabled 覆盖状态持久化。
@@ -188,18 +188,18 @@ Review status: Accepted
 
 至少运行：
 
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn lint`
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn format:check`
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn typecheck`
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn build`
+- `cd /d/Projects/TermBridge/frontend && yarn lint`
+- `cd /d/Projects/TermBridge/frontend && yarn format:check`
+- `cd /d/Projects/TermBridge/frontend && yarn typecheck`
+- `cd /d/Projects/TermBridge/frontend && yarn build`
 
 ### 11. 后端验证
 
 至少运行：
 
-- `cd /d/SourceCodes/agentic/cc-ttyd && uv run pytest`
-- `cd /d/SourceCodes/agentic/cc-ttyd && uv run ruff check .`
-- `cd /d/SourceCodes/agentic/cc-ttyd && uv run ruff format --check .`
+- `cd /d/Projects/TermBridge && uv run pytest`
+- `cd /d/Projects/TermBridge && uv run ruff check .`
+- `cd /d/Projects/TermBridge && uv run ruff format --check .`
 
 ## Files to change
 
@@ -229,7 +229,7 @@ Review status: Accepted
 - 手动验证：
   1. 打开页面右上角「终端管理」。
   2. 能看到 PowerShell/cmd 和检测到的 CLI。
-  3. 新增 Cygwin 模式终端：`ccl run m 3 -c`。
+  3. 新增 Cygwin 模式终端：`custom-agent run`。
   4. 设置 cygwin bash path 为 `D:\ProgramFiles\Cygwin64\bin\bash.exe`。
   5. 设置 ttyd executable 为 auto，确认 cygwin 模式从 Cygwin PATH 找到 ttyd；或设置 explicit 路径。
   6. 创建 session 选择该终端，确认进入指定 workspace。
@@ -264,4 +264,4 @@ Review status: Accepted
 
 - 用户要求进入 Plan，因此 Spec 已标记为 `Accepted`。
 - 用户澄清：ttyd 查找不是单一 PATH 语义，而是由终端启动模式决定；direct 使用服务进程/Windows PATH，cygwin 使用 Cygwin PATH，explicit 完整路径直接使用。
-- 用户澄清：`ccl run m 3 -c` 是整段命令，在 cygwin 模式下不需要也不应该拆分。
+- 用户澄清：`custom-agent run` 是整段命令，在 cygwin 模式下不需要也不应该拆分。

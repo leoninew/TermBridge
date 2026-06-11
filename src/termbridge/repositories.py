@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -94,7 +95,7 @@ class FileSessionRepository:
         except ValidationError as exc:
             raise SessionRepositoryError("Session registry contains invalid session data") from exc
 
-    def _decode_state(self, raw: dict) -> SessionState:
+    def _decode_state(self, raw: dict[str, Any]) -> SessionState:
         if set(raw) == {"environments"}:
             workspaces: dict[str, WorkspaceRecord] = {}
             environments = raw["environments"]
@@ -132,8 +133,8 @@ class FileSessionRepository:
             temp_path.unlink(missing_ok=True)
             raise
 
-    def _encode_state(self, state: SessionState) -> dict:
-        environments: dict[ShortcutHost, dict[str, dict]] = {
+    def _encode_state(self, state: SessionState) -> dict[str, Any]:
+        environments: dict[ShortcutHost, dict[str, dict[str, Any]]] = {
             "windows_cygwin": {},
             "windows_wsl": {},
             "linux": {},

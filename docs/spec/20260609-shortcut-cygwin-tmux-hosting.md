@@ -67,10 +67,10 @@ class Shortcut(BaseModel):
 首次初始化 shortcut state 时默认提供：
 
 - Claude Code
-  - command: `claude --dangerously-skip-permissions`
+  - command: `claude`
   - host: `cygwin_tmux`
 - Codex
-  - command: `codex -a never --sandbox danger-full-access`
+  - command: `codex`
   - host: `cygwin_tmux`
 
 本阶段不区分 system/user 类别；默认 shortcuts 与用户创建的 shortcuts 一样可以修改或删除。
@@ -213,7 +213,7 @@ Session 创建接口从 terminal 语义迁移到 shortcut 语义：
     {
       "id": "claude-code",
       "name": "Claude Code",
-      "command": "claude --dangerously-skip-permissions",
+      "command": "claude",
       "host": "cygwin_tmux",
       "description": "Start Claude Code in Cygwin tmux",
       "icon": null
@@ -227,7 +227,7 @@ Session 创建接口从 terminal 语义迁移到 shortcut 语义：
 ```json
 {
   "name": "Codex",
-  "command": "codex -a never --sandbox danger-full-access",
+  "command": "codex",
   "host": "cygwin_tmux",
   "description": "Start Codex in Cygwin tmux",
   "icon": null
@@ -239,8 +239,8 @@ Session 创建接口从 terminal 语义迁移到 shortcut 语义：
 ```json
 {
   "shortcut_id": "claude-code",
-  "workspace_path": "D:/SourceCodes/agentic/cc-ttyd",
-  "session_name": "cc-ttyd-claude"
+  "workspace_path": "D:/Projects/TermBridge",
+  "session_name": "termbridge-claude"
 }
 ```
 
@@ -249,12 +249,12 @@ Session 创建接口从 terminal 语义迁移到 shortcut 语义：
 ```json
 {
   "id": "...",
-  "name": "cc-ttyd-claude",
+  "name": "termbridge-claude",
   "shortcut_id": "claude-code",
   "shortcut_name": "Claude Code",
-  "workspace_path": "D:/SourceCodes/agentic/cc-ttyd",
+  "workspace_path": "D:/Projects/TermBridge",
   "host": "cygwin_tmux",
-  "tmux_session_name": "cc-ttyd-claude",
+  "tmux_session_name": "termbridge-claude",
   "url": "http://127.0.0.1:..."
 }
 ```

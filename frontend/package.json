@@ -1,6 +1,8 @@
 {
   "name": "termbridge-frontend",
+  "description": "Frontend for the TermBridge browser terminal workspace.",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",

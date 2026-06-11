@@ -10,11 +10,11 @@ Review status: Accepted
 
 用户当前环境包含 Cygwin bash，并有个人化命令入口，例如：
 
-- `claude` 是 alias：`claude --dangerously-skip-permissions`
-- `mini-claude` 位于 `/usr/local/bin/mini-claude`
-- `ccl run m 3 -c` 是用户自定义工作流入口，依赖 Cygwin 环境；这是整段命令，不需要拆分为 argv。
+- `claude` 是 alias：`claude`
+- `custom-cli` 位于 `/usr/local/bin/custom-cli`
+- `custom-agent run` 是用户自定义工作流入口，依赖 Cygwin 环境；这是整段命令，不需要拆分为 argv。
 
-Windows 版 ttyd 启动进程时默认处于 Windows 进程环境。`claude`、`mini-claude` 如果已经在 Windows 系统环境变量 `PATH` 中，可以作为普通命令直接启动；但依赖 Cygwin 的命令、alias 或 shell 初始化逻辑，不能假定 Windows 进程环境直接可用，需要通过 Cygwin bash 作为适配层启动。
+Windows 版 ttyd 启动进程时默认处于 Windows 进程环境。`claude`、`custom-cli` 如果已经在 Windows 系统环境变量 `PATH` 中，可以作为普通命令直接启动；但依赖 Cygwin 的命令、alias 或 shell 初始化逻辑，不能假定 Windows 进程环境直接可用，需要通过 Cygwin bash 作为适配层启动。
 
 这些都应被视为可管理的自定义终端，而不是 runtime。
 
@@ -26,9 +26,9 @@ Windows 版 ttyd 启动进程时默认处于 Windows 进程环境。`claude`、`
 - Windows 平台默认识别并展示 PowerShell、cmd 等系统终端。
 - 检查当前环境中是否存在 Claude Code、Codex 等命令行工具，并作为系统级终端候选展示。
 - 系统级终端属于系统能力，不允许用户删除。
-- 支持用户自定义终端命令，例如 Cygwin bash、带 alias 的 `claude`、`mini-claude`、`ccl run m 3 -c` 等个人工作流入口。
+- 支持用户自定义终端命令，例如 Cygwin bash、带 alias 的 `claude`、`custom-cli`、`custom-agent run` 等个人工作流入口。
 - 自定义终端需要支持不同启动方式：直接 Windows 命令，以及通过 Cygwin bash 包装执行的命令。
-- 对依赖 Cygwin 的命令，系统需要允许配置 shell 适配层，例如通过 Cygwin bash 执行 `ccl run m 3 -c`。
+- 对依赖 Cygwin 的命令，系统需要允许配置 shell 适配层，例如通过 Cygwin bash 执行 `custom-agent run`。
 - 用户自定义终端配置需要持久化，并支持新增、编辑、停用/隐藏和删除。
 - 创建 session 时使用“终端”概念选择启动命令，保持现有 session 启动能力。
 - 提供 ttyd 可执行文件配置能力：默认按终端启动模式从对应环境的 `PATH` 查找 `ttyd`，也允许用户显式指定 ttyd 可执行文件路径。
@@ -49,7 +49,7 @@ Windows 版 ttyd 启动进程时默认处于 Windows 进程环境。`claude`、`
 - 作为安装了 Claude Code 或 Codex 的用户，我希望系统能检测到这些 CLI，并把它们作为可选终端入口展示。
 - 作为使用 Cygwin bash 的用户，我希望添加一个自定义终端命令，用它启动我自己的 shell 工作流。
 - 作为 Windows ttyd 用户，我希望普通 Windows PATH 中的命令可以直接启动，而依赖 Cygwin 的命令可以通过 Cygwin bash 包装启动。
-- 作为有 alias 的用户，我希望可以把 `claude`、`mini-claude` 或 `ccl run m 3 -c` 这样的命令保存为自定义终端，并在创建 session 时直接选择。
+- 作为有 alias 的用户，我希望可以把 `claude`、`custom-cli` 或 `custom-agent run` 这样的命令保存为自定义终端，并在创建 session 时直接选择。
 - 作为用户，我希望自定义终端保存后，重启服务仍然存在。
 - 作为用户，我希望系统级终端不会被误删，但可以隐藏不用。
 
@@ -80,7 +80,7 @@ Windows 版 ttyd 启动进程时默认处于 Windows 进程环境。`claude`、`
 - Windows ttyd 接入自定义终端时，直接可执行命令和 Cygwin 依赖命令需要用不同启动方式表达。
 - 对 Cygwin 依赖命令，推荐通过 Cygwin bash 适配层执行，并将用户输入的命令作为整段命令交给 Cygwin 环境，而不是拆分为 argv。
 - Windows 进程启动 Cygwin bash 时应使用 Windows 可执行路径，例如 `D:\ProgramFiles\Cygwin64\bin\bash.exe`，不能直接使用 `/usr/bin/bash`。
-- 进入指定 workspace 可以通过 Cygwin bash 执行 `cd D:/SourceCodes/agentic/cc-ttyd` 或 `cd $(cygpath -u <windows-path>)`；后续 Spec 需要明确最终命令模板。
+- 进入指定 workspace 可以通过 Cygwin bash 执行 `cd D:/Projects/TermBridge` 或 `cd $(cygpath -u <windows-path>)`；后续 Spec 需要明确最终命令模板。
 - ttyd 默认查找由终端启动模式决定：direct 使用服务进程/Windows PATH，Cygwin 模式使用 Cygwin PATH；用户配置完整可执行文件路径时直接使用该路径。
 
 ## Open questions
@@ -94,9 +94,9 @@ Windows 版 ttyd 启动进程时默认处于 Windows 进程环境。`claude`、`
 
 - 当前环境 `ttyd` 位于 `/usr/local/bin/ttyd`，Windows 路径为 `D:\ProgramFiles\Cygwin64\usr\local\bin\ttyd.exe`。
 - 当前环境 `bash` 位于 `/usr/bin/bash`，Windows 路径为 `D:\ProgramFiles\Cygwin64\bin\bash.exe`。
-- Windows Python `shutil.which` 可解析 `ttyd`、`bash`、`claude`、`mini-claude`，但不能直接解析无 `.exe` 的 Cygwin 脚本 `ccl`。
-- `ccl` 在 Cygwin bash 内可解析为 `/usr/local/bin/ccl`。
-- Cygwin bash 可以 `cd "D:/SourceCodes/agentic/cc-ttyd"` 并进入 `/d/SourceCodes/agentic/cc-ttyd`。
+- Windows Python `shutil.which` 可解析 `ttyd`、`bash`、`claude`、`custom-cli`，但不能直接解析无 `.exe` 的 Cygwin 脚本 `custom-agent`。
+- `custom-agent` 在 Cygwin bash 内可解析为 `/usr/local/bin/custom-agent`。
+- Cygwin bash 可以 `cd "D:/Projects/TermBridge"` 并进入 `/d/Projects/TermBridge`。
 
 ## Risks
 

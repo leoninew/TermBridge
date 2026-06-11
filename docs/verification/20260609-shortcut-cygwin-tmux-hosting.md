@@ -13,8 +13,8 @@ Review status: Accepted
 - [x] ttyd path 继续来自全局 terminal settings / environment settings，不写入每个 shortcut。
 - [x] 使用 shortcut 创建 session 时，后端构造 Cygwin bash + tmux 命令，并由 ttyd 承载。
 - [x] session record / response 保存 `shortcut_id`、`shortcut_name`、`host`、`tmux_session_name` 等信息。
-- [x] 默认提供 Claude Code shortcut：`claude --dangerously-skip-permissions`。
-- [x] 默认提供 Codex shortcut：`codex -a never --sandbox danger-full-access`。
+- [x] 默认提供 Claude Code shortcut：`claude`。
+- [x] 默认提供 Codex shortcut：`codex`。
 - [x] 默认 shortcuts 不区分 system/user，也不限制修改或删除。
 - [x] 新建会话 UI 改为选择 shortcut + workspace。
 - [x] 环境管理页继续承担 Cygwin/tmux/ttyd 检测和路径配置职责。

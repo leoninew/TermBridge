@@ -35,11 +35,15 @@ def test_shortcut_service_initializes_default_shortcuts(tmp_path: Path) -> None:
     assert [(shortcut.id, shortcut.command, shortcut.host) for shortcut in shortcuts] == [
         ("cygwin-bash", "bash", "windows_cygwin"),
         ("cygwin-cmd", "cmd", "windows_cygwin"),
-        ("cygwin-claude-code", "claude --dangerously-skip-permissions", "windows_cygwin"),
-        ("cygwin-codex", "codex -a never --sandbox danger-full-access", "windows_cygwin"),
+        ("cygwin-claude", "claude", "windows_cygwin"),
+        ("cygwin-claude-unrestricted", "claude --dangerously-skip-permissions", "windows_cygwin"),
+        ("cygwin-codex", "codex", "windows_cygwin"),
+        ("cygwin-codex-full-access", "codex -a never --sandbox danger-full-access", "windows_cygwin"),
         ("wsl-bash", "bash", "windows_wsl"),
-        ("wsl-claude-code", "claude --dangerously-skip-permissions", "windows_wsl"),
-        ("wsl-codex", "codex -a never --sandbox danger-full-access", "windows_wsl"),
+        ("wsl-claude", "claude", "windows_wsl"),
+        ("wsl-claude-unrestricted", "claude --dangerously-skip-permissions", "windows_wsl"),
+        ("wsl-codex", "codex", "windows_wsl"),
+        ("wsl-codex-full-access", "codex -a never --sandbox danger-full-access", "windows_wsl"),
     ]
 
 
@@ -118,11 +122,15 @@ def test_shortcut_service_ignores_old_terminal_definitions(tmp_path: Path) -> No
     assert {shortcut.id for shortcut in shortcuts} == {
         "cygwin-bash",
         "cygwin-cmd",
-        "cygwin-claude-code",
+        "cygwin-claude",
+        "cygwin-claude-unrestricted",
         "cygwin-codex",
+        "cygwin-codex-full-access",
         "wsl-bash",
-        "wsl-claude-code",
+        "wsl-claude",
+        "wsl-claude-unrestricted",
         "wsl-codex",
+        "wsl-codex-full-access",
     }
 
 
@@ -149,7 +157,7 @@ def test_shortcut_service_resolves_windows_wsl_command(tmp_path: Path) -> None:
     service = make_service(tmp_path)
     service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))
     shortcut = service.create_shortcut(CreateShortcutRequest(name="WSL", command="agent run", host="windows_wsl"))
-    workspace = Path(r"D:\SourceCodes\agentic\cc-switch")
+    workspace = Path(r"D:\Projects\ExampleApp")
 
     with patch.object(service, "resolve_ttyd_executable", return_value="ttyd"):
         with patch("termbridge.services.subprocess.run") as run:
@@ -174,7 +182,7 @@ def test_terminal_service_creates_wsl_tmux_window_from_wsl_cd_workspace(tmp_path
     service = make_service(tmp_path)
     service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))
     shortcut = service.create_shortcut(CreateShortcutRequest(name="WSL", command="agent run", host="windows_wsl"))
-    workspace = Path(r"D:\SourceCodes\agentic\cc-switch")
+    workspace = Path(r"D:\Projects\ExampleApp")
     completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="@3\n", stderr="")
 
     with patch("termbridge.services.subprocess.run", return_value=completed) as run:
@@ -204,7 +212,7 @@ def test_terminal_service_finds_tmux_window_by_name(tmp_path: Path) -> None:
     with patch("termbridge.services.subprocess.run", return_value=completed) as run:
         window_id = service.find_tmux_window_by_name(
             "windows_wsl",
-            Path(r"D:\SourceCodes\agentic\cc-switch"),
+            Path(r"D:\Projects\ExampleApp"),
             tmux_session_name="tb_wsl_workspace",
             window_name="Agent",
         )
@@ -249,7 +257,7 @@ def test_shortcut_service_requires_cygwin_ready_for_host_ready(tmp_path: Path) -
     service = make_service(tmp_path)
 
     with pytest.raises(InvalidTerminalConfigError, match="Windows/Cygwin environment is not ready"):
-        service.resolve_shortcut_command("cygwin-claude-code", tmp_path, tmux_session_name="sess_test")
+        service.resolve_shortcut_command("cygwin-claude", tmp_path, tmux_session_name="sess_test")
 
 
 def test_shortcut_service_normalizes_tmux_session_name(tmp_path: Path) -> None:

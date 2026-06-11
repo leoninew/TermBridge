@@ -96,7 +96,7 @@ Review status: Accepted
 ### 9. 实现基于文件的会话 repository
 
 - 创建 `src/cc_ttyd/repositories.py`。
-- 使用 JSON 文件保存 session registry，例如 `.cc-ttyd/sessions.json`。
+- 使用 JSON 文件保存 session registry，例如 `.termbridge/sessions.json`。
 - 实现 CRUD：
   - create
   - list
@@ -198,7 +198,7 @@ Review status: Accepted
 
 - 后端工程放在仓库根目录 `src/cc_ttyd/`。
 - `ttyd` 默认在 PATH 中，可通过配置覆盖。
-- 文件 session registry 默认放在 `.cc-ttyd/sessions.json`。
+- 文件 session registry 默认放在 `.termbridge/sessions.json`。
 - 本阶段测试以单元测试为主，不把真实 ttyd 进程作为必需测试依赖。
 
 ## Risks

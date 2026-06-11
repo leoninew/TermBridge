@@ -42,14 +42,14 @@ Review status: Accepted
 
 用户在 Windows/WSL 环境中分别打开：
 
-- `D:\SourceCodes\agentic\TermBridge`
-- `D:\SourceCodes\agentic\cc-switch`
+- `D:\Projects\TermBridge`
+- `D:\Projects\ExampleApp`
 
 即使两个工作区的显示名称都叫 `dev` 或都由目录名派生出相同短名，也不应互相 attach 到同一个 tmux session。
 
 ### Scenario 2: 相同环境相同目录重新打开
 
-用户已经在 Windows/WSL + `D:\SourceCodes\agentic\cc-switch` 中运行过 Claude Code。之后再次从同一环境和同一目录创建/打开工作区时，TermBridge 应优先让用户回到已有工作区上下文，而不是创建一个难以区分的重复顶层会话。
+用户已经在 Windows/WSL + `D:\Projects\ExampleApp` 中运行过 Claude Code。之后再次从同一环境和同一目录创建/打开工作区时，TermBridge 应优先让用户回到已有工作区上下文，而不是创建一个难以区分的重复顶层会话。
 
 ### Scenario 3: 同一工作区运行多个快捷方式
 

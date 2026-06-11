@@ -61,7 +61,7 @@ TermBridge 已经把运行环境模型整理为三类 tmux-backed provider：Win
 
 ### 场景 6：workspace 路径需要转换
 
-用户从 Windows 文件系统选择 workspace，例如 `D:\SourceCodes\agentic\TermBridge`。启动 Windows/WSL session 时，系统应将其转换成 WSL 可访问路径，例如 `/mnt/d/SourceCodes/agentic/TermBridge`，并在 WSL 内执行 `cd`。
+用户从 Windows 文件系统选择 workspace，例如 `D:\Projects\TermBridge`。启动 Windows/WSL session 时，系统应将其转换成 WSL 可访问路径，例如 `/mnt/d/Projects/TermBridge`，并在 WSL 内执行 `cd`。
 
 ### 场景 7：删除 Windows/WSL session
 

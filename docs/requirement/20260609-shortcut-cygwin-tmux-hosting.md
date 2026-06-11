@@ -10,7 +10,7 @@ Review status: Accepted
 
 在这个基础上，原先“终端 / terminal”这个概念需要跟上进度。它不应继续被理解为 runtime 本身，或者单纯的 shell command 配置；更合适的定义是“快捷方式 / shortcut”：用户点击后，在某个 host 环境中启动一个入口命令。
 
-第一阶段先聚焦 Cygwin + tmux 模式：把 `claude --dangerously-skip-permissions`、`codex -a never --sandbox danger-full-access` 等 agent CLI 入口作为快捷方式托管起来。`cmd`、`python`、普通 shell 等入口可以后续再扩展。
+第一阶段先聚焦 Cygwin + tmux 模式：把 `claude`、`codex` 等 agent CLI 入口作为快捷方式托管起来。`cmd`、`python`、普通 shell 等入口可以后续再扩展。
 
 ## Goals
 
@@ -30,8 +30,8 @@ Review status: Accepted
    - tmux session 内启动 shortcut command。
    - ttyd attach 到该 tmux session。
 6. 默认提供 Claude Code 和 Codex 两个 shortcut：
-   - Claude Code：`claude --dangerously-skip-permissions`
-   - Codex：`codex -a never --sandbox danger-full-access`
+   - Claude Code：`claude`
+   - Codex：`codex`
 7. 保留已有 Cygwin/tmux/ttyd 环境检测能力，并在 shortcut 创建或启动前复用这些能力做校验。
 8. UI 文案和结构中替换为“快捷方式”术语，移除原“终端”作为入口配置的描述。
 
@@ -54,11 +54,11 @@ Review status: Accepted
 
 ### 场景 2：创建 Claude Code 快捷方式
 
-用户创建一个快捷方式，名称为 Claude Code，命令为 `claude --dangerously-skip-permissions`，host 为 `cygwin_tmux`。保存后它出现在快捷方式列表中。
+用户创建一个快捷方式，名称为 Claude Code，命令为 `claude`，host 为 `cygwin_tmux`。保存后它出现在快捷方式列表中。
 
 ### 场景 3：通过快捷方式启动持久会话
 
-用户点击 Claude Code 快捷方式创建 session。系统使用当前 Cygwin bash path 创建 tmux session，在 tmux 中启动 `claude --dangerously-skip-permissions`，然后用 ttyd attach 到该 tmux session。
+用户点击 Claude Code 快捷方式创建 session。系统使用当前 Cygwin bash path 创建 tmux session，在 tmux 中启动 `claude`，然后用 ttyd attach 到该 tmux session。
 
 ### 场景 4：刷新页面后恢复会话
 
@@ -85,8 +85,8 @@ Review status: Accepted
 7. 使用 shortcut 创建 session 后，ttyd attach 到对应 tmux session。
 8. session 记录能保留 shortcut 来源或等价信息，便于列表展示和恢复。
 9. Shortcut 必须绑定 Windows、Cygwin、WSL 之一；启动前只检查绑定 host 环境的配置是否就绪，不要求检查进程和版本；配置未就绪时给出可理解错误，不应静默失败。
-10. 默认提供 Claude Code shortcut，命令为 `claude --dangerously-skip-permissions`。
-11. 默认提供 Codex shortcut，命令为 `codex -a never --sandbox danger-full-access`。
+10. 默认提供 Claude Code shortcut，命令为 `claude`。
+11. 默认提供 Codex shortcut，命令为 `codex`。
 12. 本阶段不区分 system/user shortcut 类别，也不限制默认 shortcut 的修改或删除。
 13. 模型、API 和前端主要命名一次性迁移为 shortcut 语义，移除旧的 `TerminalDefinition` 作为入口配置的命名。
 14. UI 中统一使用“快捷方式”作为入口配置概念，移除旧的“终端定义”文案和结构描述。
@@ -103,14 +103,14 @@ Review status: Accepted
 1. 底层代码命名一次性从 `TerminalDefinition` 迁移为 shortcut 语义，包括模型、API 和前端主要命名。
 2. Shortcut command 允许任意非空白字符串；本阶段不限制命令内容。
 3. Shortcut 表达“如何启动”，不内置固定工作目录；新建会话时由用户选择 shortcut + workspace。
-4. 默认提供 Claude Code shortcut，命令为 `claude --dangerously-skip-permissions`。
-5. 默认提供 Codex shortcut，命令为 `codex -a never --sandbox danger-full-access`。
+4. 默认提供 Claude Code shortcut，命令为 `claude`。
+5. 默认提供 Codex shortcut，命令为 `codex`。
 6. Shortcut session 需要存储和 tmux 相关的信息。tmux session 可以用会话名指代；会话名需要符合规范，方便切换应用会话时切换到对应 tmux session。
 7. 已有 terminal definitions 数据不迁移，直接删除旧数据并以 shortcuts 重新开始。
 
 ## User review notes
 
-- Codex 的入口命令应使用 `codex -a never --sandbox danger-full-access`。
+- Codex 的入口命令应使用 `codex`。
 - UI 文案和结构应替换为“快捷方式”术语，移除原“终端”作为入口配置的描述。
 - Claude Code 和 Codex 应作为系统预置快捷方式提供。
 - 每个快捷方式都必须绑定 Windows、Cygwin、WSL 之一；能否启动取决于绑定 host 环境配置是否就绪。

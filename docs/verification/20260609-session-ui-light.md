@@ -32,13 +32,13 @@ Review status: Accepted
 
 ## Commands
 
-- `cd /d/SourceCodes/agentic/cc-ttyd && uv run pytest`：28 passed, 1 warning（FastAPI/Starlette TestClient deprecation warning）
-- `cd /d/SourceCodes/agentic/cc-ttyd && uv run ruff check .`：passed
-- `cd /d/SourceCodes/agentic/cc-ttyd && uv run ruff format --check .`：passed，18 files already formatted
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn lint`：passed
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn format:check`：passed
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn typecheck`：passed
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn build`：passed；Rolldown 对 `node_modules/@vueuse/core` 的 `/* #__PURE__ */` 注释有 warning，不影响构建产物生成
+- `cd /d/Projects/TermBridge && uv run pytest`：28 passed, 1 warning（FastAPI/Starlette TestClient deprecation warning）
+- `cd /d/Projects/TermBridge && uv run ruff check .`：passed
+- `cd /d/Projects/TermBridge && uv run ruff format --check .`：passed，18 files already formatted
+- `cd /d/Projects/TermBridge/frontend && yarn lint`：passed
+- `cd /d/Projects/TermBridge/frontend && yarn format:check`：passed
+- `cd /d/Projects/TermBridge/frontend && yarn typecheck`：passed
+- `cd /d/Projects/TermBridge/frontend && yarn build`：passed；Rolldown 对 `node_modules/@vueuse/core` 的 `/* #__PURE__ */` 注释有 warning，不影响构建产物生成
 
 ## Remaining risk
 

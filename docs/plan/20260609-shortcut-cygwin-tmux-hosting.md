@@ -93,8 +93,8 @@ Review status: Accepted
   - `_find_shortcut(shortcut_id: str) -> Shortcut`
 - 删除旧 system terminal 自动检测/override 逻辑。
 - 默认 shortcuts 初始化：
-  - `claude-code`: Claude Code / `claude --dangerously-skip-permissions` / `cygwin_tmux`
-  - `codex`: Codex / `codex -a never --sandbox danger-full-access` / `cygwin_tmux`
+  - `claude-code`: Claude Code / `claude` / `cygwin_tmux`
+  - `codex`: Codex / `codex` / `cygwin_tmux`
   - 默认项与用户项一致，可修改、删除。
 - Validation：
   - `name.strip()` 非空。

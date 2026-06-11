@@ -30,7 +30,7 @@ Review status: Accepted
   - `src/cc_ttyd/di.py`：当前业务包 dependency provider。
 - 依赖通过 FastAPI dependency injection 组织；API 层不自行实例化 service。
 - `di.py` 按当前业务包边界管理 provider，不作为全局集中式依赖容器。
-- 文件会话管理使用 `.cc-ttyd/sessions.json`，支持 create/list/get/update/delete。
+- 文件会话管理使用 `.termbridge/sessions.json`，支持 create/list/get/update/delete。
 - 文件写入使用临时文件 + `os.replace` 原子替换。
 - 未引入数据库、ORM、认证、前端、HTTPS/反向代理或 FastAPI WebSocket 代理。
 

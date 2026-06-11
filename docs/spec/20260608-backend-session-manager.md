@@ -153,7 +153,7 @@ Process adapter 提供：
 - `update(session)`：更新状态、pid、端口、更新时间等字段。
 - `delete(session_id)`：删除会话记录。
 
-文件格式采用 JSON，优先使用单一 registry 文件，例如 `.cc-ttyd/sessions.json`。写入时应使用临时文件 + 原子替换，避免进程异常导致文件半写入。repository 只负责元数据持久化，不直接管理 ttyd 进程；进程生命周期仍由 service 协调 process adapter 完成。
+文件格式采用 JSON，优先使用单一 registry 文件，例如 `.termbridge/sessions.json`。写入时应使用临时文件 + 原子替换，避免进程异常导致文件半写入。repository 只负责元数据持久化，不直接管理 ttyd 进程；进程生命周期仍由 service 协调 process adapter 完成。
 
 服务启动时可以从文件加载既有会话记录；由于进程句柄无法跨服务重启恢复，list/detail 时需要通过 pid 或端口懒检查状态，并将无法确认仍运行的会话标记为 `stopped` 或 `failed`。
 

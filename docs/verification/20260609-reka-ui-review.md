@@ -38,15 +38,15 @@ Review status: Accepted
 
 ## Commands
 
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn lint`
+- `cd /d/Projects/TermBridge/frontend && yarn lint`
   - 结果：通过。
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn format:check`
+- `cd /d/Projects/TermBridge/frontend && yarn format:check`
   - 结果：All matched files use Prettier code style。
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn typecheck`
+- `cd /d/Projects/TermBridge/frontend && yarn typecheck`
   - 结果：通过。
-- `cd /d/SourceCodes/agentic/cc-ttyd/frontend && yarn build`
+- `cd /d/Projects/TermBridge/frontend && yarn build`
   - 结果：构建通过；Vite/Rolldown 对 `node_modules/@vueuse/core` 的 `/* #__PURE__ */` 注释给出 warning，不影响构建。
-- `pomelo-pw run C:/Users/wangm25/AppData/Local/Temp/cc-ttyd-sidebar.yaml --headless -o C:/Users/wangm25/AppData/Local/Temp/cc-ttyd-sidebar-rail -v`
+- `visual-regression-tool run C:/Users/<user>/AppData/Local/Temp/termbridge-sidebar.yaml --headless -o C:/Users/<user>/AppData/Local/Temp/termbridge-sidebar-rail -v`
   - 结果：通过，已截图检查左栏展开和收起状态；收起状态为 48px 轻量 rail，仅保留底部展开按钮，无空边框卡片。
 
 ## Remaining risk

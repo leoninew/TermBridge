@@ -49,7 +49,7 @@ class FakeShortcutService:
         self.shortcut = Shortcut(
             id="claude-code",
             name="Claude Code",
-            command="claude --dangerously-skip-permissions",
+            command="claude",
             host="windows_cygwin",
         )
 

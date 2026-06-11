@@ -53,7 +53,7 @@ Review status: Accepted
       "d:/sourcecodes/agentic": {
         "id": "ws_...",
         "host": "windows_cygwin",
-        "path": "D:/SourceCodes/agentic",
+        "path": "D:/Projects",
         "name": "agentic",
         "tmux_session_name": "tb_cyg_...",
         "created_at": "...",
