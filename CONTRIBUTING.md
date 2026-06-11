@@ -7,7 +7,7 @@ Thanks for your interest in TermBridge. This project is currently pre-release, s
 Install frontend and backend dependencies:
 
 ```bash
-make prepare
+make install
 ```
 
 Start the backend:
@@ -57,7 +57,7 @@ yarn --cwd frontend build
 If your change affects packaging, also run:
 
 ```bash
-make wheel
+make build
 ```
 
 ## Pull request guidelines

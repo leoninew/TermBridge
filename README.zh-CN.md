@@ -53,7 +53,7 @@ TermBridge 按运行环境和工作目录组织会话。内部实现上，一个
 安装依赖：
 
 ```bash
-make prepare
+make install
 ```
 
 启动后端 API：
@@ -91,7 +91,7 @@ TermBridge 从带有 `TERMBRIDGE_` 前缀的环境变量和 `.env` 文件读取�
 
 快捷方式是可复用的命令入口。文档示例使用普通命令，例如 `bash`、`claude` 和 `codex`。
 
-TermBridge 也为明确需要受信本地工作流的用户提供 Claude Code 和 Codex 的 unrestricted 变体。使用前请检查并按需编辑快捷方式命令。快捷方式命令会在本机的目标运行环境中执行，因此应将快捷方式配置视为受信的本地代码执行入口。
+使用前请检查并按需编辑快捷方式命令。快捷方式命令会在本机的目标运行环境中执行，因此应将快捷方式配置视为受信的本地代码执行入口。
 
 ## Docker
 
@@ -102,11 +102,6 @@ docker build -t termbridge:local .
 docker run --rm -p 9008:9008 termbridge:local
 ```
 
-如需使用中国镜像源，可以使用 `Dockerfile.cn`：
-
-```bash
-docker build -f Dockerfile.cn -t termbridge:local .
-```
 
 容器会由后端提供构建后的前端资源。真实终端会话仍需要 `ttyd`、`tmux`、Cygwin、WSL 或 Linux shell 环境可用并正确配置。
 

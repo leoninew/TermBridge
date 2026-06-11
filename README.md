@@ -53,7 +53,7 @@ Runtime:
 Install dependencies:
 
 ```bash
-make prepare
+make install
 ```
 
 Start the backend API:
@@ -91,7 +91,7 @@ See [.env.sample](.env.sample) for the available settings and a local developmen
 
 Shortcuts are reusable command entrypoints. Documented examples use plain commands such as `bash`, `claude`, and `codex`.
 
-TermBridge also includes unrestricted variants for Claude Code and Codex for users who explicitly want those trusted-local workflows. Review and edit shortcut commands before use. A shortcut command is executed on your local machine inside the selected runtime provider, so treat shortcut configuration as trusted local code execution.
+Review and edit shortcut commands before use. A shortcut command is executed on your local machine inside the selected runtime provider, so treat shortcut configuration as trusted local code execution.
 
 ## Docker
 
@@ -102,11 +102,6 @@ docker build -t termbridge:local .
 docker run --rm -p 9008:9008 termbridge:local
 ```
 
-Use `Dockerfile.cn` if you need China mirror sources:
-
-```bash
-docker build -f Dockerfile.cn -t termbridge:local .
-```
 
 The container serves the built frontend from the backend. Runtime tools such as `ttyd`, `tmux`, Cygwin, WSL, or Linux shell environments still need to be available and correctly configured for terminal sessions to work.
 
