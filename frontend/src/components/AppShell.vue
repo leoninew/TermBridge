@@ -5,7 +5,6 @@ import { RouterView, useRouter } from 'vue-router'
 import {
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogOverlay,
   AlertDialogPortal,
   AlertDialogRoot,
@@ -44,7 +43,7 @@ const showCreatePanel = ref(false)
 const creatingSession = ref(false)
 const startingSessionId = ref<string>()
 const createError = ref('')
-const createSessionContext = ref<{ host?: ShortcutHost; workspace?: string }>({})
+const createSessionContext = ref<{ host?: ShortcutHost; workspace?: string; shortcutId?: string }>({})
 const deletingSession = ref<Session>()
 const deletingWorkspace = ref<{ id: string; path: string }>()
 const closeAllDialogOpen = ref(false)
@@ -129,7 +128,7 @@ function openTerminalSession(session: Session) {
   activeSessionId.value = session.id
 }
 
-function updateCreateSessionContext(context: { host?: ShortcutHost; workspace?: string }) {
+function updateCreateSessionContext(context: { host?: ShortcutHost; workspace?: string; shortcutId?: string }) {
   createSessionContext.value = context
 }
 
@@ -274,8 +273,14 @@ async function selectSession(session: Session) {
   await router.push('/session')
 }
 
-async function showCreate() {
+async function showCreate(context?: { host?: ShortcutHost; workspace?: string; shortcutId?: string }) {
   createError.value = ''
+  if (context) {
+    createSessionContext.value = {
+      ...createSessionContext.value,
+      ...context,
+    }
+  }
   showCreatePanel.value = true
   await router.push('/session')
 }
@@ -354,6 +359,7 @@ onMounted(() => {
                   :error="createError"
                   :initial-host="createSessionContext.host"
                   :initial-workspace="createSessionContext.workspace"
+                  :initial-shortcut-id="createSessionContext.shortcutId"
                   @create="handleCreate"
                   @cancel="showCreatePanel = false"
                 />
@@ -369,6 +375,7 @@ onMounted(() => {
               @create="showCreate"
               @select="selectSession"
               @start="handleStart"
+              @create-session="showCreate"
               @environments-updated="environmentStore.update"
             />
           </Transition>
@@ -397,9 +404,9 @@ onMounted(() => {
             <AlertDialogTitle class="text-lg font-semibold text-slate-950 dark:text-slate-100">{{
               t('app.deleteSession.title')
             }}</AlertDialogTitle>
-            <AlertDialogDescription class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            <p class="mt-3 text-sm text-slate-600 dark:text-slate-400">
               {{ t('app.deleteSession.description', { name: deletingSession?.name }) }}
-            </AlertDialogDescription>
+            </p>
           </div>
           <div class="flex justify-end gap-2">
             <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900">
@@ -434,7 +441,7 @@ onMounted(() => {
             >
               {{ t('app.deleteWorkspace.title') }}
             </AlertDialogTitle>
-            <AlertDialogDescription class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            <p class="mt-3 text-sm text-slate-600 dark:text-slate-400">
               {{
                 t(
                   deletingWorkspaceSessionCount > 0
@@ -443,7 +450,7 @@ onMounted(() => {
                   { path: deletingWorkspace?.path, count: deletingWorkspaceSessionCount },
                 )
               }}
-            </AlertDialogDescription>
+            </p>
           </div>
           <div class="flex justify-end gap-2">
             <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900">
@@ -472,9 +479,9 @@ onMounted(() => {
             <AlertDialogTitle class="text-lg font-semibold text-amber-700 dark:text-amber-400">
               {{ t('app.closeAllSessions.title') }}
             </AlertDialogTitle>
-            <AlertDialogDescription class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            <p class="mt-3 text-sm text-slate-600 dark:text-slate-400">
               {{ t('app.closeAllSessions.description') }}
-            </AlertDialogDescription>
+            </p>
           </div>
           <div class="flex justify-end gap-2">
             <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900">

@@ -1,23 +1,28 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { Loader2, Plus } from '@lucide/vue'
+import { ChevronDown, Loader2, Plus } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogOverlay,
   AlertDialogPortal,
   AlertDialogRoot,
   AlertDialogTitle,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogOverlay,
   DialogPortal,
   DialogRoot,
   DialogTitle,
+  SelectContent,
+  SelectItem,
+  SelectItemText,
+  SelectRoot,
+  SelectTrigger,
+  SelectValue,
+  SelectViewport,
 } from 'reka-ui'
 import CygwinLogo from './CygwinLogo.vue'
 import LinuxLogo from './LinuxLogo.vue'
@@ -42,6 +47,9 @@ const { t } = useI18n()
 const toast = useToastStore()
 const props = defineProps<{
   sessions: Session[]
+}>()
+const emit = defineEmits<{
+  createSession: [context: { host: ShortcutHost; shortcutId: string }]
 }>()
 const hosts: ShortcutHost[] = ['windows_cygwin', 'windows_wsl', 'linux']
 const shortcuts = ref<Shortcut[]>([])
@@ -157,6 +165,10 @@ async function saveShortcut() {
   }
 }
 
+function createSessionFromShortcut(shortcut: Shortcut) {
+  emit('createSession', { host: shortcut.host, shortcutId: shortcut.id })
+}
+
 function askRemoveShortcut(shortcut: Shortcut) {
   if (usedShortcutIds.value.has(shortcut.id)) {
     return
@@ -261,8 +273,14 @@ function hostDisabledReason(host: ShortcutHost): string {
             </div>
 
             <div
-              class="absolute bottom-2.5 right-2.5 flex gap-1.5"
+              class="absolute bottom-2.5 right-2.5 flex gap-1.5 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100"
             >
+              <button
+                class="rounded-md border border-blue-200 px-2 py-1 text-sm text-blue-600 transition hover:bg-blue-50 dark:border-blue-900/60 dark:text-blue-400 dark:hover:bg-blue-950/40"
+                @click="createSessionFromShortcut(shortcut)"
+              >
+                {{ t('shortcutManagement.actions.createSession') }}
+              </button>
               <button
                 class="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                 @click="edit(shortcut)"
@@ -301,9 +319,6 @@ function hostDisabledReason(host: ShortcutHost): string {
                   : t('shortcutManagement.dialog.createTitle')
               }}
             </DialogTitle>
-            <DialogDescription class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              {{ t('shortcutManagement.dialog.description') }}
-            </DialogDescription>
           </div>
 
           <form class="grid gap-3" @submit.prevent="saveShortcut">
@@ -325,22 +340,34 @@ function hostDisabledReason(host: ShortcutHost): string {
             </label>
             <label class="grid gap-1.5 text-sm text-slate-700 dark:text-slate-300">
               {{ t('shortcutManagement.fields.host') }}
-              <select
-                v-model="form.host"
-                required
-                class="rounded-md border border-slate-300 bg-white/60 px-3 py-2 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
-              >
-                <option value="" disabled>{{ t('shortcutManagement.fields.selectHost') }}</option>
-                <option
-                  v-for="host in hosts"
-                  :key="host"
-                  :value="host"
-                  :disabled="!!hostDisabledReason(host)"
+              <SelectRoot v-model="form.host" required>
+                <SelectTrigger
+                  class="flex items-center justify-between rounded-md border border-slate-300 bg-white/60 px-3 py-2 text-left outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
                 >
-                  {{ hostLabel(host)
-                  }}{{ hostDisabledReason(host) ? ` - ${hostDisabledReason(host)}` : '' }}
-                </option>
-              </select>
+                  <SelectValue :placeholder="t('shortcutManagement.fields.selectHost')" />
+                  <ChevronDown class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+                </SelectTrigger>
+                <SelectContent
+                  position="popper"
+                  class="z-50 min-w-[var(--reka-select-trigger-width)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-blue-900/5 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:shadow-none"
+                >
+                  <SelectViewport class="p-1">
+                    <SelectItem
+                      v-for="host in hosts"
+                      :key="host"
+                      :value="host"
+                      :disabled="!!hostDisabledReason(host)"
+                      :text-value="`${hostLabel(host)}${hostDisabledReason(host) ? ` - ${hostDisabledReason(host)}` : ''}`"
+                      class="cursor-pointer rounded-md px-3 py-2 text-sm outline-none hover:bg-blue-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[highlighted]:bg-blue-50 dark:hover:bg-slate-800 dark:data-[highlighted]:bg-slate-800"
+                    >
+                      <SelectItemText>
+                        {{ hostLabel(host)
+                        }}{{ hostDisabledReason(host) ? ` - ${hostDisabledReason(host)}` : '' }}
+                      </SelectItemText>
+                    </SelectItem>
+                  </SelectViewport>
+                </SelectContent>
+              </SelectRoot>
             </label>
             <label class="grid gap-1.5 text-sm text-slate-700 dark:text-slate-300">
               {{ t('shortcutManagement.fields.description') }}
@@ -383,9 +410,9 @@ function hostDisabledReason(host: ShortcutHost): string {
             <AlertDialogTitle class="text-lg font-semibold text-slate-950 dark:text-slate-100">
               {{ t('shortcutManagement.delete.title') }}
             </AlertDialogTitle>
-            <AlertDialogDescription class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <p class="mt-3 text-sm text-slate-600 dark:text-slate-400">
               {{ t('shortcutManagement.delete.description', { name: deletingShortcut?.name }) }}
-            </AlertDialogDescription>
+            </p>
           </div>
           <div class="flex justify-end gap-2">
             <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900">

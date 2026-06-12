@@ -98,7 +98,9 @@
       "title": "Session Management",
       "createLabel": "New Session",
       "loading": "Loading sessions...",
-      "empty": "No sessions yet. Create one first.",
+      "emptyPrefix": "No sessions yet. ",
+      "emptyCreateLink": "Create",
+      "emptySuffix": " one first.",
       "noReadyEnvironment": "No runtime environment is ready. Open environment management to run checks or fill required paths.",
       "goToEnvironment": "Go to environment management",
       "searchPlaceholder": "Search directory paths",
@@ -227,7 +229,8 @@
     "description": "Manage entry commands launched in a host environment.",
     "loading": "Loading shortcuts...",
     "actions": {
-      "create": "New Shortcut"
+      "create": "New Shortcut",
+      "createSession": "New Session"
     },
     "success": {
       "created": "Shortcut created.",

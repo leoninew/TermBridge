@@ -268,7 +268,15 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
         </button>
       </div>
       <p v-else-if="shouldShowEmptySessions" class="text-sm text-slate-500">
-        {{ t('session.list.empty') }}
+        {{ t('session.list.emptyPrefix') }}
+        <button
+          type="button"
+          class="text-blue-600 transition hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
+          @click="handleCreate"
+        >
+          {{ t('session.list.emptyCreateLink') }}
+        </button>
+        {{ t('session.list.emptySuffix') }}
       </p>
       <div v-else class="flex min-h-0 flex-1 flex-col gap-2.5">
         <div class="flex items-center gap-2">

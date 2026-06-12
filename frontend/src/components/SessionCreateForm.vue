@@ -1,5 +1,14 @@
 <script setup lang="ts">
 import {
+  ComboboxAnchor,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxItemIndicator,
+  ComboboxRoot,
+  ComboboxTrigger,
+  ComboboxViewport,
   SelectContent,
   SelectItem,
   SelectItemText,
@@ -8,7 +17,7 @@ import {
   SelectValue,
   SelectViewport,
 } from 'reka-ui'
-import { FolderOpen, Loader2 } from '@lucide/vue'
+import { Check, ChevronDown, FolderOpen, Loader2 } from '@lucide/vue'
 import { computed, reactive, ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listShortcuts } from '../api/sessions'
@@ -27,6 +36,7 @@ const props = defineProps<{
   error: string
   initialHost?: ShortcutHost
   initialWorkspace?: string
+  initialShortcutId?: string
 }>()
 const emit = defineEmits<{
   create: [payload: CreateSessionPayload]
@@ -40,10 +50,11 @@ const shortcutError = ref('')
 const form = reactive<CreateSessionPayload>({
   name: '',
   workspace: props.initialWorkspace || '',
-  shortcut_id: '',
+  shortcut_id: props.initialShortcutId || '',
 })
 const loadingShortcuts = ref(false)
 const showWorkspaceBrowser = ref(false)
+const shortcutComboboxOpen = ref(false)
 const environmentsByHost = computed(
   () => new Map(props.environments.map((environment) => [environment.host, environment])),
 )
@@ -55,6 +66,9 @@ const availableHosts = computed(() =>
 )
 const filteredShortcuts = computed(() =>
   shortcuts.value.filter((shortcut) => shortcut.host === selectedHost.value),
+)
+const selectedShortcut = computed(() =>
+  filteredShortcuts.value.find((shortcut) => shortcut.id === form.shortcut_id),
 )
 
 watch(
@@ -73,12 +87,21 @@ watch(
   },
 )
 
+watch(
+  () => props.initialShortcutId,
+  (shortcutId) => {
+    form.shortcut_id = shortcutId || ''
+  },
+)
+
 watch([availableHosts, filteredShortcuts], () => {
   if (!availableHosts.value.includes(selectedHost.value)) {
     selectedHost.value = availableHosts.value[0] || 'windows_cygwin'
   }
   if (!filteredShortcuts.value.some((shortcut) => shortcut.id === form.shortcut_id)) {
-    form.shortcut_id = filteredShortcuts.value[0]?.id || ''
+    form.shortcut_id = props.initialShortcutId && filteredShortcuts.value.some((shortcut) => shortcut.id === props.initialShortcutId)
+      ? props.initialShortcutId
+      : filteredShortcuts.value[0]?.id || ''
   }
 })
 
@@ -89,7 +112,9 @@ async function loadShortcuts() {
   try {
     const response = await listShortcuts()
     shortcuts.value = response.shortcuts
-    form.shortcut_id = filteredShortcuts.value[0]?.id || ''
+    form.shortcut_id = props.initialShortcutId && filteredShortcuts.value.some((shortcut) => shortcut.id === props.initialShortcutId)
+      ? props.initialShortcutId
+      : filteredShortcuts.value[0]?.id || ''
   } catch (err) {
     shortcutError.value =
       err instanceof Error ? err.message : t('session.create.loadShortcutsError')
@@ -177,20 +202,34 @@ function hostDisabledReason(host: ShortcutHost): string {
 
     <label class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
       {{ t('session.create.host') }}
-      <select
-        v-model="selectedHost"
-        class="rounded-md border border-slate-300 bg-white/60 px-3 py-2 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
-      >
-        <option
-          v-for="host in hosts"
-          :key="host"
-          :value="host"
-          :disabled="!availableHosts.includes(host)"
+      <SelectRoot v-model="selectedHost" required>
+        <SelectTrigger
+          class="flex items-center justify-between rounded-md border border-slate-300 bg-white/60 px-3 py-2 text-left outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
         >
-          {{ hostLabel(host)
-          }}{{ hostDisabledReason(host) ? ` - ${hostDisabledReason(host)}` : '' }}
-        </option>
-      </select>
+          <SelectValue />
+          <ChevronDown class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+        </SelectTrigger>
+        <SelectContent
+          position="popper"
+          class="z-50 min-w-[var(--reka-select-trigger-width)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-blue-900/5 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:shadow-none"
+        >
+          <SelectViewport class="p-1">
+            <SelectItem
+              v-for="host in hosts"
+              :key="host"
+              :value="host"
+              :disabled="!availableHosts.includes(host)"
+              :text-value="`${hostLabel(host)}${hostDisabledReason(host) ? ` - ${hostDisabledReason(host)}` : ''}`"
+              class="cursor-pointer rounded-md px-3 py-2 text-sm outline-none hover:bg-blue-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[highlighted]:bg-blue-50 dark:hover:bg-slate-800 dark:data-[highlighted]:bg-slate-800"
+            >
+              <SelectItemText>
+                {{ hostLabel(host)
+                }}{{ hostDisabledReason(host) ? ` - ${hostDisabledReason(host)}` : '' }}
+              </SelectItemText>
+            </SelectItem>
+          </SelectViewport>
+        </SelectContent>
+      </SelectRoot>
     </label>
 
     <label class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
@@ -202,27 +241,49 @@ function hostDisabledReason(host: ShortcutHost): string {
       <p v-else-if="filteredShortcuts.length === 0" class="text-sm text-amber-700">
         {{ t('session.create.noShortcutsForHost') }}
       </p>
-      <SelectRoot v-else v-model="form.shortcut_id" required>
-        <SelectTrigger
-          class="flex items-center justify-between rounded-md border border-slate-300 bg-white/60 px-3 py-2 text-left outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
+      <ComboboxRoot
+        v-else
+        v-model="form.shortcut_id"
+        v-model:open="shortcutComboboxOpen"
+        required
+        open-on-click
+        open-on-focus
+        reset-search-term-on-select
+      >
+        <ComboboxAnchor
+          class="flex items-center rounded-md border border-slate-300 bg-white/60 outline-none transition focus-within:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:focus-within:border-blue-500"
         >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent
-          class="z-50 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-blue-900/5 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:shadow-none"
+          <ComboboxInput
+            class="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-200 dark:placeholder:text-slate-500"
+            :display-value="() => selectedShortcut?.name || ''"
+          />
+          <ComboboxTrigger class="inline-flex h-full shrink-0 items-center px-3 text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">
+            <ChevronDown class="h-4 w-4" />
+          </ComboboxTrigger>
+        </ComboboxAnchor>
+        <ComboboxContent
+          position="popper"
+          class="z-50 max-h-64 w-[var(--reka-combobox-trigger-width)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-blue-900/5 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:shadow-none"
         >
-          <SelectViewport class="p-1">
-            <SelectItem
+          <ComboboxViewport class="p-1">
+            <ComboboxEmpty class="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">
+              {{ t('session.create.noShortcutsForHost') }}
+            </ComboboxEmpty>
+            <ComboboxItem
               v-for="shortcut in filteredShortcuts"
               :key="shortcut.id"
               :value="shortcut.id"
-              class="cursor-pointer rounded-md px-3 py-2 text-sm outline-none hover:bg-blue-50 data-[highlighted]:bg-blue-50 dark:hover:bg-slate-800 dark:data-[highlighted]:bg-slate-800"
+              :text-value="shortcut.name"
+              class="flex cursor-pointer items-center justify-between rounded-md px-3 py-2 text-sm outline-none hover:bg-blue-50 data-[highlighted]:bg-blue-50 dark:hover:bg-slate-800 dark:data-[highlighted]:bg-slate-800"
             >
-              <SelectItemText>{{ shortcut.name }}</SelectItemText>
-            </SelectItem>
-          </SelectViewport>
-        </SelectContent>
-      </SelectRoot>
+              <span>{{ shortcut.name }}</span>
+              <ComboboxItemIndicator>
+                <Check class="h-4 w-4 text-blue-600 dark:text-blue-300" />
+              </ComboboxItemIndicator>
+            </ComboboxItem>
+          </ComboboxViewport>
+        </ComboboxContent>
+      </ComboboxRoot>
     </label>
 
     <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

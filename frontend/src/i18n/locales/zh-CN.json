@@ -98,7 +98,9 @@
       "title": "会话管理",
       "createLabel": "新建会话",
       "loading": "正在加载会话...",
-      "empty": "暂无会话，先新建一个。",
+      "emptyPrefix": "暂无会话，先",
+      "emptyCreateLink": "新建",
+      "emptySuffix": "一个。",
       "noReadyEnvironment": "当前没有就绪的运行环境。请先进入环境管理执行检测或填写必要路径。",
       "goToEnvironment": "去环境管理",
       "searchPlaceholder": "搜索目录路径",
@@ -227,7 +229,8 @@
     "description": "管理在 host 环境中启动的入口命令。",
     "loading": "正在加载快捷方式...",
     "actions": {
-      "create": "新建快捷方式"
+      "create": "新建快捷方式",
+      "createSession": "新建会话"
     },
     "success": {
       "created": "快捷方式已新建。",
@@ -246,7 +249,7 @@
     "fields": {
       "name": "名称",
       "command": "命令",
-      "host": "Host 环境",
+      "host": "运行环境",
       "selectHost": "请选择运行环境",
       "description": "说明"
     },

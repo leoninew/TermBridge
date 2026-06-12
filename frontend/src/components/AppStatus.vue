@@ -4,7 +4,15 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
   NavigationMenuRoot,
+  SelectContent,
+  SelectItem,
+  SelectItemText,
+  SelectRoot,
+  SelectTrigger,
+  SelectValue,
+  SelectViewport,
 } from 'reka-ui'
+import { ChevronDown } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 
 const { locale, t } = useI18n()
@@ -53,13 +61,30 @@ function isActive(path: string): boolean {
 
       <label class="inline-flex items-center gap-2 text-sm text-slate-600">
         <span>{{ t('app.language.label') }}</span>
-        <select
-          v-model="locale"
-          class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 shadow-sm outline-none transition focus:border-blue-500"
-        >
-          <option value="zh-CN">{{ t('app.language.zhCN') }}</option>
-          <option value="en-US">{{ t('app.language.enUS') }}</option>
-        </select>
+        <SelectRoot v-model="locale">
+          <SelectTrigger
+            class="flex items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 shadow-sm outline-none transition focus:border-blue-500"
+          >
+            <SelectValue />
+            <ChevronDown class="h-4 w-4 shrink-0 text-slate-400" />
+          </SelectTrigger>
+          <SelectContent position="popper" class="z-50 min-w-[var(--reka-select-trigger-width)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-blue-900/5">
+            <SelectViewport class="p-1">
+              <SelectItem
+                value="zh-CN"
+                class="cursor-pointer rounded-md px-3 py-2 text-sm outline-none hover:bg-blue-50 data-[highlighted]:bg-blue-50"
+              >
+                <SelectItemText>{{ t('app.language.zhCN') }}</SelectItemText>
+              </SelectItem>
+              <SelectItem
+                value="en-US"
+                class="cursor-pointer rounded-md px-3 py-2 text-sm outline-none hover:bg-blue-50 data-[highlighted]:bg-blue-50"
+              >
+                <SelectItemText>{{ t('app.language.enUS') }}</SelectItemText>
+              </SelectItem>
+            </SelectViewport>
+          </SelectContent>
+        </SelectRoot>
       </label>
     </div>
   </header>
