@@ -139,9 +139,9 @@ class WorkspaceBrowserService:
 
 
 class TerminalService:
-    def __init__(self, repository: FileTerminalRepository, *, tmux_command_timeout_seconds: float = 10) -> None:
+    def __init__(self, repository: FileTerminalRepository, *, settings: Settings | None = None) -> None:
         self._repository = repository
-        self._tmux_command_timeout_seconds = tmux_command_timeout_seconds
+        self._settings = settings or Settings()
 
     def list_shortcuts(self) -> ShortcutListResponse:
         state = self._ensure_default_shortcuts(self._repository.get_state())
@@ -277,9 +277,10 @@ class TerminalService:
             path=os.name,
             reason=None if os.name == "nt" else "Windows/Cygwin is only available on Windows hosts",
         )
+        settings = self.get_windows_cygwin_settings()
         resolved_bash = (
             self._to_windows_executable_path(bash_path)
-            or self._to_windows_executable_path(self._resolve_configured_windows_cygwin_bash())
+            or self._to_windows_executable_path(settings.bash_path)
             or self._detect_cygwin_bash_path()
         )
         if not resolved_bash:
@@ -289,12 +290,13 @@ class TerminalService:
             )
             self._save_windows_cygwin_check(response)
             return response
-        bash = self._check_bash(resolved_bash)
+        timeout_seconds = self._settings.cygwin_detection_timeout_seconds
+        bash = self._check_bash(resolved_bash, timeout_seconds=timeout_seconds)
         if not bash.available:
             response = WindowsCygwinCheckResponse(host=host, bash=bash)
             self._save_windows_cygwin_check(response)
             return response
-        tmux = self._check_cygwin_tmux(bash.path or resolved_bash)
+        tmux = self._check_cygwin_tmux(bash.path or resolved_bash, timeout_seconds=timeout_seconds)
         response = WindowsCygwinCheckResponse(host=host, bash=bash, tmux=tmux)
         self._save_windows_cygwin_check(response)
         return response
@@ -312,17 +314,18 @@ class TerminalService:
         return response
 
     def _check_windows_wsl_executable(self) -> RuntimeCheckResponse:
+        timeout_seconds = self._settings.wsl_detection_timeout_seconds
         wsl_path = self._resolve_executable("wsl", windows_names=("wsl.exe", "wsl")) or "wsl"
-        wsl = self._check_executable_version(wsl_path, [["--version"], ["-v"]])
+        wsl = self._check_executable_version(wsl_path, [["--version"], ["-v"]], timeout_seconds=timeout_seconds)
         if wsl.version:
             wsl = wsl.model_copy(update={"version": wsl.version.replace("\x00", "")})
         if not wsl.available:
-            wsl = self._run_check([wsl_path, "--status"])
+            wsl = self._run_check([wsl_path, "--status"], timeout_seconds=timeout_seconds)
         return wsl
 
     def _check_windows_wsl_tmux(self, wsl_path: str | None = None) -> RuntimeCheckResponse:
         executable = wsl_path or self._check_windows_wsl_executable().path or "wsl"
-        return self._check_wsl_tmux(executable)
+        return self._check_wsl_tmux(executable, timeout_seconds=self._settings.wsl_detection_timeout_seconds)
 
     def check_linux(self) -> LinuxCheckResponse:
         is_linux = platform.system().lower() == "linux"
@@ -354,13 +357,13 @@ class TerminalService:
         self._save_linux_check(response)
         return response
 
-    def _check_cygwin_tmux(self, cygwin_bash_path: str) -> RuntimeCheckResponse:
+    def _check_cygwin_tmux(self, cygwin_bash_path: str, *, timeout_seconds: float) -> RuntimeCheckResponse:
         try:
             result = subprocess.run(
                 [cygwin_bash_path, "-lc", "cygpath -w $(command -v tmux) && tmux -V"],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=timeout_seconds,
                 check=False,
             )
         except subprocess.TimeoutExpired:
@@ -504,7 +507,7 @@ class TerminalService:
                 args,
                 capture_output=True,
                 text=True,
-                timeout=self._tmux_command_timeout_seconds,
+                timeout=self._settings.tmux_command_timeout_seconds,
                 check=False,
             )
         except subprocess.TimeoutExpired:
@@ -512,14 +515,14 @@ class TerminalService:
                 "tmux command timed out host=%s workspace=%s timeout_seconds=%s command=%s",
                 host,
                 workspace,
-                self._tmux_command_timeout_seconds,
+                self._settings.tmux_command_timeout_seconds,
                 command,
             )
             return subprocess.CompletedProcess(
                 args=args,
                 returncode=124,
                 stdout="",
-                stderr=f"tmux command timed out after {self._tmux_command_timeout_seconds:g} seconds",
+                stderr=f"tmux command timed out after {self._settings.tmux_command_timeout_seconds:g} seconds",
             )
 
     def _run_tmux_cleanup(self, host: ShortcutHost, workspace: Path, command: str) -> None:
@@ -730,18 +733,20 @@ class TerminalService:
                 return check.reason or "environment check failed"
         return None
 
-    def _check_executable_version(self, executable: str, version_args: list[list[str]]) -> RuntimeCheckResponse:
+    def _check_executable_version(
+        self, executable: str, version_args: list[list[str]], *, timeout_seconds: float = 5
+    ) -> RuntimeCheckResponse:
         last_reason = ""
         for args in version_args:
-            result = self._run_check([executable, *args])
+            result = self._run_check([executable, *args], timeout_seconds=timeout_seconds)
             if result.available:
                 return result
             last_reason = result.reason or last_reason
         return RuntimeCheckResponse(available=False, path=executable, reason=last_reason or "version check failed")
 
-    def _run_check(self, command: list[str]) -> RuntimeCheckResponse:
+    def _run_check(self, command: list[str], *, timeout_seconds: float = 5) -> RuntimeCheckResponse:
         try:
-            result = subprocess.run(command, capture_output=True, text=True, timeout=5, check=False)
+            result = subprocess.run(command, capture_output=True, text=True, timeout=timeout_seconds, check=False)
         except subprocess.TimeoutExpired:
             return RuntimeCheckResponse(available=False, path=command[0], reason="detection timed out")
         except OSError as exc:
@@ -755,13 +760,13 @@ class TerminalService:
             )
         return RuntimeCheckResponse(available=True, path=command[0], version=output[0] if output else None)
 
-    def _check_bash(self, bash_path: str) -> RuntimeCheckResponse:
+    def _check_bash(self, bash_path: str, *, timeout_seconds: float) -> RuntimeCheckResponse:
         try:
             result = subprocess.run(
                 [bash_path, "-lc", "cygpath -w $(command -v bash) && bash --version"],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=timeout_seconds,
                 check=False,
             )
         except subprocess.TimeoutExpired:
@@ -779,13 +784,13 @@ class TerminalService:
         version = output[1] if len(output) > 1 else None
         return RuntimeCheckResponse(available=True, path=detected_path, version=version)
 
-    def _check_wsl_tmux(self, wsl_path: str) -> RuntimeCheckResponse:
+    def _check_wsl_tmux(self, wsl_path: str, *, timeout_seconds: float) -> RuntimeCheckResponse:
         try:
             result = subprocess.run(
                 [wsl_path, "sh", "-lc", "command -v tmux && tmux -V"],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=timeout_seconds,
                 check=False,
             )
         except subprocess.TimeoutExpired:

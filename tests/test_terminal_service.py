@@ -17,6 +17,7 @@ from termbridge.models import (
 )
 from termbridge.repositories import FileTerminalRepository
 from termbridge.services import TerminalService
+from termbridge.settings import Settings
 
 
 def make_service(tmp_path: Path) -> TerminalService:
@@ -233,7 +234,10 @@ def test_terminal_service_treats_tmux_window_timeout_as_missing_window(tmp_path:
 
 
 def test_terminal_service_uses_configured_tmux_command_timeout(tmp_path: Path) -> None:
-    service = TerminalService(FileTerminalRepository(tmp_path / "terminals.json"), tmux_command_timeout_seconds=12.5)
+    service = TerminalService(
+        FileTerminalRepository(tmp_path / "terminals.json"),
+        settings=Settings(tmux_command_timeout_seconds=12.5),
+    )
     service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))
     shortcut = service.create_shortcut(CreateShortcutRequest(name="WSL", command="agent run", host="windows_wsl"))
     completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="@3\n", stderr="")
@@ -446,6 +450,56 @@ def test_terminal_service_ignores_persisted_cygwin_unix_path(tmp_path: Path) -> 
 
     assert result.bash.available is False
     assert result.bash.reason == "Cygwin bash was not found"
+
+
+def test_terminal_service_uses_configured_cygwin_detection_timeout(tmp_path: Path) -> None:
+    service = TerminalService(
+        FileTerminalRepository(tmp_path / "terminals.json"),
+        settings=Settings(cygwin_detection_timeout_seconds=12.5),
+    )
+    service.update_windows_cygwin_settings(service.get_windows_cygwin_settings().model_copy(update={"bash_path": "bash.exe"}))
+    bash = subprocess.CompletedProcess(
+        args=["bash.exe", "-lc", "cygpath -w $(command -v bash) && bash --version"],
+        returncode=0,
+        stdout="D:\\ProgramFiles\\Cygwin64\\bin\\bash.exe\nGNU bash 5.2\n",
+        stderr="",
+    )
+
+    with patch.object(service, "_check_cygwin_tmux", return_value=_tmux_available()) as check_tmux:
+        with patch("termbridge.services.subprocess.run", return_value=bash) as run:
+            result = service.check_windows_cygwin()
+
+    assert result.bash.available is True
+    assert run.call_args.kwargs["timeout"] == 12.5
+    check_tmux.assert_called_once_with("D:\\ProgramFiles\\Cygwin64\\bin\\bash.exe", timeout_seconds=12.5)
+
+
+def test_terminal_service_uses_configured_wsl_detection_timeout(tmp_path: Path) -> None:
+    service = TerminalService(
+        FileTerminalRepository(tmp_path / "terminals.json"),
+        settings=Settings(wsl_detection_timeout_seconds=12.5),
+    )
+    wsl_path = "C:/WINDOWS/system32/wsl.exe"
+    wsl = subprocess.CompletedProcess(
+        args=[wsl_path, "--version"],
+        returncode=0,
+        stdout="WSL version: 2.4.12.0\n",
+        stderr="",
+    )
+    tmux = subprocess.CompletedProcess(
+        args=[wsl_path, "sh", "-lc", "command -v tmux && tmux -V"],
+        returncode=0,
+        stdout="/usr/bin/tmux\ntmux 3.2\n",
+        stderr="",
+    )
+
+    with patch("termbridge.services.os.name", "nt"):
+        with patch("termbridge.services.shutil.which", return_value="C:/WINDOWS/system32/wsl.EXE"):
+            with patch("termbridge.services.subprocess.run", side_effect=[wsl, tmux]) as run:
+                result = service.check_windows_wsl()
+
+    assert result.wsl.available is True
+    assert [call.kwargs["timeout"] for call in run.call_args_list] == [12.5, 12.5]
 
 
 def test_terminal_service_detects_windows_wsl_and_tmux(tmp_path: Path) -> None:

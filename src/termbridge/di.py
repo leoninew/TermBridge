@@ -35,7 +35,7 @@ def get_terminal_service(
     settings: SettingsDep,
     repository: Annotated[FileTerminalRepository, Depends(get_terminal_repository)],
 ) -> TerminalService:
-    return TerminalService(repository, tmux_command_timeout_seconds=settings.tmux_command_timeout_seconds)
+    return TerminalService(repository, settings=settings)
 
 
 def get_port_allocator(settings: SettingsDep) -> PortAllocator:

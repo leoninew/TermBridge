@@ -14,3 +14,10 @@ def test_ttyd_security_settings_defaults() -> None:
     assert settings.ttyd_credential_mode == "basic"
     assert settings.ttyd_credential_username == "termbridge"
     assert settings.ttyd_credential_password == ""
+
+
+def test_environment_detection_timeout_settings_default_to_twenty_seconds() -> None:
+    settings = Settings()
+
+    assert settings.cygwin_detection_timeout_seconds == 10
+    assert settings.wsl_detection_timeout_seconds == 20

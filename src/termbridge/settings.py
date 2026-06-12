@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     public_base_url: str | None = None
     logging_level: str = "INFO"
     tmux_command_timeout_seconds: float = 10
+    cygwin_detection_timeout_seconds: float = Field(default=10, gt=0)
+    wsl_detection_timeout_seconds: float = Field(default=20, gt=0)
     ttyd_log_mode: Literal["none", "console", "file"] = "none"
     ttyd_interface: str = "127.0.0.1"
     ttyd_credential_mode: Literal["basic", "none"] = "basic"
