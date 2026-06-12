@@ -4,25 +4,25 @@ Thanks for your interest in TermBridge. This project is currently pre-release, s
 
 ## Development setup
 
-Install frontend and backend dependencies:
+Install web and fastapi dependencies:
 
 ```bash
 make install
 ```
 
-Start the backend:
+Start the fastapi:
 
 ```bash
-make backend
+make fastapi
 ```
 
-Start the frontend dev server in another terminal:
+Start the web dev server in another terminal:
 
 ```bash
-make frontend
+make web
 ```
 
-The backend defaults to `127.0.0.1:9008`. The frontend defaults to `127.0.0.1:9007` and proxies API requests to the backend.
+The fastapi defaults to `127.0.0.1:9008`. The web defaults to `127.0.0.1:9007` and proxies API requests to the fastapi.
 
 ## Runtime dependencies
 
@@ -38,7 +38,7 @@ If no runtime provider is ready, the app should show environment onboarding inst
 
 ## Checks before opening a pull request
 
-Run backend checks:
+Run fastapi checks:
 
 ```bash
 uv run ruff check .
@@ -46,12 +46,12 @@ uv run mypy src tests
 uv run pytest
 ```
 
-Run frontend checks:
+Run web checks:
 
 ```bash
-yarn --cwd frontend lint
-yarn --cwd frontend typecheck
-yarn --cwd frontend build
+yarn --cwd web lint
+yarn --cwd web typecheck
+yarn --cwd web build
 ```
 
 If your change affects packaging, also run:
@@ -64,7 +64,7 @@ make build
 
 - Keep changes focused and explain the user-facing behavior they affect.
 - Update `README.md` or docs when behavior, configuration, or setup changes.
-- Add or update tests for backend behavior changes.
+- Add or update tests for fastapi behavior changes.
 - Run the relevant checks and include any failures or skipped checks in the PR description.
 - Do not commit local state, generated dependency directories, built artifacts, or real `.env` files.
 
@@ -75,7 +75,7 @@ Do not commit secrets, credentials, private keys, machine-specific paths, local 
 - `.env`
 - `.termbridge/`
 - `.venv/`
-- `frontend/node_modules/`
-- `frontend/dist/`
+- `web/node_modules/`
+- `web/dist/`
 - `src/termbridge/static/`
 - `dist/`

@@ -154,7 +154,7 @@ Session 创建接口从 terminal 语义迁移到 shortcut 语义：
 
 旧 `/api/terminals` API 在本需求中不作为主路径保留；是否直接删除 endpoint 或临时保留兼容响应由 Plan 按影响面决定，但 UI 和主要类型必须迁移为 shortcut。
 
-### 10. Frontend structure
+### 10. web structure
 
 前端主要入口从 terminal management 改为 shortcut management：
 
@@ -168,7 +168,7 @@ Session 创建接口从 terminal 语义迁移到 shortcut 语义：
 
 ## Affected components
 
-### Backend
+### fastapi
 
 - `src/cc_ttyd/models.py`
   - 将 terminal definition 相关模型迁移为 shortcut 模型。
@@ -184,11 +184,11 @@ Session 创建接口从 terminal 语义迁移到 shortcut 语义：
 - tests
   - 更新 terminal definition tests 为 shortcut tests。
 
-### Frontend
+### web
 
-- `frontend/src/types/sessions.ts`
+- `web/src/types/sessions.ts`
   - 迁移 terminal definition 类型到 shortcut 类型。
-- `frontend/src/api/sessions.ts`
+- `web/src/api/sessions.ts`
   - 迁移 API client 到 shortcut endpoints。
 - shortcut management component
   - 将终端管理 UI 替换为快捷方式管理 UI。

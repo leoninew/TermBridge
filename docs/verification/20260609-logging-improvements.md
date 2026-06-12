@@ -16,7 +16,7 @@ Stage: Verification
 - [x] `uvicorn`、`uvicorn.error` 使用项目统一 console handler/formatter。
 - [x] `settings.py` 增加 `logging_level`，默认 `INFO`。
 - [x] `CC_TTYD_LOGGING_LEVEL` 可通过现有 settings env prefix 覆盖。
-- [x] `create_app()` 初始化 logging，确保 `uvicorn cc_ttyd.main:app --reload` / `make backend` 不绕过请求日志配置。
+- [x] `create_app()` 初始化 logging，确保 `uvicorn cc_ttyd.main:app --reload` / `make fastapi` 不绕过请求日志配置。
 - [x] `create_app()` 安装 request logging middleware。
 - [x] 禁用 `uvicorn.access`，避免和自定义 request log 重复。
 - [x] 请求日志包含 method、包含 query string 的 path、status、duration。
@@ -96,7 +96,7 @@ Stage: Verification
 
 ## Conclusion
 
-本任务相关日志功能目标已达成；`make backend` / Uvicorn CLI reload 入口也会执行 logging 初始化，请求级别日志应能进入统一 console handler。
+本任务相关日志功能目标已达成；`make fastapi` / Uvicorn CLI reload 入口也会执行 logging 初始化，请求级别日志应能进入统一 console handler。
 
 ## Light verification addendum: logging_config 简化
 

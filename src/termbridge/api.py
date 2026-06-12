@@ -534,19 +534,19 @@ async def proxy_terminal_websocket(session_id: str, websocket: WebSocket, servic
             await websocket.close(code=1008)
 
 
-def _default_frontend_dir() -> Path:
+def _default_web_dir() -> Path:
     return Path(__file__).parent / "static"
 
 
-def _resolve_frontend_dir(frontend_dir: Path | None) -> Path | None:
-    static_dir = frontend_dir or _default_frontend_dir()
+def _resolve_web_dir(web_dir: Path | None) -> Path | None:
+    static_dir = web_dir or _default_web_dir()
     index_file = static_dir / "index.html"
     if index_file.is_file():
         return static_dir
     return None
 
 
-def create_app(*, serve_frontend: bool = True, frontend_dir: Path | None = None) -> FastAPI:
+def create_app(*, serve_web: bool = True, web_dir: Path | None = None) -> FastAPI:
     settings = load_settings()
     configure_logging(settings)
 
@@ -557,11 +557,11 @@ def create_app(*, serve_frontend: bool = True, frontend_dir: Path | None = None)
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(router)
 
-    static_dir = _resolve_frontend_dir(frontend_dir) if serve_frontend else None
+    static_dir = _resolve_web_dir(web_dir) if serve_web else None
     if static_dir is not None:
 
         @app.get("/{path:path}", include_in_schema=False)
-        def serve_frontend_app(path: str) -> FileResponse:
+        def serve_web_app(path: str) -> FileResponse:
             if path == "health" or path.startswith("api/"):
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 

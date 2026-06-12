@@ -57,15 +57,15 @@ Review status: Draft
   - `tests/test_terminal_service.py`
   - `tests/test_services.py`
   - `tests/test_api.py`
-  - `frontend/src/types/sessions.ts`
-  - `frontend/src/api/sessions.ts`
-  - `frontend/src/App.vue`
-  - `frontend/src/components/SessionList.vue`
-  - `frontend/src/components/EnvironmentManagement.vue`
-  - `frontend/src/components/ShortcutManagement.vue`
-  - `frontend/src/components/SessionCreateForm.vue`
-  - `frontend/src/i18n/locales/zh-CN.json`
-  - `frontend/src/i18n/locales/en-US.json`
+  - `web/src/types/sessions.ts`
+  - `web/src/api/sessions.ts`
+  - `web/src/App.vue`
+  - `web/src/components/SessionList.vue`
+  - `web/src/components/EnvironmentManagement.vue`
+  - `web/src/components/ShortcutManagement.vue`
+  - `web/src/components/SessionCreateForm.vue`
+  - `web/src/i18n/locales/zh-CN.json`
+  - `web/src/i18n/locales/en-US.json`
   - `README.md`
 - 相关文档改动：
   - `docs/requirement/20260610-windows-wsl-runtime-support.md`
@@ -116,11 +116,11 @@ Review status: Draft
 - `uv run python -m pytest`
   - 结果：71 passed, 1 warning。
   - warning：`StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated; install httpx2 instead.`
-- `yarn --cwd frontend typecheck`
+- `yarn --cwd web typecheck`
   - 结果：通过。
-- `yarn --cwd frontend lint`
+- `yarn --cwd web lint`
   - 结果：通过。
-- `yarn --cwd frontend build`
+- `yarn --cwd web build`
   - 结果：通过；仍有第三方 `@vueuse/core` pure annotation warning，不影响构建产物。
 
 ## Missed or expanded scope
@@ -135,7 +135,7 @@ Review status: Draft
 - 未启动 dev server 做浏览器手工验证；本轮完成了类型、lint、单元测试和生产构建验证。
 - 本机 WSL/tmux 真实可用性未验证；Windows/WSL 启动路径通过单元测试覆盖命令构造和错误分支。
 - readiness 是持久化快照，可能因用户卸载 WSL/tmux 而过期；启动失败时后端会返回明确错误并引导重新检测。
-- `yarn --cwd frontend build` 仍输出第三方 `@vueuse/core` pure annotation warning，这是依赖包注释位置导致的构建警告，不是本次实现引入的错误。
+- `yarn --cwd web build` 仍输出第三方 `@vueuse/core` pure annotation warning，这是依赖包注释位置导致的构建警告，不是本次实现引入的错误。
 
 ## Incomplete items
 

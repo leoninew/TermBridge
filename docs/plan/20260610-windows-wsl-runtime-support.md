@@ -202,7 +202,7 @@ Linux：
 
 ### 9. 前端 API 和类型
 
-修改 `frontend/src/types/sessions.ts`：
+修改 `web/src/types/sessions.ts`：
 
 1. 新增：
    - `EnvironmentReadiness`
@@ -214,7 +214,7 @@ Linux：
    - `default_host: ShortcutHost`
 3. 扩展 `WindowsCygwinSettings` readiness 字段。
 
-修改 `frontend/src/api/sessions.ts`：
+修改 `web/src/api/sessions.ts`：
 
 1. 新增 `listEnvironments()`。
 2. 新增 `getWindowsWslSettings()` / `updateWindowsWslSettings()`，如果后端实现 settings endpoints。
@@ -222,7 +222,7 @@ Linux：
 
 ### 10. 前端主页 readiness 引导
 
-修改 `frontend/src/App.vue`：
+修改 `web/src/App.vue`：
 
 1. 启动时并行加载 sessions 和 environments summary。
 2. 保存 `environments` 状态。
@@ -230,7 +230,7 @@ Linux：
 4. 传给 `SessionList`。
 5. 当从环境页检测成功后，返回主页需要刷新 environments；简单实现可在导航回 `/` 时调用刷新，或环境页检测成功 emit 事件。
 
-修改 `frontend/src/components/SessionList.vue`：
+修改 `web/src/components/SessionList.vue`：
 
 1. 增加 props：
    - `environments`
@@ -244,7 +244,7 @@ Linux：
 
 ### 11. EnvironmentManagement 调整
 
-修改 `frontend/src/components/EnvironmentManagement.vue`：
+修改 `web/src/components/EnvironmentManagement.vue`：
 
 1. 页面加载时读取 settings、Windows/Cygwin settings、environment summary。
 2. 不在主页自动检测；环境页可保留打开当前 tab 后检测，或改成手动按钮。按需求“跳过去检测”，倾向改为用户点击检测按钮。
@@ -256,7 +256,7 @@ Linux：
 
 ### 12. ShortcutManagement 调整
 
-修改 `frontend/src/components/ShortcutManagement.vue`：
+修改 `web/src/components/ShortcutManagement.vue`：
 
 1. 加载 shortcuts 时同时加载 terminal settings 和 environments。
 2. 新建 shortcut 默认 host = `settings.default_host`。
@@ -270,7 +270,7 @@ Linux：
 
 ### 13. SessionCreateForm 调整
 
-修改 `frontend/src/components/SessionCreateForm.vue`：
+修改 `web/src/components/SessionCreateForm.vue`：
 
 1. 接收 environments 或自行加载 environments。
 2. 展示所有 host：Windows/Cygwin、Windows/WSL、Linux。
@@ -284,8 +284,8 @@ Linux：
 
 修改：
 
-- `frontend/src/i18n/locales/zh-CN.json`
-- `frontend/src/i18n/locales/en-US.json`
+- `web/src/i18n/locales/zh-CN.json`
+- `web/src/i18n/locales/en-US.json`
 
 新增文案：
 
@@ -310,7 +310,7 @@ Linux：
 
 ## Files to change
 
-Backend:
+fastapi:
 
 - `src/termbridge/models.py`
 - `src/termbridge/settings.py`
@@ -320,17 +320,17 @@ Backend:
 - `tests/test_services.py`
 - `tests/test_api.py`
 
-Frontend:
+web:
 
-- `frontend/src/types/sessions.ts`
-- `frontend/src/api/sessions.ts`
-- `frontend/src/App.vue`
-- `frontend/src/components/SessionList.vue`
-- `frontend/src/components/EnvironmentManagement.vue`
-- `frontend/src/components/ShortcutManagement.vue`
-- `frontend/src/components/SessionCreateForm.vue`
-- `frontend/src/i18n/locales/zh-CN.json`
-- `frontend/src/i18n/locales/en-US.json`
+- `web/src/types/sessions.ts`
+- `web/src/api/sessions.ts`
+- `web/src/App.vue`
+- `web/src/components/SessionList.vue`
+- `web/src/components/EnvironmentManagement.vue`
+- `web/src/components/ShortcutManagement.vue`
+- `web/src/components/SessionCreateForm.vue`
+- `web/src/i18n/locales/zh-CN.json`
+- `web/src/i18n/locales/en-US.json`
 
 Docs:
 
@@ -339,7 +339,7 @@ Docs:
 
 ## Verification plan
 
-Backend commands:
+fastapi commands:
 
 ```bash
 uv run ruff check .
@@ -348,17 +348,17 @@ uv run python -m pytest tests/test_terminal_service.py tests/test_services.py te
 uv run python -m pytest
 ```
 
-Frontend commands:
+web commands:
 
 ```bash
-yarn --cwd frontend lint
-yarn --cwd frontend typecheck
-yarn --cwd frontend build
+yarn --cwd web lint
+yarn --cwd web typecheck
+yarn --cwd web build
 ```
 
 Manual/browser verification:
 
-1. 启动 backend/frontend。
+1. 启动 fastapi/web。
 2. 首次进入主页，确认无 ready 环境时显示环境配置引导。
 3. 进入环境页，确认 Windows/Cygwin、Windows/WSL、Linux readiness 初始为 not ready。
 4. 检测 Windows/Cygwin，通过后 ready 并持久化。
@@ -385,7 +385,7 @@ Manual/browser verification:
 
 1. readiness 可能过期：通过启动失败后的重新检测引导缓解。
 2. WSL path quoting 出错：用单元测试覆盖路径含空格。
-3. Frontend 状态传播复杂：优先由 App 统一加载 environment summary 并下传。
+3. web 状态传播复杂：优先由 App 统一加载 environment summary 并下传。
 4. SessionRecord 字段调整影响旧 session 删除：保留旧 `tmux_bash_path` fallback 以避免开发期旧会话无法删除。
 
 ## Rollback

@@ -23,7 +23,7 @@ Review status: Accepted
 
 ## Implementation steps
 
-### 1. Backend models
+### 1. fastapi models
 
 文件：`src/cc_ttyd/models.py`
 
@@ -41,7 +41,7 @@ Review status: Accepted
     - `version: str | None = None`
     - `reason: str | None = None`
 
-### 2. Backend terminal service
+### 2. fastapi terminal service
 
 文件：`src/cc_ttyd/services.py`
 
@@ -61,7 +61,7 @@ Review status: Accepted
   - Cygwin + tmux 时包装：`tmux new-session -A -s <session_name> <quoted terminal.command>`。
   - 非 tmux 路径保持原行为。
 
-### 3. Backend session lifecycle
+### 3. fastapi session lifecycle
 
 文件：`src/cc_ttyd/services.py`
 
@@ -74,7 +74,7 @@ Review status: Accepted
     - `[tmux_bash_path, "-lc", f"tmux kill-session -t {shlex.quote(session.id)}"]`
   - kill 失败仅 `logger.warning`，继续删除 session record。
 
-### 4. Backend API
+### 4. fastapi API
 
 文件：`src/cc_ttyd/api.py`
 
@@ -85,12 +85,12 @@ Review status: Accepted
 - Response：`TmuxAvailabilityResponse`
 - API 失败语义：检测失败返回 200 + `available=false`，只有请求格式错误才返回 422。
 
-### 5. Frontend types and API
+### 5. web types and API
 
 文件：
 
-- `frontend/src/types/sessions.ts`
-- `frontend/src/api/sessions.ts`
+- `web/src/types/sessions.ts`
+- `web/src/api/sessions.ts`
 
 改动：
 
@@ -98,9 +98,9 @@ Review status: Accepted
 - payload 增加该字段。
 - 新增：`checkTmux(cygwin_bash_path: string)`。
 
-### 6. Frontend terminal management UI
+### 6. web terminal management UI
 
-文件：`frontend/src/components/TerminalManagement.vue`
+文件：`web/src/components/TerminalManagement.vue`
 
 - form 增加：`session_persistence: 'none' | 'tmux'`。
 - `resetForm()` 默认 `none`。
@@ -123,7 +123,7 @@ Review status: Accepted
 
 ### 8. Tests
 
-Backend:
+fastapi:
 
 - `tests/test_terminal_service.py`
   - tmux 检测成功。
@@ -140,7 +140,7 @@ Backend:
 - API tests：
   - tmux check API returns available false/true via fake service override。
 
-Frontend:
+web:
 
 - 至少运行：
   - `yarn lint`

@@ -20,31 +20,31 @@ Review status: Accepted
 - Managed window：创建 entry 时通过 `tmux new-window -P -F '#{window_id}'` 捕获 window id。
 - Stop/delete/restart：后端已区分 entry window、workspace tmux session、ttyd process 和 TermBridge record。
 - List API：新增 `/api/session-tree`，返回 environment/workspace/entry 树。
-- Frontend navigation：`SessionList` 改为树型渲染，搜索保留树上下文并展开匹配祖先。
+- web navigation：`SessionList` 改为树型渲染，搜索保留树上下文并展开匹配祖先。
 - WSL 语义：WSL 命令继续使用 `wsl --cd <Windows path>`；workspace tmux command 内部使用当前目录 `.`，不再把 Windows path 传给 tmux `-c`。
 
 ## Plan alignment
 
-- Step 1 backend models：已完成 `WorkspaceRecord`、`SessionEntryRecord`、`SessionState`、tree response 类型。
+- Step 1 fastapi models：已完成 `WorkspaceRecord`、`SessionEntryRecord`、`SessionState`、tree response 类型。
 - Step 2 tmux primitives：已完成 create window、attach command、kill window、kill workspace session 等基础能力。
 - Step 3 SessionService lifecycle：已完成 create/list/tree/get/restart/stop/delete 的 workspace/entry 流程。
 - Step 4 API semantics：已新增 `/api/session-tree` 与 `/api/sessions/{id}/stop`，保留现有 create/restart/delete endpoint。
-- Step 5 frontend tree navigation：已完成 SessionList 树型导航、搜索、stop/restart/delete action wiring。
+- Step 5 web tree navigation：已完成 SessionList 树型导航、搜索、stop/restart/delete action wiring。
 - Step 6 terminal display/actions：保留现有 terminal iframe 与 stopped restart CTA；stop action 放在左侧 entry/card 操作中。
 - Step 7 documentation cleanup：未改旧 spec 文档；本次 verification 记录 supersede 状态，后续如要发布用户文档可再补 README/旧 spec note。
 
 ## Actual diff summary
 
-- Backend:
+- fastapi:
   - `src/termbridge/models.py`：新增 workspace/entry/tree 模型。
   - `src/termbridge/repositories.py`：session registry 改为 workspace/entry state。
   - `src/termbridge/services.py`：SessionService lifecycle 改为 workspace tmux session + managed window；TerminalService 增加 tmux window primitives。
   - `src/termbridge/api.py`：新增 tree list 和 stop endpoint。
-- Frontend:
-  - `frontend/src/types/sessions.ts`、`frontend/src/api/sessions.ts`：同步 tree/stop API。
-  - `frontend/src/App.vue`：以 session tree 作为刷新来源，派生 flat sessions 供现有终端和快捷方式管理使用。
-  - `frontend/src/components/SessionList.vue`：改为 environment/workspace/entry 树型导航和搜索。
-  - `frontend/src/components/SessionCard.vue`：增加 stop action。
+- web:
+  - `web/src/types/sessions.ts`、`web/src/api/sessions.ts`：同步 tree/stop API。
+  - `web/src/App.vue`：以 session tree 作为刷新来源，派生 flat sessions 供现有终端和快捷方式管理使用。
+  - `web/src/components/SessionList.vue`：改为 environment/workspace/entry 树型导航和搜索。
+  - `web/src/components/SessionCard.vue`：增加 stop action。
   - locale files：增加搜索、停止和错误文案。
 - Tests:
   - `tests/test_services.py`：覆盖 workspace identity、same workspace reuse、stop/delete/restart lifecycle、tree grouping、create 失败清理、运行中 window 丢失刷新、shortcut host mismatch restart 防护。
@@ -64,22 +64,22 @@ Planned and changed:
 - `tests/test_repositories.py`
 - `tests/test_api.py`
 - `tests/test_terminal_service.py`
-- `frontend/src/types/sessions.ts`
-- `frontend/src/api/sessions.ts`
-- `frontend/src/App.vue`
-- `frontend/src/components/SessionList.vue`
-- `frontend/src/components/SessionCard.vue`
-- `frontend/src/i18n/locales/zh-CN.json`
-- `frontend/src/i18n/locales/en-US.json`
+- `web/src/types/sessions.ts`
+- `web/src/api/sessions.ts`
+- `web/src/App.vue`
+- `web/src/components/SessionList.vue`
+- `web/src/components/SessionCard.vue`
+- `web/src/i18n/locales/zh-CN.json`
+- `web/src/i18n/locales/en-US.json`
 
 Additional formatter-only changes:
 
-- `frontend/src/components/EnvironmentManagement.vue`
-- `frontend/src/components/ShortcutManagement.vue`
+- `web/src/components/EnvironmentManagement.vue`
+- `web/src/components/ShortcutManagement.vue`
 
 Not changed:
 
-- `frontend/src/components/SessionTerminal.vue`：现有 stopped restart UI 足够覆盖本阶段。
+- `web/src/components/SessionTerminal.vue`：现有 stopped restart UI 足够覆盖本阶段。
 - Old spec documents：未在本次实现中追改历史规格文档。
 
 ## Acceptance criteria checklist
@@ -105,10 +105,10 @@ Not changed:
 - `python -m pytest tests -q` — passed, `83 passed, 1 warning`。
 - `python -m ruff check src tests` — passed。
 - `python -m mypy src` — not run; current Python environment has no `mypy` module installed。
-- `yarn --cwd frontend typecheck` — passed。
-- `yarn --cwd frontend lint` — passed。
-- `yarn --cwd frontend format:check` — passed。
-- `yarn --cwd frontend build` — passed; Vite/Rolldown emitted existing dependency `/* #__PURE__ */` annotation warnings from `node_modules/@vueuse/core`。
+- `yarn --cwd web typecheck` — passed。
+- `yarn --cwd web lint` — passed。
+- `yarn --cwd web format:check` — passed。
+- `yarn --cwd web build` — passed; Vite/Rolldown emitted existing dependency `/* #__PURE__ */` annotation warnings from `node_modules/@vueuse/core`。
 
 ## Manual/UI verification
 
@@ -134,16 +134,16 @@ Not changed:
 ## Missed or expanded scope
 
 - Used custom nested tree buttons rather than Reka UI Tree primitives. This preserves the requested tree semantics and current visual style while avoiding a broader component migration.
-- Did not implement explicit reconnect-vs-restart UI state because backend status enum still exposes `starting/running/stopped/failed` only。
+- Did not implement explicit reconnect-vs-restart UI state because fastapi status enum still exposes `starting/running/stopped/failed` only。
 - Did not implement startup scan/manual scan for tmux state, per accepted scope。
 - Did not implement old flat session registry compatibility or migration, per user instruction。
 
 ## Remaining risk
 
 - Real tmux behavior across Windows/Cygwin, Windows/WSL, and Linux still needs manual smoke testing on actual host runtimes, especially quoting and `tmux new-window -P -F '#{window_id}'` output。
-- Lazy recovery after backend restart is represented in service semantics but not fully covered by live tmux integration tests。
-- Frontend visual verification should be performed manually or with browser tooling when available。
+- Lazy recovery after fastapi restart is represented in service semantics but not fully covered by live tmux integration tests。
+- web visual verification should be performed manually or with browser tooling when available。
 
 ## Conclusion
 
-Implementation matches the accepted Requirement, Spec, and Plan for the workspace-centered tmux session model. Automated backend and frontend checks pass, with only environment/tooling limitations for `mypy` and browser-based UI verification.
+Implementation matches the accepted Requirement, Spec, and Plan for the workspace-centered tmux session model. Automated fastapi and web checks pass, with only environment/tooling limitations for `mypy` and browser-based UI verification.

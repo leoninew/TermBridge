@@ -2,8 +2,8 @@
 .termbridge
 .venv
 dist
-frontend/dist
-frontend/node_modules
+web/dist
+web/node_modules
 .mypy_cache
 .pytest_cache
 .ruff_cache

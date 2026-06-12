@@ -1,10 +1,10 @@
-# 前端工作台规格 / Frontend Workspace Spec
+# 前端工作台规格 / web Workspace Spec
 
 Review status: Accepted
 
 ## Requirement basis
 
-基于 `docs/requirement/20260608-frontend-workspace.md`，本阶段设计 Web Terminal Workspace 前端。Requirement 因用户新增 UI 技术栈要求回到 Draft。用户补充要求：前端使用 `yarn` 管理依赖，集成主流 ESLint 和格式化依赖，提供内嵌终端组件实现 session 可视化管理，并基于 `reka-ui`、`tailwindcss`、`@tailwindcss/vite`、`@lucide/vue` 实现 UI。
+基于 `docs/requirement/20260608-web-workspace.md`，本阶段设计 Web Terminal Workspace 前端。Requirement 因用户新增 UI 技术栈要求回到 Draft。用户补充要求：前端使用 `yarn` 管理依赖，集成主流 ESLint 和格式化依赖，提供内嵌终端组件实现 session 可视化管理，并基于 `reka-ui`、`tailwindcss`、`@tailwindcss/vite`、`@lucide/vue` 实现 UI。
 
 ## Overview
 
@@ -24,10 +24,10 @@ MVP 不自研终端后端协议，不实现认证，不实现复杂路由或状�
 
 ### 工程布局
 
-当前仓库没有现成前端工程。新增根目录 `frontend/`：
+当前仓库没有现成前端工程。新增根目录 `web/`：
 
 ```text
-frontend/
+web/
   package.json
   yarn.lock
   index.html
@@ -188,14 +188,14 @@ MVP 默认在页面中嵌入 ttyd URL；`window.open(session.url, '_blank', 'noo
 
 ## Affected components
 
-- 新增前端工程：`frontend/`。
-- 新增前端依赖锁：`frontend/yarn.lock`。
-- 新增过程文档：`docs/spec/20260608-frontend-workspace.md`。
+- 新增前端工程：`web/`。
+- 新增前端依赖锁：`web/yarn.lock`。
+- 新增过程文档：`docs/spec/20260608-web-workspace.md`。
 - 不修改后端 API，除非实现中发现必要契约缺口。
 
 ## Interfaces
 
-### Backend API consumed
+### fastapi API consumed
 
 - `GET /health`
 - `GET /api/sessions`
@@ -247,7 +247,7 @@ MVP 默认在页面中嵌入 ttyd URL；`window.open(session.url, '_blank', 'noo
 
 ### 复用现有 `wetty/`
 
-不采用。当前仓库中 `wetty/` 被 `.gitignore` 忽略，且未发现可复用前端工程入口。新增 `frontend/` 更清晰。
+不采用。当前仓库中 `wetty/` 被 `.gitignore` 忽略，且未发现可复用前端工程入口。新增 `web/` 更清晰。
 
 ### 新窗口打开 ttyd
 

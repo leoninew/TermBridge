@@ -24,16 +24,16 @@ Review status: Draft
 - `src/cc_ttyd/models.py`：新增运行时检测、Cygwin settings、Windows/WSL/Cygwin 检测响应模型。
 - `src/cc_ttyd/services.py`：新增 ttyd、Cygwin、Windows、WSL 检测逻辑，并让 Cygwin terminal resolution 可回退到持久化 bash path。
 - `src/cc_ttyd/api.py`：新增环境检测和 Cygwin settings API。
-- `frontend/src/types/sessions.ts`：新增前端运行时检测相关类型。
-- `frontend/src/api/sessions.ts`：新增环境检测和 Cygwin settings API client。
-- `frontend/src/components/EnvironmentManagement.vue`：重构为独立 ttyd panel 与 Windows / Cygwin / WSL tabs。
-- `frontend/src/i18n/locales/zh-CN.json`、`frontend/src/i18n/locales/en-US.json`：补充环境管理文案。
+- `web/src/types/sessions.ts`：新增前端运行时检测相关类型。
+- `web/src/api/sessions.ts`：新增环境检测和 Cygwin settings API client。
+- `web/src/components/EnvironmentManagement.vue`：重构为独立 ttyd panel 与 Windows / Cygwin / WSL tabs。
+- `web/src/i18n/locales/zh-CN.json`、`web/src/i18n/locales/en-US.json`：补充环境管理文案。
 - `tests/test_terminal_service.py`、`tests/test_api.py`：新增服务和 API 覆盖。
 
 计划外但相关的改动：
 
-- `frontend/src/assets/cygwin-logo-medium.png`
-- `frontend/src/assets/tmux-logo-medium.png`
+- `web/src/assets/cygwin-logo-medium.png`
+- `web/src/assets/tmux-logo-medium.png`
 
 这两个资源用于环境管理页展示 Cygwin/tmux 标识，属于 UI 呈现补充，未扩大运行时能力范围。
 
@@ -45,13 +45,13 @@ Changed files:
 
 - `docs/requirement/20260609-environment-runtime-management.md`
 - `docs/plan/20260609-environment-runtime-management.md`
-- `frontend/src/api/sessions.ts`
-- `frontend/src/assets/cygwin-logo-medium.png`
-- `frontend/src/assets/tmux-logo-medium.png`
-- `frontend/src/components/EnvironmentManagement.vue`
-- `frontend/src/i18n/locales/en-US.json`
-- `frontend/src/i18n/locales/zh-CN.json`
-- `frontend/src/types/sessions.ts`
+- `web/src/api/sessions.ts`
+- `web/src/assets/cygwin-logo-medium.png`
+- `web/src/assets/tmux-logo-medium.png`
+- `web/src/components/EnvironmentManagement.vue`
+- `web/src/i18n/locales/en-US.json`
+- `web/src/i18n/locales/zh-CN.json`
+- `web/src/types/sessions.ts`
 - `src/cc_ttyd/api.py`
 - `src/cc_ttyd/models.py`
 - `src/cc_ttyd/services.py`
@@ -89,19 +89,19 @@ uv run ruff format --check src/cc_ttyd/models.py src/cc_ttyd/services.py src/cc_
 结果：5 files already formatted。
 
 ```text
-yarn --cwd frontend typecheck
+yarn --cwd web typecheck
 ```
 
 结果：vue-tsc --noEmit 通过。
 
 ```text
-yarn --cwd frontend lint
+yarn --cwd web lint
 ```
 
 结果：eslint . 通过。
 
 ```text
-yarn --cwd frontend prettier --check src/components/EnvironmentManagement.vue src/api/sessions.ts src/types/sessions.ts src/i18n/locales/zh-CN.json src/i18n/locales/en-US.json
+yarn --cwd web prettier --check src/components/EnvironmentManagement.vue src/api/sessions.ts src/types/sessions.ts src/i18n/locales/zh-CN.json src/i18n/locales/en-US.json
 ```
 
 结果：All matched files use Prettier code style。

@@ -153,7 +153,7 @@ class="text-sm ..."
 可用搜索检查：
 
 ```bash
-rg "text-(xs|base|xl|2xl|\[[^\]]+\])|font-(medium|semibold|bold|extrabold)" frontend/src
+rg "text-(xs|base|xl|2xl|\[[^\]]+\])|font-(medium|semibold|bold|extrabold)" web/src
 ```
 
 也可以重点搜索没有显式字号的状态文本、弹窗按钮、菜单项等。

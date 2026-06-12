@@ -124,11 +124,11 @@ def logging_config(level: str = "INFO") -> dict[str, Any]:
 为了让 reload 进程的早期日志也使用项目配置，开发启动应通过项目入口启动 Uvicorn：
 
 ```makefile
-backend:
+fastapi:
 	uv run python -m termbridge.main --host 127.0.0.1 --port 9008 --reload
 ```
 
-不要在 `make backend` 中直接使用：
+不要在 `make fastapi` 中直接使用：
 
 ```makefile
 uv run uvicorn termbridge.main:app --host 127.0.0.1 --port 9008 --reload
@@ -235,7 +235,7 @@ record.display_name = "uvicorn"
 - [ ] `uvicorn.access` 是否仍禁用。
 - [ ] request logging 是否仍包含 method、path、status、duration。
 - [ ] 4xx / 5xx / exception 日志等级是否符合约定。
-- [ ] `make backend` 是否通过 `python -m termbridge.main --reload` 启动。
+- [ ] `make fastapi` 是否通过 `python -m termbridge.main --reload` 启动。
 
 建议运行：
 
@@ -263,6 +263,6 @@ timeout 5s uv run python -m termbridge.main --host 127.0.0.1 --port 9011 --reloa
 - 从分散的 `basicConfig` 收敛为独立 `termbridge.logging` 模块。
 - 使用 stdlib `dictConfig` 统一应用日志和 Uvicorn 日志。
 - 禁用 `uvicorn.access`，由应用 middleware 记录请求日志。
-- 参考 `D:/SourceCodes/k12-pubforge/backend` 的简洁 console logging 风格，但不完全照搬；以当前项目合理性为准。
+- 参考 `D:/SourceCodes/k12-pubforge/fastapi` 的简洁 console logging 风格，但不完全照搬；以当前项目合理性为准。
 - 接受 `uvicorn.error` 原生命名，不做深度改写。
 - 删除未使用的 `access` formatter / handler，保持配置干净。

@@ -44,7 +44,7 @@ TermBridge 当前以开发模式运行：Vite 单独提供前端页面并代理 
 ## Acceptance criteria
 
 1. 项目根目录提供可构建的 `Dockerfile`。
-2. Docker 构建过程中执行前端构建，并将 `frontend/dist` 制品纳入后端镜像。
+2. Docker 构建过程中执行前端构建，并将 `web/dist` 制品纳入后端镜像。
 3. Docker 容器默认启动 `termbridge` 并监听 `0.0.0.0:9008`。
 4. 后端能返回前端 `index.html`。
 5. `/environment`、`/shortcuts` 等前端 history 路由能 fallback 到 `index.html`。
@@ -58,7 +58,7 @@ TermBridge 当前以开发模式运行：Vite 单独提供前端页面并代理 
 
 ## Open questions
 
-1. wheel 构建时是否应自动执行前端构建，还是保持显式两步：先 `yarn --cwd frontend build`，再复制制品并 `uv build`？
+1. wheel 构建时是否应自动执行前端构建，还是保持显式两步：先 `yarn --cwd web build`，再复制制品并 `uv build`？
    - 当前倾向：显式两步，避免 Python 构建后端隐式依赖 Node/Yarn。
 2. `src/termbridge/static/` 是否提交到仓库？
    - 当前倾向：作为生成制品，不提交；Docker 和 release 构建时生成。

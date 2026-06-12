@@ -78,7 +78,7 @@ Review status: Accepted
 
 ### 4. 前端 API 错误读取改造
 
-修改 `frontend/src/api/sessions.ts`：
+修改 `web/src/api/sessions.ts`：
 
 1. 定义 `ApiErrorResponse`：
    - `code: string`
@@ -95,7 +95,7 @@ Review status: Accepted
 
 ### 5. Toast store 支持 title
 
-修改 `frontend/src/stores/toast.ts` 和 `frontend/src/components/AppToast.vue`：
+修改 `web/src/stores/toast.ts` 和 `web/src/components/AppToast.vue`：
 
 1. Toast item 增加 `title`。
 2. Toast item 增加 `variant: 'success' | 'error'`，并在 UI 中体现主题色。
@@ -108,7 +108,7 @@ Review status: Accepted
 
 ### 6. 会话页错误状态拆分
 
-修改 `frontend/src/components/AppShell.vue`：
+修改 `web/src/components/AppShell.vue`：
 
 1. `handleStart()` 失败：
    - 不设置页面级 `error.value`。
@@ -139,8 +139,8 @@ Review status: Accepted
 前端：
 
 - 至少运行：
-  - `yarn --cwd frontend typecheck`
-  - `yarn --cwd frontend lint`
+  - `yarn --cwd web typecheck`
+  - `yarn --cwd web lint`
 - 如果已有前端单元测试基础，再补 API error parsing 测试；当前项目未显式发现前端测试入口，因此先不强制。
 
 ## Files to change
@@ -151,10 +151,10 @@ Review status: Accepted
 - `src/termbridge/services.py`
 - `tests/test_api.py`
 - `tests/test_terminal_service.py`
-- `frontend/src/api/sessions.ts`
-- `frontend/src/stores/toast.ts`
-- `frontend/src/components/AppToast.vue`
-- `frontend/src/components/AppShell.vue`
+- `web/src/api/sessions.ts`
+- `web/src/stores/toast.ts`
+- `web/src/components/AppToast.vue`
+- `web/src/components/AppShell.vue`
 - 可能涉及 i18n 文案文件（如 error toast title 需要翻译 key）
 
 不计划修改：
@@ -176,14 +176,14 @@ uv run ruff check src tests
 前端：
 
 ```bash
-yarn --cwd frontend typecheck
-yarn --cwd frontend lint
+yarn --cwd web typecheck
+yarn --cwd web lint
 ```
 
 如变更触及 toast UI 样式较多，可追加：
 
 ```bash
-yarn --cwd frontend build
+yarn --cwd web build
 ```
 
 ## Risks

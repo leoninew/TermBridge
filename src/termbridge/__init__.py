@@ -1,1 +1,1 @@
-"""TermBridge backend."""
+"""TermBridge fastapi."""

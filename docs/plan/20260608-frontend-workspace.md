@@ -1,18 +1,18 @@
-# 前端工作台计划 / Frontend Workspace Plan
+# 前端工作台计划 / web Workspace Plan
 
 Review status: Accepted
 
 ## Basis
 
-- Requirement: `docs/requirement/20260608-frontend-workspace.md`，因终端组件需求变更回到 `Draft`。
-- Spec: `docs/spec/20260608-frontend-workspace.md`，因终端组件设计变更回到 `Draft`。
+- Requirement: `docs/requirement/20260608-web-workspace.md`，因终端组件需求变更回到 `Draft`。
+- Spec: `docs/spec/20260608-web-workspace.md`，因终端组件设计变更回到 `Draft`。
 - 流程模式：严格模式 / strict。
 
 ## Implementation steps
 
-1. 创建 `frontend/` Vue 3 + TypeScript + Vite 工程骨架。
+1. 创建 `web/` Vue 3 + TypeScript + Vite 工程骨架。
    - 新增 `package.json`、`index.html`、`vite.config.ts`、TypeScript 配置。
-   - 使用 `yarn` 管理依赖并生成/提交 `frontend/yarn.lock`。
+   - 使用 `yarn` 管理依赖并生成/提交 `web/yarn.lock`。
 2. 集成代码质量和 UI 工具链。
    - 配置 ESLint flat config。
    - 集成 `eslint`、`@eslint/js`、`typescript-eslint`、`eslint-plugin-vue`、`eslint-config-prettier`。
@@ -45,39 +45,39 @@ Review status: Accepted
 计划新增：
 
 - `Makefile`
-- `frontend/package.json`
-- `frontend/yarn.lock`
-- `frontend/index.html`
-- `frontend/vite.config.ts`
-- `frontend/tsconfig.json`
-- `frontend/tsconfig.node.json`
-- `frontend/tailwind.config.ts`
-- `frontend/eslint.config.js`
-- `frontend/.prettierrc.json`
-- `frontend/src/main.ts`
-- `frontend/src/App.vue`
-- `frontend/src/api/sessions.ts`
-- `frontend/src/types/sessions.ts`
-- `frontend/src/components/AppStatus.vue`
-- `frontend/src/components/SessionCreateForm.vue`
-- `frontend/src/components/SessionList.vue`
-- `frontend/src/components/SessionCard.vue`
-- `frontend/src/components/SessionTerminal.vue`
-- `frontend/src/styles.css`：仅保留 Tailwind CSS 入口。
+- `web/package.json`
+- `web/yarn.lock`
+- `web/index.html`
+- `web/vite.config.ts`
+- `web/tsconfig.json`
+- `web/tsconfig.node.json`
+- `web/tailwind.config.ts`
+- `web/eslint.config.js`
+- `web/.prettierrc.json`
+- `web/src/main.ts`
+- `web/src/App.vue`
+- `web/src/api/sessions.ts`
+- `web/src/types/sessions.ts`
+- `web/src/components/AppStatus.vue`
+- `web/src/components/SessionCreateForm.vue`
+- `web/src/components/SessionList.vue`
+- `web/src/components/SessionCard.vue`
+- `web/src/components/SessionTerminal.vue`
+- `web/src/styles.css`：仅保留 Tailwind CSS 入口。
 
 计划更新：
 
-- `docs/verification/20260608-frontend-workspace.md`：验证阶段创建或更新。
+- `docs/verification/20260608-web-workspace.md`：验证阶段创建或更新。
 
 不计划修改：
 
 - 后端 API 实现。
-- 仓库根目录现有 backend、cc-switch、preflight 相关代码。
+- 仓库根目录现有 fastapi、cc-switch、preflight 相关代码。
 - 认证、权限、复杂路由、状态管理、自研终端后端协议或 `xterm.js` 直连实现。
 
 ## Verification plan
 
-优先在 `frontend/` 内执行：
+优先在 `web/` 内执行：
 
 1. `yarn install`
 2. `yarn lint`
@@ -103,7 +103,7 @@ Review status: Accepted
 
 ## Assumptions
 
-- 前端目录使用根目录 `frontend/`。
+- 前端目录使用根目录 `web/`。
 - 后端 ttyd 启动命令加入 `--writable`，确保前端内嵌终端可输入。
 - 前端开发服务固定使用 `0.0.0.0:9007`，后端 API 固定使用 `127.0.0.1:9008`，Vite dev proxy 将 `/api` 和 `/health` 转发到后端。
 - Runtime 下拉固定为 `claude-code`、`codex`、`powershell`、`bash`。
@@ -120,7 +120,7 @@ Review status: Accepted
 
 ## Rollback
 
-- 若实现需要回退，可删除新增 `frontend/` 目录，并保留/更新过程文档说明未实施。
+- 若实现需要回退，可删除新增 `web/` 目录，并保留/更新过程文档说明未实施。
 - 若仅依赖或 lint 配置有问题，可回退对应 `package.json`、`yarn.lock`、`eslint.config.js`、`.prettierrc.json` 变更。
 - 不涉及数据库迁移或后端状态变更。
 

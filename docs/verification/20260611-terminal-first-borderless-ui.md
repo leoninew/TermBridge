@@ -55,19 +55,19 @@ Review status: Accepted
 
 ## Commands
 
-- `yarn --cwd frontend typecheck`：通过。
-- `yarn --cwd frontend lint`：通过。
+- `yarn --cwd web typecheck`：通过。
+- `yarn --cwd web lint`：通过。
 - `pomelo-pw validate .pomelo-pw/terminal-first-style-audit.yaml`：通过。
-- Follow-up `yarn --cwd frontend typecheck`：通过。
-- Follow-up `yarn --cwd frontend lint`：通过。
+- Follow-up `yarn --cwd web typecheck`：通过。
+- Follow-up `yarn --cwd web lint`：通过。
 - Follow-up `pomelo-pw validate .pomelo-pw/terminal-first-style-audit.yaml`：通过。
 - Follow-up `pomelo-pw run .pomelo-pw/terminal-first-style-audit.yaml -v`：通过，54 steps，生成 15 张截图用于 sidebar 中性色桥接检查。
-- Follow-up 2 `yarn --cwd frontend typecheck`：通过。
-- Follow-up 2 `yarn --cwd frontend lint`：通过。
+- Follow-up 2 `yarn --cwd web typecheck`：通过。
+- Follow-up 2 `yarn --cwd web lint`：通过。
 - Follow-up 2 `pomelo-pw validate .pomelo-pw/terminal-first-style-audit.yaml`：通过。
 - Follow-up 2 `pomelo-pw run .pomelo-pw/terminal-first-style-audit.yaml -v`：通过，54 steps，生成 15 张截图用于 tabs/shortcuts/collapse button 检查。
-- Final `yarn --cwd frontend typecheck`：通过。
-- Final `yarn --cwd frontend lint`：通过。
+- Final `yarn --cwd web typecheck`：通过。
+- Final `yarn --cwd web lint`：通过。
 - Final `pomelo-pw validate .pomelo-pw/terminal-first-style-audit.yaml`：通过。
 
 ## Screenshot review

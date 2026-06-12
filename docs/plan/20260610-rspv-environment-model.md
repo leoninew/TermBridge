@@ -38,7 +38,7 @@ Review status: Accepted
 
 ## Files to change
 
-### Backend
+### fastapi
 
 - `src/termbridge/models.py`
 - `src/termbridge/services.py`
@@ -47,13 +47,13 @@ Review status: Accepted
 - `tests/test_services.py`
 - `tests/test_api.py`
 
-### Frontend
+### web
 
-- `frontend/src/types/sessions.ts`
-- `frontend/src/api/sessions.ts`
-- `frontend/src/components/EnvironmentManagement.vue`
-- `frontend/src/i18n/locales/zh-CN.json`
-- `frontend/src/i18n/locales/en-US.json`
+- `web/src/types/sessions.ts`
+- `web/src/api/sessions.ts`
+- `web/src/components/EnvironmentManagement.vue`
+- `web/src/i18n/locales/zh-CN.json`
+- `web/src/i18n/locales/en-US.json`
 
 ### Documentation
 
@@ -61,7 +61,7 @@ Review status: Accepted
 
 ## Implementation steps
 
-### 1. Backend model updates
+### 1. fastapi model updates
 
 1. Replace `ShortcutHost` values with:
 
@@ -83,7 +83,7 @@ Review status: Accepted
 
 5. Do not add compatibility aliases for old `ShortcutHost` values.
 
-### 2. Backend service updates
+### 2. fastapi service updates
 
 1. Update default shortcuts to use `host="windows_cygwin"`.
 2. Update shortcut validation:
@@ -112,7 +112,7 @@ Review status: Accepted
 8. Remove service methods that represent standalone Windows environment detection if no longer used.
 9. Do not implement `screen` detection or persistence.
 
-### 3. Backend API updates
+### 3. fastapi API updates
 
 1. Keep:
    - `GET /api/environment/ttyd/check`
@@ -133,7 +133,7 @@ Review status: Accepted
    - `GET /api/environment/wsl/check`
 4. Ensure detection failures still return `200` with `available=false` inside response models unless request validation itself is invalid.
 
-### 4. Frontend type and API updates
+### 4. web type and API updates
 
 1. Update `ShortcutHost` type:
 
@@ -152,7 +152,7 @@ Review status: Accepted
    - `checkWindowsCygwin`
    - `checkWindowsWsl`
    - `checkLinux`
-4. Remove frontend use of old `checkWindows`, `checkWsl`, `checkCygwin`, `getCygwinSettings`, `updateCygwinSettings` names.
+4. Remove web use of old `checkWindows`, `checkWsl`, `checkCygwin`, `getCygwinSettings`, `updateCygwinSettings` names.
 
 ### 5. EnvironmentManagement UI updates
 
@@ -188,7 +188,7 @@ Review status: Accepted
 
 ### 6. Tests
 
-1. Backend service tests:
+1. fastapi service tests:
    - default shortcuts use `windows_cygwin`
    - old `cygwin_tmux` is invalid as input
    - `windows_cygwin` command resolution still builds Cygwin tmux command
@@ -204,7 +204,7 @@ Review status: Accepted
    - old shape-confused endpoints are removed or no longer asserted
 3. Session service tests:
    - session runtime / host is `windows_cygwin`
-4. Frontend checks:
+4. web checks:
    - TypeScript typecheck catches old API/type names
    - lint catches unused old imports
 
@@ -215,12 +215,12 @@ Run project-specific commands after implementation:
 ```text
 uv run pytest tests/test_terminal_service.py tests/test_services.py tests/test_api.py
 uv run ruff format --check src/termbridge/models.py src/termbridge/services.py src/termbridge/api.py tests/test_terminal_service.py tests/test_services.py tests/test_api.py
-yarn --cwd frontend typecheck
-yarn --cwd frontend lint
-yarn --cwd frontend prettier --check src/components/EnvironmentManagement.vue src/api/sessions.ts src/types/sessions.ts src/i18n/locales/zh-CN.json src/i18n/locales/en-US.json
+yarn --cwd web typecheck
+yarn --cwd web lint
+yarn --cwd web prettier --check src/components/EnvironmentManagement.vue src/api/sessions.ts src/types/sessions.ts src/i18n/locales/zh-CN.json src/i18n/locales/en-US.json
 ```
 
-If frontend UI is changed, start the dev server and manually verify:
+If web UI is changed, start the dev server and manually verify:
 
 1. Environment page loads.
 2. ttyd panel remains outside tabs.
@@ -249,9 +249,9 @@ If implementation proves too broad, rollback to the current accepted requirement
 ## Risks
 
 1. Breaking old `ShortcutHost` values may require users to recreate shortcuts or terminal state.
-2. Removing old API endpoints will break any unupdated frontend calls.
+2. Removing old API endpoints will break any unupdated web calls.
 3. WSL command behavior varies by installation state; timeout and unavailable responses are required.
-4. Renaming models and API functions touches many tests and frontend imports.
+4. Renaming models and API functions touches many tests and web imports.
 5. Linux host support is intentionally incomplete and must not be presented as fully supported.
 
 ## Blockers

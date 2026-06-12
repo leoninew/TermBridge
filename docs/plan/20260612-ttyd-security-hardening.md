@@ -195,7 +195,7 @@ websockets.connect(
 
 ### 9. 更新 Vite dev proxy
 
-修改 `frontend/vite.config.ts`：
+修改 `web/vite.config.ts`：
 
 ```ts
 '/terminal': {
@@ -249,7 +249,7 @@ WebSocket proxy 需要浏览器级或真实 ttyd smoke 验证补足：
 - `src/termbridge/models.py`
 - `src/termbridge/services.py`
 - `src/termbridge/api.py`
-- `frontend/vite.config.ts`
+- `web/vite.config.ts`
 - `.env.sample`
 - `pyproject.toml`
 - `uv.lock`
@@ -285,7 +285,7 @@ uv run ruff check .
 ### 前端类型检查
 
 ```powershell
-yarn --cwd frontend typecheck
+yarn --cwd web typecheck
 ```
 
 ### 全量测试

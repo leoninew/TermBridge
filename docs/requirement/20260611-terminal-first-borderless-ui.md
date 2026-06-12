@@ -131,10 +131,10 @@ Shortcut 页面是当前最不彻底的页面：
 
 重点区域：
 
-- `frontend/src/components/ShortcutManagement.vue`
-- `frontend/src/components/EnvironmentManagement.vue`
-- `frontend/src/components/SessionCreateForm.vue`
-- `frontend/src/components/WorkspaceBrowser.vue`
+- `web/src/components/ShortcutManagement.vue`
+- `web/src/components/EnvironmentManagement.vue`
+- `web/src/components/SessionCreateForm.vue`
+- `web/src/components/WorkspaceBrowser.vue`
 
 方向：
 

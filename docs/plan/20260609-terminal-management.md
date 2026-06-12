@@ -115,8 +115,8 @@ Review status: Accepted
 
 修改或新增：
 
-- `frontend/src/types/sessions.ts` 或新文件：增加终端类型。
-- `frontend/src/api/sessions.ts` 或新 API 文件：增加终端管理请求函数。
+- `web/src/types/sessions.ts` 或新文件：增加终端类型。
+- `web/src/api/sessions.ts` 或新 API 文件：增加终端管理请求函数。
 
 前端类型需要覆盖：
 
@@ -134,7 +134,7 @@ Review status: Accepted
 - 增加「终端管理」按钮。
 - 点击打开终端管理界面。
 
-新增 `frontend/src/components/TerminalManagement.vue`：
+新增 `web/src/components/TerminalManagement.vue`：
 
 - 展示系统终端和用户终端。
 - 系统终端：
@@ -151,7 +151,7 @@ Review status: Accepted
 
 ### 8. 创建 session 表单接入终端列表
 
-修改 `frontend/src/components/SessionCreateForm.vue`：
+修改 `web/src/components/SessionCreateForm.vue`：
 
 - 初始化加载 `/api/terminals`。
 - 终端选择列表使用 `TerminalDefinition`。
@@ -188,10 +188,10 @@ Review status: Accepted
 
 至少运行：
 
-- `cd /d/Projects/TermBridge/frontend && yarn lint`
-- `cd /d/Projects/TermBridge/frontend && yarn format:check`
-- `cd /d/Projects/TermBridge/frontend && yarn typecheck`
-- `cd /d/Projects/TermBridge/frontend && yarn build`
+- `cd /d/Projects/TermBridge/web && yarn lint`
+- `cd /d/Projects/TermBridge/web && yarn format:check`
+- `cd /d/Projects/TermBridge/web && yarn typecheck`
+- `cd /d/Projects/TermBridge/web && yarn build`
 
 ### 11. 后端验证
 
@@ -215,11 +215,11 @@ Review status: Accepted
 - `tests/test_terminal_service.py`（新增）
 - `tests/test_services.py`
 - `tests/test_api.py` 或新增终端 API 测试
-- `frontend/src/types/sessions.ts` 或新增 terminal types
-- `frontend/src/api/sessions.ts` 或新增 terminal API
-- `frontend/src/components/AppStatus.vue` 或顶层工具条相关组件
-- `frontend/src/components/TerminalManagement.vue`（新增）
-- `frontend/src/components/SessionCreateForm.vue`
+- `web/src/types/sessions.ts` 或新增 terminal types
+- `web/src/api/sessions.ts` 或新增 terminal API
+- `web/src/components/AppStatus.vue` 或顶层工具条相关组件
+- `web/src/components/TerminalManagement.vue`（新增）
+- `web/src/components/SessionCreateForm.vue`
 
 ## Verification plan
 

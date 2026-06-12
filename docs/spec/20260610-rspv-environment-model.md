@@ -26,7 +26,7 @@ Review status: Accepted
 3. Windows/WSL 不保存 distro 名称，只检测默认 WSL。
 4. Linux 宿主支持不完整实现，只保留模型和不可用状态语义。
 5. `ShortcutHost` 立即收敛到 `windows_cygwin` / `windows_wsl` / `linux`。
-6. `screen` 作为未来可选 session persistence backend 的 open question 保留，不进入本阶段实现。
+6. `screen` 作为未来可选 session persistence fastapi 的 open question 保留，不进入本阶段实现。
 
 ## Design decisions
 
@@ -168,11 +168,11 @@ Linux 形态在当前 Windows 宿主下只展示 unavailable：
 - 不新增 `session_persistence = "screen"`。
 - 不新增 screen 检测 API。
 - 不在 UI 中展示 screen 选择。
-- 后续如果支持，应先抽象 `tmux-backed` 为 `persistence backend`，再让环境形态选择 backend。
+- 后续如果支持，应先抽象 `tmux-backed` 为 `persistence fastapi`，再让环境形态选择 fastapi。
 
 ## Affected components
 
-### Backend
+### fastapi
 
 - `src/termbridge/models.py`
   - 重命名或替换 `ShortcutHost` 值。
@@ -190,19 +190,19 @@ Linux 形态在当前 Windows 宿主下只展示 unavailable：
   - 移除前端对独立 Windows check 的依赖。
   - 移除旧 Cygwin/Windows/WSL 环境 API。
 
-### Frontend
+### web
 
-- `frontend/src/types/sessions.ts`
+- `web/src/types/sessions.ts`
   - `ShortcutHost` 改为 `windows_cygwin | windows_wsl | linux`。
   - 新增 Windows/Cygwin、Windows/WSL、Linux 检测响应类型。
-- `frontend/src/api/sessions.ts`
+- `web/src/api/sessions.ts`
   - 新增/改名形态 API client。
-- `frontend/src/components/EnvironmentManagement.vue`
+- `web/src/components/EnvironmentManagement.vue`
   - tabs 改为 Windows/Cygwin、Windows/WSL、Linux。
   - Linux tab 在 Windows 宿主下展示 unavailable。
   - Windows/WSL tab 展示默认 WSL 和 tmux 状态，不展示 distro 配置。
-- `frontend/src/i18n/locales/zh-CN.json`
-- `frontend/src/i18n/locales/en-US.json`
+- `web/src/i18n/locales/zh-CN.json`
+- `web/src/i18n/locales/en-US.json`
   - 更新环境形态文案。
 
 ### Tests
@@ -250,7 +250,7 @@ GET /api/environment/linux/check
 POST /api/terminals/tmux/check
 ```
 
-`POST /api/terminals/tmux/check` 当前仍可保留给 Windows/Cygwin 的手动 tmux 检测；如后续抽象 persistence backend，再统一命名。
+`POST /api/terminals/tmux/check` 当前仍可保留给 Windows/Cygwin 的手动 tmux 检测；如后续抽象 persistence fastapi，再统一命名。
 
 ## Technical questions
 
@@ -271,7 +271,7 @@ POST /api/terminals/tmux/check
 
 1. 继续保留 Windows / Cygwin / WSL tabs。
    - 放弃：这会继续混淆宿主平台和环境 provider。
-2. 立即抽象为 environment shape × persistence backend。
+2. 立即抽象为 environment shape × persistence fastapi。
    - 放弃：虽然能容纳 `screen`，但会显著扩大范围。
 3. 不重命名 `ShortcutHost`，只改 UI 文案。
    - 放弃：用户已明确要求立即重命名，且代码模型需要与需求语义一致。

@@ -16,14 +16,14 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=9008)
     parser.add_argument("--reload", action="store_true")
-    parser.add_argument("--frontend-dir", type=Path)
-    parser.add_argument("--no-frontend", action="store_true")
+    parser.add_argument("--web-dir", type=Path)
+    parser.add_argument("--no-web", action="store_true")
     args = parser.parse_args()
 
     settings = load_settings()
     server_app: Any = "termbridge.main:app"
-    if args.frontend_dir is not None or args.no_frontend:
-        server_app = create_app(serve_frontend=not args.no_frontend, frontend_dir=args.frontend_dir)
+    if args.web_dir is not None or args.no_web:
+        server_app = create_app(serve_web=not args.no_web, web_dir=args.web_dir)
 
     uvicorn.run(
         server_app,

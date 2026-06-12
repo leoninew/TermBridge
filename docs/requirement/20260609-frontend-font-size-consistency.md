@@ -1,4 +1,4 @@
-# Frontend font size consistency
+# web font size consistency
 
 Review status: Accepted
 

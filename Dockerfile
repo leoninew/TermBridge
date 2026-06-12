@@ -1,12 +1,12 @@
-FROM node:22-bookworm AS frontend-builder
+FROM node:22-bookworm AS web-builder
 
-WORKDIR /app/frontend
-COPY frontend/package.json frontend/yarn.lock ./
+WORKDIR /app/web
+COPY web/package.json web/yarn.lock ./
 RUN corepack enable && yarn install --frozen-lockfile
-COPY frontend/ ./
+COPY web/ ./
 RUN yarn build
 
-FROM python:3.12-slim AS backend-builder
+FROM python:3.12-slim AS fastapi-builder
 
 WORKDIR /app
 RUN pip install --no-cache-dir uv
@@ -17,10 +17,10 @@ COPY src ./src
 FROM python:3.12-slim
 
 WORKDIR /app
-COPY --from=backend-builder /app/.venv /app/.venv
+COPY --from=fastapi-builder /app/.venv /app/.venv
 COPY pyproject.toml README.md ./
 COPY src ./src
-COPY --from=frontend-builder /app/frontend/dist ./src/termbridge/static
+COPY --from=web-builder /app/web/dist ./src/termbridge/static
 
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1

@@ -24,7 +24,7 @@ Review status: Accepted
 7. 启动前 host ready check 只校验配置：Cygwin bash path 可解析、ttyd executable 可解析；不做 tmux 版本/进程检测。
 8. 旧 terminal definitions state 不迁移：新 state 字段使用 shortcuts，读取旧 `user_terminals` / `system_overrides` 时忽略。
 
-## Backend implementation steps
+## fastapi implementation steps
 
 ### 1. Models
 
@@ -187,11 +187,11 @@ Host ready check：
 - 如果保留 repository/service 类名，可至少更新 API 层和用户可见错误文案为 shortcut。
 - DI 中注入服务的语义可以暂时保留，Plan 允许实现时决定是否重命名类，避免一次改动过大。
 
-## Frontend implementation steps
+## web implementation steps
 
 ### 1. Types
 
-文件：`frontend/src/types/sessions.ts`
+文件：`web/src/types/sessions.ts`
 
 变更：
 
@@ -211,7 +211,7 @@ Host ready check：
 
 ### 2. API client
 
-文件：`frontend/src/api/sessions.ts`
+文件：`web/src/api/sessions.ts`
 
 变更：
 
@@ -228,7 +228,7 @@ Host ready check：
 
 文件：
 
-- `frontend/src/components/TerminalManagement.vue`
+- `web/src/components/TerminalManagement.vue`
 
 变更选项：
 
@@ -249,7 +249,7 @@ Host ready check：
 
 ### 4. Session create UI
 
-文件：`frontend/src/components/SessionCreateForm.vue`
+文件：`web/src/components/SessionCreateForm.vue`
 
 变更：
 
@@ -263,12 +263,12 @@ Host ready check：
 
 文件：
 
-- `frontend/src/App.vue`
-- `frontend/src/components/AppStatus.vue`
-- `frontend/src/components/SessionList.vue`
-- `frontend/src/components/SessionCard.vue`
-- `frontend/src/i18n/locales/zh-CN.json`
-- `frontend/src/i18n/locales/en-US.json`
+- `web/src/App.vue`
+- `web/src/components/AppStatus.vue`
+- `web/src/components/SessionList.vue`
+- `web/src/components/SessionCard.vue`
+- `web/src/i18n/locales/zh-CN.json`
+- `web/src/i18n/locales/en-US.json`
 
 变更：
 
@@ -279,7 +279,7 @@ Host ready check：
 
 ## Tests
 
-### Backend tests
+### fastapi tests
 
 文件：
 
@@ -304,13 +304,13 @@ Host ready check：
 14. `/api/sessions` request/response 使用 shortcut 字段。
 15. 旧 `/api/terminals` 如删除，则不再测试；如保留 404/410，则测试对应行为。
 
-### Frontend checks
+### web checks
 
-- `yarn --cwd frontend typecheck`
-- `yarn --cwd frontend lint`
-- `yarn --cwd frontend prettier --check frontend/src/components/ShortcutManagement.vue frontend/src/components/SessionCreateForm.vue frontend/src/api/sessions.ts frontend/src/types/sessions.ts frontend/src/i18n/locales/zh-CN.json frontend/src/i18n/locales/en-US.json frontend/src/App.vue`
+- `yarn --cwd web typecheck`
+- `yarn --cwd web lint`
+- `yarn --cwd web prettier --check web/src/components/ShortcutManagement.vue web/src/components/SessionCreateForm.vue web/src/api/sessions.ts web/src/types/sessions.ts web/src/i18n/locales/zh-CN.json web/src/i18n/locales/en-US.json web/src/App.vue`
 
-### Backend checks
+### fastapi checks
 
 - `uv run pytest tests/test_terminal_service.py tests/test_api.py`
 - 如测试文件重命名，改为对应新文件。
@@ -332,7 +332,7 @@ Host ready check：
 
 ## Files to change
 
-Backend:
+fastapi:
 
 - `src/cc_ttyd/models.py`
 - `src/cc_ttyd/services.py`
@@ -343,18 +343,18 @@ Backend:
 - `tests/test_terminal_service.py` 或重命名后的 shortcut service test
 - `tests/test_api.py`
 
-Frontend:
+web:
 
-- `frontend/src/types/sessions.ts`
-- `frontend/src/api/sessions.ts`
-- `frontend/src/components/TerminalManagement.vue` -> `ShortcutManagement.vue`
-- `frontend/src/components/SessionCreateForm.vue`
-- `frontend/src/components/SessionList.vue`
-- `frontend/src/components/SessionCard.vue`
-- `frontend/src/components/AppStatus.vue`
-- `frontend/src/App.vue`
-- `frontend/src/i18n/locales/zh-CN.json`
-- `frontend/src/i18n/locales/en-US.json`
+- `web/src/types/sessions.ts`
+- `web/src/api/sessions.ts`
+- `web/src/components/TerminalManagement.vue` -> `ShortcutManagement.vue`
+- `web/src/components/SessionCreateForm.vue`
+- `web/src/components/SessionList.vue`
+- `web/src/components/SessionCard.vue`
+- `web/src/components/AppStatus.vue`
+- `web/src/App.vue`
+- `web/src/i18n/locales/zh-CN.json`
+- `web/src/i18n/locales/en-US.json`
 
 Docs:
 

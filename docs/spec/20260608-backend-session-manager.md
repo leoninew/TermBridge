@@ -1,10 +1,10 @@
-# 后端 ttyd 会话管理规格 / Backend ttyd Session Manager Spec
+# 后端 ttyd 会话管理规格 / fastapi ttyd Session Manager Spec
 
 Review status: Accepted
 
 ## Requirement basis
 
-基于 `docs/requirement/20260608-backend-session-manager.md`，本阶段设计一个 Python + uv + FastAPI 后端，用于管理 ttyd 会话生命周期。Requirement 已接受，范围限定为后端 MVP，不包含前端、认证、HTTPS/反向代理、持久化数据库和 WebSocket 终端转发。
+基于 `docs/requirement/20260608-fastapi-session-manager.md`，本阶段设计一个 Python + uv + FastAPI 后端，用于管理 ttyd 会话生命周期。Requirement 已接受，范围限定为后端 MVP，不包含前端、认证、HTTPS/反向代理、持久化数据库和 WebSocket 终端转发。
 
 ## Overview
 
@@ -183,7 +183,7 @@ MVP 使用显式配置模型，避免在业务代码中直接读取环境变量�
 - 新增 Python 工程配置：`pyproject.toml`。
 - 新增后端应用代码：`src/cc_ttyd/`，按 API、DI、service、repository、process adapter、port allocator、runtime registry、settings 分层。
 - 新增单元测试：`tests/`。
-- 新增过程文档：`docs/spec/20260608-backend-session-manager.md`。
+- 新增过程文档：`docs/spec/20260608-fastapi-session-manager.md`。
 
 ## Interfaces
 

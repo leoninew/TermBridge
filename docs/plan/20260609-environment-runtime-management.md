@@ -26,7 +26,7 @@ Review status: Accepted
 3. Cygwin tab 自动检测 bash 和 tmux，并允许保存 Cygwin bash path。
 4. Windows/WSL tab 做最小基础检测展示。
 
-## Backend implementation steps
+## fastapi implementation steps
 
 ### 1. Models
 
@@ -97,7 +97,7 @@ Review status: Accepted
 - `_validate_terminal()` 中 Cygwin terminal 的 bash path 要求改为：terminal 自身 path 或持久化 Cygwin settings path 至少一个可用。
 - `resolve_ttyd_executable()` 的 explicit mode 保持使用 `TerminalSettings.ttyd_path`；auto mode 继续现有行为。
 
-### 3. Backend API
+### 3. fastapi API
 
 文件：`src/cc_ttyd/api.py`
 
@@ -127,7 +127,7 @@ Review status: Accepted
 
 可在前端环境页继续复用 terminal settings API 来保存 ttyd settings。
 
-### 4. Backend tests
+### 4. fastapi tests
 
 文件：`tests/test_terminal_service.py`
 
@@ -153,14 +153,14 @@ Review status: Accepted
 - cygwin settings get/put。
 - cygwin/windows/wsl check API。
 
-## Frontend implementation steps
+## web implementation steps
 
 ### 1. Types and API
 
 文件：
 
-- `frontend/src/types/sessions.ts`
-- `frontend/src/api/sessions.ts`
+- `web/src/types/sessions.ts`
+- `web/src/api/sessions.ts`
 
 新增类型：
 
@@ -181,7 +181,7 @@ Review status: Accepted
 
 ### 2. EnvironmentManagement layout
 
-文件：`frontend/src/components/EnvironmentManagement.vue`
+文件：`web/src/components/EnvironmentManagement.vue`
 
 重构为：
 
@@ -230,8 +230,8 @@ WSL tab：
 
 文件：
 
-- `frontend/src/i18n/locales/zh-CN.json`
-- `frontend/src/i18n/locales/en-US.json`
+- `web/src/i18n/locales/zh-CN.json`
+- `web/src/i18n/locales/en-US.json`
 
 新增文案：
 
@@ -245,16 +245,16 @@ WSL tab：
 
 ## Verification plan
 
-Backend:
+fastapi:
 
 - `uv run pytest tests/test_terminal_service.py tests/test_api.py`
 - `uv run ruff format --check src/cc_ttyd/models.py src/cc_ttyd/services.py src/cc_ttyd/api.py tests/test_terminal_service.py tests/test_api.py`
 
-Frontend:
+web:
 
-- `yarn --cwd frontend typecheck`
-- `yarn --cwd frontend lint`
-- `yarn --cwd frontend prettier --check frontend/src/components/EnvironmentManagement.vue frontend/src/api/sessions.ts frontend/src/types/sessions.ts frontend/src/i18n/locales/zh-CN.json frontend/src/i18n/locales/en-US.json`
+- `yarn --cwd web typecheck`
+- `yarn --cwd web lint`
+- `yarn --cwd web prettier --check web/src/components/EnvironmentManagement.vue web/src/api/sessions.ts web/src/types/sessions.ts web/src/i18n/locales/zh-CN.json web/src/i18n/locales/en-US.json`
 
 Manual/browser:
 

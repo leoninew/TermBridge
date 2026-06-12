@@ -362,7 +362,7 @@ wsl sh -lc 'tmux kill-session -t <name>'
 
 ## Affected components
 
-### Backend
+### fastapi
 
 - `src/termbridge/models.py`
   - 新增 readiness、environment summary、WindowsWslSettings、LinuxSettings、检测快照字段。
@@ -381,23 +381,23 @@ wsl sh -lc 'tmux kill-session -t <name>'
   - 新增 `GET /api/environments`。
   - 可能新增 provider settings endpoints：`GET /api/environment/windows-wsl/settings`。
 
-### Frontend
+### web
 
-- `frontend/src/types/sessions.ts`
+- `web/src/types/sessions.ts`
   - 新增 environment summary、readiness、provider settings/check snapshot 类型。
-- `frontend/src/api/sessions.ts`
+- `web/src/api/sessions.ts`
   - 新增 environment summary/settings API。
-- `frontend/src/App.vue`
+- `web/src/App.vue`
   - 加载 environments，传递 readiness 给 session list。
-- `frontend/src/components/SessionList.vue`
+- `web/src/components/SessionList.vue`
   - 无 ready 环境时展示跳转环境配置页的空状态。
-- `frontend/src/components/EnvironmentManagement.vue`
+- `web/src/components/EnvironmentManagement.vue`
   - readiness badge、手动检测刷新、settings 展示。
-- `frontend/src/components/ShortcutManagement.vue`
+- `web/src/components/ShortcutManagement.vue`
   - host select 和 host label。
-- `frontend/src/components/SessionCreateForm.vue`
+- `web/src/components/SessionCreateForm.vue`
   - shortcut host label 和 not-ready shortcut 处理。
-- `frontend/src/i18n/locales/*.json`
+- `web/src/i18n/locales/*.json`
   - 新增 readiness、环境引导、WSL 检测字段文案。
 
 ### Tests
@@ -415,11 +415,11 @@ wsl sh -lc 'tmux kill-session -t <name>'
 - `tests/test_api.py`
   - `/api/environments`。
   - settings/check API readiness 刷新。
-- Frontend lint/typecheck 覆盖新增类型。
+- web lint/typecheck 覆盖新增类型。
 
 ## Interfaces
 
-### Backend models
+### fastapi models
 
 ```python
 EnvironmentReadiness = Literal["not_ready", "ready"]

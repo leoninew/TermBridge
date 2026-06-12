@@ -24,10 +24,10 @@ Review status: Accepted
 
 ## Commands
 
-- `yarn --cwd frontend build`：通过。Vite/Rolldown 对 `@vueuse/core` 的 PURE annotation 输出既有 warning，但构建成功。
-- `yarn --cwd frontend lint`：通过。
-- 最新 UI 调整后重新执行 `yarn --cwd frontend lint`：通过。
-- 最新 UI 调整后重新执行 `yarn --cwd frontend build`：通过；仍仅有既有 `@vueuse/core` PURE annotation warning。
+- `yarn --cwd web build`：通过。Vite/Rolldown 对 `@vueuse/core` 的 PURE annotation 输出既有 warning，但构建成功。
+- `yarn --cwd web lint`：通过。
+- 最新 UI 调整后重新执行 `yarn --cwd web lint`：通过。
+- 最新 UI 调整后重新执行 `yarn --cwd web build`：通过；仍仅有既有 `@vueuse/core` PURE annotation warning。
 - `python -m pytest tests/test_services.py tests/test_api.py`：通过，22 passed，1 个 FastAPI/TestClient 依赖 warning。
 - `python -m pytest`：通过，89 passed，1 个 FastAPI/TestClient 依赖 warning。
 - `python -m ruff check src tests`：通过。

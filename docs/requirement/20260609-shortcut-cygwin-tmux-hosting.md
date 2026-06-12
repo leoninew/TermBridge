@@ -41,7 +41,7 @@ Review status: Accepted
 2. 本阶段不实现 WSL host shortcut。
 3. 本阶段不优先处理 `cmd`、`python`、普通 shell 等泛用入口。
 4. 本阶段不实现复杂 env 管理、secret 管理或 profile 继承。
-5. 本阶段不实现多种 persistence backend；只聚焦 Cygwin + tmux。
+5. 本阶段不实现多种 persistence fastapi；只聚焦 Cygwin + tmux。
 6. 本阶段不实现 system/user shortcut 类别，也不控制默认 shortcut 是否可修改或删除。
 7. 本阶段不改变 ttyd 作为全局承载进程配置的定位。
 8. 本阶段不要求自动安装或修复 Cygwin、tmux、ttyd、Claude Code、Codex。

@@ -33,24 +33,24 @@ Review status: Accepted
 
 Shortcut 相关主要改动：
 
-- Backend
+- fastapi
   - `src/cc_ttyd/models.py`
   - `src/cc_ttyd/api.py`
   - `src/cc_ttyd/services.py`
   - `src/cc_ttyd/exceptions.py`
   - `src/cc_ttyd/repositories.py`
-- Frontend
-  - `frontend/src/App.vue`
-  - `frontend/src/api/sessions.ts`
-  - `frontend/src/types/sessions.ts`
-  - `frontend/src/components/ShortcutManagement.vue`
-  - `frontend/src/components/TerminalManagement.vue`
-  - `frontend/src/components/SessionCreateForm.vue`
-  - `frontend/src/components/SessionCard.vue`
-  - `frontend/src/components/AppStatus.vue`
-  - `frontend/src/components/SessionList.vue`
-  - `frontend/src/i18n/locales/en-US.json`
-  - `frontend/src/i18n/locales/zh-CN.json`
+- web
+  - `web/src/App.vue`
+  - `web/src/api/sessions.ts`
+  - `web/src/types/sessions.ts`
+  - `web/src/components/ShortcutManagement.vue`
+  - `web/src/components/TerminalManagement.vue`
+  - `web/src/components/SessionCreateForm.vue`
+  - `web/src/components/SessionCard.vue`
+  - `web/src/components/AppStatus.vue`
+  - `web/src/components/SessionList.vue`
+  - `web/src/i18n/locales/en-US.json`
+  - `web/src/i18n/locales/zh-CN.json`
 - Tests
   - `tests/test_api.py`
   - `tests/test_services.py`
@@ -65,7 +65,7 @@ Shortcut 相关主要改动：
 
 ## Commands
 
-### Backend tests
+### fastapi tests
 
 ```text
 uv run pytest tests/test_terminal_service.py tests/test_services.py tests/test_api.py
@@ -97,10 +97,10 @@ Result:
 
 Full-repo format was not used for this pass because the user requested verifying this task's related functionality only.
 
-### Frontend checks
+### web checks
 
 ```text
-yarn --cwd frontend typecheck
+yarn --cwd web typecheck
 ```
 
 Result:
@@ -111,7 +111,7 @@ Done
 ```
 
 ```text
-yarn --cwd frontend lint
+yarn --cwd web lint
 ```
 
 Result:
@@ -122,7 +122,7 @@ Done
 ```
 
 ```text
-yarn --cwd frontend prettier --check src/components/ShortcutManagement.vue src/components/SessionCreateForm.vue src/components/SessionCard.vue src/components/AppStatus.vue src/components/SessionList.vue src/api/sessions.ts src/types/sessions.ts src/i18n/locales/zh-CN.json src/i18n/locales/en-US.json src/App.vue
+yarn --cwd web prettier --check src/components/ShortcutManagement.vue src/components/SessionCreateForm.vue src/components/SessionCard.vue src/components/AppStatus.vue src/components/SessionList.vue src/api/sessions.ts src/types/sessions.ts src/i18n/locales/zh-CN.json src/i18n/locales/en-US.json src/App.vue
 ```
 
 Result:
@@ -135,15 +135,15 @@ All matched files use Prettier code style!
 
 The user explicitly requested not to use `playwright-cli` for this verification pass.
 
-Verified through frontend typecheck/lint/Prettier and source-level checks:
+Verified through web typecheck/lint/Prettier and source-level checks:
 
-- `frontend/src/App.vue` routes `/shortcuts` to `ShortcutManagement` instead of `/terminals` to `TerminalManagement`.
-- `frontend/src/components/ShortcutManagement.vue` loads shortcuts with `listShortcuts()`, supports create/edit/delete, and exposes `name`、`command`、`host`、`description`、`icon` fields.
-- `frontend/src/components/SessionCreateForm.vue` loads shortcuts with `listShortcuts()` and submits `name + workspace + shortcut_id`.
-- `frontend/src/components/SessionCard.vue` displays `shortcut_name` with fallback to `runtime`.
-- `frontend/src/components/AppStatus.vue` and `frontend/src/components/SessionList.vue` navigate to `/shortcuts`.
-- `frontend/src/i18n/locales/zh-CN.json` and `frontend/src/i18n/locales/en-US.json` contain `shortcutManagement` and `app.nav.shortcuts` wording.
-- `frontend/src/components/EnvironmentManagement.vue` still contains the ttyd panel and Windows/Cygwin/WSL tabs, so environment management remains separate from shortcut management.
+- `web/src/App.vue` routes `/shortcuts` to `ShortcutManagement` instead of `/terminals` to `TerminalManagement`.
+- `web/src/components/ShortcutManagement.vue` loads shortcuts with `listShortcuts()`, supports create/edit/delete, and exposes `name`、`command`、`host`、`description`、`icon` fields.
+- `web/src/components/SessionCreateForm.vue` loads shortcuts with `listShortcuts()` and submits `name + workspace + shortcut_id`.
+- `web/src/components/SessionCard.vue` displays `shortcut_name` with fallback to `runtime`.
+- `web/src/components/AppStatus.vue` and `web/src/components/SessionList.vue` navigate to `/shortcuts`.
+- `web/src/i18n/locales/zh-CN.json` and `web/src/i18n/locales/en-US.json` contain `shortcutManagement` and `app.nav.shortcuts` wording.
+- `web/src/components/EnvironmentManagement.vue` still contains the ttyd panel and Windows/Cygwin/WSL tabs, so environment management remains separate from shortcut management.
 
 ## Residual terminology search
 
@@ -157,13 +157,13 @@ Searched under:
 
 ```text
 src
-frontend/src
+web/src
 tests
 ```
 
 Relevant findings:
 
-- Shortcut implementation files no longer expose terminal definition models, frontend `terminalManagement` namespace, `terminal_id`, or terminal CRUD client functions.
+- Shortcut implementation files no longer expose terminal definition models, web `terminalManagement` namespace, `terminal_id`, or terminal CRUD client functions.
 - Remaining product-code occurrences are expected runtime/environment concepts:
   - `UpdateTerminalSettingsRequest` / `updateTerminalSettings`, because ttyd settings remain a global terminal runtime setting.
   - `RuntimeRegistry.resolve(..., terminal_command)` remains in `src/cc_ttyd/runtime.py`, but `CreateSessionRequest` no longer exposes `terminal_command`, and `SessionService.create()` now uses `shortcut_id`.
@@ -181,8 +181,8 @@ Relevant findings:
 - [x] Old terminal definitions state is ignored, covered by tests.
 - [x] Session delete uses stored `tmux_session_name`, covered by tests.
 - [x] Session restart reuses stored ttyd/tmux command, covered by tests.
-- [x] Frontend shortcut API/types/UI typecheck and lint pass.
-- [x] Frontend shortcut UI formatting passes Prettier.
+- [x] web shortcut API/types/UI typecheck and lint pass.
+- [x] web shortcut UI formatting passes Prettier.
 - [x] Source-level UI verification confirms shortcut management, session create, navigation, card display, and environment page separation.
 - [x] Product-code search confirms old terminal definition naming is removed from shortcut main paths.
 
@@ -194,4 +194,4 @@ Relevant findings:
 
 ## Conclusion
 
-Shortcut Cygwin tmux hosting implementation aligns with the accepted requirement, spec, and plan for the task-scoped verification pass. Backend shortcut/session behavior is covered by 33 passing related tests, shortcut-related Python files are formatted, frontend typecheck/lint/Prettier pass, and source-level UI checks confirm the planned shortcut management and session creation paths without using `playwright-cli`.
+Shortcut Cygwin tmux hosting implementation aligns with the accepted requirement, spec, and plan for the task-scoped verification pass. fastapi shortcut/session behavior is covered by 33 passing related tests, shortcut-related Python files are formatted, web typecheck/lint/Prettier pass, and source-level UI checks confirm the planned shortcut management and session creation paths without using `playwright-cli`.

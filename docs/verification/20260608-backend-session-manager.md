@@ -1,4 +1,4 @@
-# 后端 ttyd 会话管理验证 / Backend ttyd Session Manager Verification
+# 后端 ttyd 会话管理验证 / fastapi ttyd Session Manager Verification
 
 Review status: Accepted
 
@@ -49,8 +49,8 @@ Review status: Accepted
 新增/更新内容：
 
 - `.gitignore`：新增 Python/IDE 缓存忽略项。
-- `docs/plan/20260608-backend-session-manager.md`：将 Plan 状态更新为 `Accepted`。
-- `docs/verification/20260608-backend-session-manager.md`：新增本验证报告。
+- `docs/plan/20260608-fastapi-session-manager.md`：将 Plan 状态更新为 `Accepted`。
+- `docs/verification/20260608-fastapi-session-manager.md`：新增本验证报告。
 - `pyproject.toml`：新增 uv/Python 工程配置、依赖、ruff/mypy/pytest 配置。
 - `uv.lock`：新增 uv lockfile。
 - `src/cc_ttyd/`：新增后端实现。
@@ -77,7 +77,7 @@ Review status: Accepted
 - `tests/test_ports.py`
 - `tests/test_runtime.py`
 - `tests/test_services.py`
-- `docs/verification/20260608-backend-session-manager.md`
+- `docs/verification/20260608-fastapi-session-manager.md`
 
 ### Additional changed files
 

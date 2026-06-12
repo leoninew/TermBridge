@@ -112,7 +112,7 @@ C:\cygwin64\bin\bash.exe -lc 'cd "D:/Projects/TermBridge" && exec custom-agent r
 
 ## Affected components
 
-### Backend
+### fastapi
 
 - `src/cc_ttyd/models.py`
   - 新增终端配置模型、请求/响应模型、ttyd 配置模型。
@@ -130,20 +130,20 @@ C:\cygwin64\bin\bash.exe -lc 'cd "D:/Projects/TermBridge" && exec custom-agent r
 - `src/cc_ttyd/di.py`
   - 新增 TerminalService 依赖注入。
 
-### Frontend
+### web
 
-- `frontend/src/components/AppStatus.vue` 或顶层工具条组件
+- `web/src/components/AppStatus.vue` 或顶层工具条组件
   - 右上角新增「终端管理」入口。
 - 新增 `TerminalManagement` 组件
   - 展示系统终端、用户终端、隐藏/启用状态。
   - 支持用户终端新增、编辑、删除。
   - 支持 ttyd executable 配置。
-- `frontend/src/components/SessionCreateForm.vue`
+- `web/src/components/SessionCreateForm.vue`
   - 终端选择来源改为终端 API。
   - 继续支持临时自定义命令，但推荐保存为用户终端。
-- `frontend/src/api/sessions.ts` 或新增 API 模块
+- `web/src/api/sessions.ts` 或新增 API 模块
   - 增加终端管理和 ttyd 配置请求。
-- `frontend/src/types/sessions.ts` 或新增 types 文件
+- `web/src/types/sessions.ts` 或新增 types 文件
   - 增加终端相关类型。
 
 ## Interfaces

@@ -19,7 +19,7 @@ Review status: Accepted
 - [x] Stop 后 managed tmux window 被清理，entry 的 `tmux_window_id` 清空。
 - [x] Start stopped session 会复用已记录且存在的 managed tmux window；记录 window 缺失时会复用同名 window；都不存在时才创建新 window。
 - [x] Close all 保持 records 但清理 tmux windows 和 workspace tmux sessions。
-- [x] API/service/frontend/i18n 命名使用 start，不再暴露 restart 语义。
+- [x] API/service/web/i18n 命名使用 start，不再暴露 restart 语义。
 - [x] 前端 stopped action 使用 Play，running stop 使用 play-off。
 - [x] workspace 节点可直接触发“在此目录新建会话”，并复用现有创建能力。
 - [x] 启动会话耗时时有可见 loading 动画，并阻止重复启动点击。
@@ -30,8 +30,8 @@ Review status: Accepted
 - `python -m pytest tests/test_services.py tests/test_terminal_service.py`：通过，51 passed。
 - `python -m pytest`：通过，97 passed，1 个 FastAPI/TestClient 依赖 warning。
 - `python -m ruff check src tests`：通过。
-- `yarn --cwd frontend lint`：通过；追加 workspace 节点新建会话 icon、启动 loading 状态后重新执行仍通过。
-- `yarn --cwd frontend build`：通过；追加 workspace 节点新建会话 icon、启动 loading 状态后重新执行仍通过，仍有既有 `@vueuse/core` PURE annotation warning。
+- `yarn --cwd web lint`：通过；追加 workspace 节点新建会话 icon、启动 loading 状态后重新执行仍通过。
+- `yarn --cwd web build`：通过；追加 workspace 节点新建会话 icon、启动 loading 状态后重新执行仍通过，仍有既有 `@vueuse/core` PURE annotation warning。
 
 ## Remaining risk
 

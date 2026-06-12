@@ -17,7 +17,7 @@ Review status: Accepted
 - 已选 workspace 再次展开目录树时，会自动展开并定位到该目录。
 - 后端关键步骤日志已添加。
 - 后端自定义异常已提取到 `src/cc_ttyd/exceptions.py`，避免异常定义和业务逻辑混在一起。
-- `make backend` 已改为 uvicorn reload 启动，开发时后端热更新生效。
+- `make fastapi` 已改为 uvicorn reload 启动，开发时后端热更新生效。
 
 ## Acceptance
 
@@ -35,10 +35,10 @@ Review status: Accepted
 - `cd /d/Projects/TermBridge && uv run pytest`：28 passed, 1 warning（FastAPI/Starlette TestClient deprecation warning）
 - `cd /d/Projects/TermBridge && uv run ruff check .`：passed
 - `cd /d/Projects/TermBridge && uv run ruff format --check .`：passed，18 files already formatted
-- `cd /d/Projects/TermBridge/frontend && yarn lint`：passed
-- `cd /d/Projects/TermBridge/frontend && yarn format:check`：passed
-- `cd /d/Projects/TermBridge/frontend && yarn typecheck`：passed
-- `cd /d/Projects/TermBridge/frontend && yarn build`：passed；Rolldown 对 `node_modules/@vueuse/core` 的 `/* #__PURE__ */` 注释有 warning，不影响构建产物生成
+- `cd /d/Projects/TermBridge/web && yarn lint`：passed
+- `cd /d/Projects/TermBridge/web && yarn format:check`：passed
+- `cd /d/Projects/TermBridge/web && yarn typecheck`：passed
+- `cd /d/Projects/TermBridge/web && yarn build`：passed；Rolldown 对 `node_modules/@vueuse/core` 的 `/* #__PURE__ */` 注释有 warning，不影响构建产物生成
 
 ## Remaining risk
 

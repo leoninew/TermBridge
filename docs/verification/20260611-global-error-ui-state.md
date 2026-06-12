@@ -18,9 +18,9 @@ Review status: Accepted
 
 - [x] `src/termbridge/api.py` 注册全局 exception handlers。
 - [x] `src/termbridge/services.py` 将 `tmux` 命令超时转换为失败的 `CompletedProcess`，避免刷新检查击穿 API。
-- [x] `frontend/src/api/sessions.ts` 定义 `ApiError` 并只读取 `{ code, error }`。
-- [x] `frontend/src/stores/toast.ts` 与 `frontend/src/components/AppToast.vue` 支持 toast title 和主题色。
-- [x] `frontend/src/components/AppShell.vue` 将 session 操作失败改为 error toast，并保留会话列表状态。
+- [x] `web/src/api/sessions.ts` 定义 `ApiError` 并只读取 `{ code, error }`。
+- [x] `web/src/stores/toast.ts` 与 `web/src/components/AppToast.vue` 支持 toast title 和主题色。
+- [x] `web/src/components/AppShell.vue` 将 session 操作失败改为 error toast，并保留会话列表状态。
 
 ## Actual diff summary
 
@@ -40,16 +40,16 @@ Review status: Accepted
 - `src/termbridge/services.py`：已修改。
 - `tests/test_api.py`：已修改。
 - `tests/test_terminal_service.py`：已修改。
-- `frontend/src/api/sessions.ts`：已修改。
-- `frontend/src/stores/toast.ts`：已修改。
-- `frontend/src/components/AppToast.vue`：已修改。
-- `frontend/src/components/AppShell.vue`：已修改。
+- `web/src/api/sessions.ts`：已修改。
+- `web/src/stores/toast.ts`：已修改。
+- `web/src/components/AppToast.vue`：已修改。
+- `web/src/components/AppShell.vue`：已修改。
 
 额外相关文件：
 
 - `src/termbridge/middleware.py`：已修改，用于兜底返回结构化 500 响应。
-- `frontend/src/components/EnvironmentManagement.vue`：已修改 toast 调用以适配新 API。
-- `frontend/src/components/ShortcutManagement.vue`：已修改 toast 调用以适配新 API。
+- `web/src/components/EnvironmentManagement.vue`：已修改 toast 调用以适配新 API。
+- `web/src/components/ShortcutManagement.vue`：已修改 toast 调用以适配新 API。
 
 ## Acceptance criteria checklist
 
@@ -68,8 +68,8 @@ Review status: Accepted
 - `uv run pytest tests/test_api.py tests/test_terminal_service.py tests/test_services.py`：通过，61 passed，1 warning。
 - `uv run mypy src tests`：通过。
 - `uv run ruff check src tests`：通过。
-- `yarn --cwd frontend typecheck`：通过。
-- `yarn --cwd frontend lint`：通过。
+- `yarn --cwd web typecheck`：通过。
+- `yarn --cwd web lint`：通过。
 
 ## Warnings
 

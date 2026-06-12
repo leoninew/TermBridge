@@ -1,4 +1,4 @@
-# 后端 ttyd 会话管理需求 / Backend ttyd Session Manager Requirement
+# 后端 ttyd 会话管理需求 / fastapi ttyd Session Manager Requirement
 
 Review status: Accepted
 

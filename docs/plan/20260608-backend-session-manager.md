@@ -1,11 +1,11 @@
-# 后端 ttyd 会话管理计划 / Backend ttyd Session Manager Plan
+# 后端 ttyd 会话管理计划 / fastapi ttyd Session Manager Plan
 
 Review status: Accepted
 
 ## Requirement / Spec basis
 
-- Requirement: `docs/requirement/20260608-backend-session-manager.md`，状态 `Accepted`。
-- Spec: `docs/spec/20260608-backend-session-manager.md`，状态 `Accepted`。
+- Requirement: `docs/requirement/20260608-fastapi-session-manager.md`，状态 `Accepted`。
+- Spec: `docs/spec/20260608-fastapi-session-manager.md`，状态 `Accepted`。
 
 实施目标是在仓库根目录创建 Python + uv + FastAPI 后端工程，实现基于文件的 ttyd 会话管理。范围限定为后端 MVP，不实现前端、认证、HTTPS/反向代理、数据库/ORM、FastAPI WebSocket 终端转发。
 
@@ -171,12 +171,12 @@ Review status: Accepted
 - `tests/test_ports.py`
 - `tests/test_runtime.py`
 - `tests/test_services.py`
-- `docs/verification/20260608-backend-session-manager.md`（验证阶段创建）
+- `docs/verification/20260608-fastapi-session-manager.md`（验证阶段创建）
 
 预计更新：
 
-- `docs/plan/20260608-backend-session-manager.md`
-- 如实现发现 ttyd 参数不同，更新 `docs/spec/20260608-backend-session-manager.md` 或在 verification 中记录偏差。
+- `docs/plan/20260608-fastapi-session-manager.md`
+- 如实现发现 ttyd 参数不同，更新 `docs/spec/20260608-fastapi-session-manager.md` 或在 verification 中记录偏差。
 
 ## Verification plan
 

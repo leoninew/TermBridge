@@ -59,13 +59,13 @@ Review status: Accepted
   - 结果：3 files reformatted。
 - `uv run python -m ruff format --check src/termbridge/models.py src/termbridge/services.py src/termbridge/api.py tests/test_terminal_service.py tests/test_services.py tests/test_api.py`
   - 结果：6 files already formatted。
-- `yarn --cwd frontend typecheck`
+- `yarn --cwd web typecheck`
   - 结果：通过。
-- `yarn --cwd frontend lint`
+- `yarn --cwd web lint`
   - 结果：通过。
-- `yarn --cwd frontend prettier --check src/components/EnvironmentManagement.vue src/api/sessions.ts src/types/sessions.ts src/i18n/locales/zh-CN.json src/i18n/locales/en-US.json`
+- `yarn --cwd web prettier --check src/components/EnvironmentManagement.vue src/api/sessions.ts src/types/sessions.ts src/i18n/locales/zh-CN.json src/i18n/locales/en-US.json`
   - 结果：通过。
-- `yarn --cwd frontend build`
+- `yarn --cwd web build`
   - 结果：通过；构建输出第三方依赖 `@vueuse/core` 的 Rolldown pure annotation warning。
 
 ## Remaining risk

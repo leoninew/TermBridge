@@ -36,8 +36,8 @@ Stage: Verification
 
 ## Commands
 
-- `yarn --cwd frontend typecheck`：通过。
-- `yarn --cwd frontend lint`：通过。
+- `yarn --cwd web typecheck`：通过。
+- `yarn --cwd web lint`：通过。
 
 ## Remaining risk
 

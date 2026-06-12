@@ -33,7 +33,7 @@ TermBridge 已经把运行环境模型整理为三类 tmux-backed provider：Win
 2. 不要求本阶段支持选择具体 WSL distro；继续使用默认 WSL 环境。
 3. 不把 Linux 作为本阶段的特殊禁用对象；Linux 是否可用由其检测结果和 readiness 统一决定。
 4. 不要求支持 Windows 原生 terminal 的非 tmux 持久化。
-5. 不引入 `screen` 作为新的 session persistence backend。
+5. 不引入 `screen` 作为新的 session persistence fastapi。
 6. 不做旧 terminal state 或旧 host 值的向后兼容迁移。
 7. 不要求把 ttyd 本身移动到 WSL 内运行；本阶段优先考虑 Windows 进程中的 ttyd 调用 `wsl.exe` 启动运行命令。
 

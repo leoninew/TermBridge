@@ -56,21 +56,21 @@ Install dependencies:
 make install
 ```
 
-Start the backend API:
+Start the fastapi API:
 
 ```bash
-make backend
+make fastapi
 ```
 
-Start the frontend dev server in another terminal:
+Start the web dev server in another terminal:
 
 ```bash
-make frontend
+make web
 ```
 
-The backend runs on `127.0.0.1:9008` by default. The frontend runs on `127.0.0.1:9007` and proxies `/api` and `/health` to the backend.
+The fastapi runs on `127.0.0.1:9008` by default. The web runs on `127.0.0.1:9007` and proxies `/api` and `/health` to the fastapi.
 
-Open the frontend in your browser, go to the environment page, and run the checks for the runtime provider you want to use.
+Open the web in your browser, go to the environment page, and run the checks for the runtime provider you want to use.
 
 ## Installed usage
 
@@ -103,7 +103,7 @@ docker run --rm -p 9008:9008 termbridge:local
 ```
 
 
-The container serves the built frontend from the backend. Runtime tools such as `ttyd`, `tmux`, Cygwin, WSL, or Linux shell environments still need to be available and correctly configured for terminal sessions to work.
+The container serves the built web from the fastapi. Runtime tools such as `ttyd`, `tmux`, Cygwin, WSL, or Linux shell environments still need to be available and correctly configured for terminal sessions to work.
 
 Do not publish this container on an untrusted network without adding authentication, HTTPS, and isolation appropriate for your deployment.
 

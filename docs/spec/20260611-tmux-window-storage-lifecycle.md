@@ -101,7 +101,7 @@ Review status: Accepted
 - `POST /api/sessions/close-all`
 - `GET /api/session-tree`
 
-### 6. Frontend interaction
+### 6. web interaction
 
 - 左侧树继续展示 environment、workspace、session 三级。
 - workspace 节点 hover/focus 时右侧展示删除 icon。
@@ -117,10 +117,10 @@ Review status: Accepted
 - `src/termbridge/services.py`：tmux lifecycle 与 workspace 删除。
 - `src/termbridge/repositories.py`：sessions schema 读写。
 - `src/termbridge/api.py`：workspace 删除 endpoint。
-- `frontend/src/api/sessions.ts`：workspace 删除 wrapper。
-- `frontend/src/components/SessionList.vue`：workspace 删除 icon、显式 create context。
-- `frontend/src/components/AppShell.vue`：workspace 删除 handler 与 tab 清理。
-- `frontend/src/i18n/locales/*.json`：目录删除文案。
+- `web/src/api/sessions.ts`：workspace 删除 wrapper。
+- `web/src/components/SessionList.vue`：workspace 删除 icon、显式 create context。
+- `web/src/components/AppShell.vue`：workspace 删除 handler 与 tab 清理。
+- `web/src/i18n/locales/*.json`：目录删除文案。
 - `tests/*`：service、repository、API、terminal command 覆盖。
 
 ## Technical questions

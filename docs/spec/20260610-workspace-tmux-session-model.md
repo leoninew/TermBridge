@@ -176,7 +176,7 @@ Environment
 
 ## Affected components
 
-### Backend
+### fastapi
 
 - `src/termbridge/models.py`
   - 需要表达 workspace、session entry、tmux session/window 相关持久元数据。
@@ -196,20 +196,20 @@ Environment
 - `tests/test_terminal_service.py`
   - 覆盖 Cygwin/WSL/Linux 三类 host 的 workspace tmux session 与 window command 生成。
 
-### Frontend
+### web
 
-- `frontend/src/types/sessions.ts`
+- `web/src/types/sessions.ts`
   - 类型需要表达环境、workspace、entry 的树型关系，或至少支持由 flat API result 组装树。
-- `frontend/src/api/sessions.ts`
+- `web/src/api/sessions.ts`
   - 需要同步更新 list/create/restart/delete payload 和 response 类型。
-- `frontend/src/components/SessionList.vue`
+- `web/src/components/SessionList.vue`
   - 从 flat list 改为 environment -> workspace -> entry 树型导航。
   - 支持展开/收起、选中状态、搜索过滤和状态聚合。
-- `frontend/src/components/SessionCard.vue`
+- `web/src/components/SessionCard.vue`
   - 可能被 entry row/tree item 替代，或缩小为第三级节点内容。
-- `frontend/src/components/SessionCreateForm.vue`
+- `web/src/components/SessionCreateForm.vue`
   - 创建语义从“创建顶层 session”变为“选择环境 + 目录工作区 + 快捷方式，在工作区下创建 entry”。
-- `frontend/src/components/SessionTerminal.vue`
+- `web/src/components/SessionTerminal.vue`
   - 需要展示 entry 连接状态，并区分 reconnect/restart 操作。
 - locale files
   - 增加 workspace、entry、reconnect、stop entry、delete workspace 等文案。

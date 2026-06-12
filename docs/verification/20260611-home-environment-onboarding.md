@@ -23,11 +23,11 @@ Review status: Accepted
 
 ## Commands
 
-- `yarn --cwd frontend build`：通过。Vite/Rolldown 对 `@vueuse/core` 的 PURE annotation 输出 warning，但构建成功。
-- `yarn --cwd frontend lint`：通过。
-- `yarn --cwd frontend dev --host 127.0.0.1`：启动成功，端口自动落到 9009。
+- `yarn --cwd web build`：通过。Vite/Rolldown 对 `@vueuse/core` 的 PURE annotation 输出 warning，但构建成功。
+- `yarn --cwd web lint`：通过。
+- `yarn --cwd web dev --host 127.0.0.1`：启动成功，端口自动落到 9009。
 - 通过 HTTP 检查 `/`、`/session`、`/environment?tab=windows_wsl`、`/help` 均返回前端 shell。
-- 调整帮助入口后重新运行 `yarn --cwd frontend build` 和 `yarn --cwd frontend lint`：通过。
+- 调整帮助入口后重新运行 `yarn --cwd web build` 和 `yarn --cwd web lint`：通过。
 
 ## Remaining risk
 

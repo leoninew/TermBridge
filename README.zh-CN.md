@@ -59,13 +59,13 @@ make install
 启动后端 API：
 
 ```bash
-make backend
+make fastapi
 ```
 
 在另一个终端启动前端开发服务器：
 
 ```bash
-make frontend
+make web
 ```
 
 后端默认运行在 `127.0.0.1:9008`。前端运行在 `127.0.0.1:9007`，并将 `/api` 和 `/health` 代理到后端。

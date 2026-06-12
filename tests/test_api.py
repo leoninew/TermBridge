@@ -226,15 +226,15 @@ def test_health() -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_frontend_static_routes(tmp_path: Path) -> None:
-    frontend_dir = tmp_path / "frontend"
-    assets_dir = frontend_dir / "assets"
+def test_web_static_routes(tmp_path: Path) -> None:
+    web_dir = tmp_path / "web"
+    assets_dir = web_dir / "assets"
     assets_dir.mkdir(parents=True)
-    index_file = frontend_dir / "index.html"
+    index_file = web_dir / "index.html"
     index_file.write_text("<html><body>TermBridge</body></html>", encoding="utf-8")
     asset_file = assets_dir / "app.js"
     asset_file.write_text("console.log('termbridge')", encoding="utf-8")
-    client = TestClient(create_app(frontend_dir=frontend_dir))
+    client = TestClient(create_app(web_dir=web_dir))
 
     root = client.get("/")
     environment = client.get("/environment")
@@ -361,7 +361,7 @@ def test_terminal_http_proxy_adds_basic_auth_header() -> None:
         captured["authorization"] = request.headers.get("authorization")
         return httpx.Response(200, content=b"terminal", headers={"content-type": "text/plain", "transfer-encoding": "chunked"})
 
-    app = create_app(serve_frontend=False)
+    app = create_app(serve_web=False)
     app.dependency_overrides[get_session_service] = lambda: FakeSessionService()
     app.router.on_startup.clear()
     client = TestClient(app)

@@ -33,8 +33,8 @@ Review status: Accepted
 
 - `python -m pytest tests/test_terminal_service.py::test_terminal_service_creates_wsl_tmux_window_from_wsl_cd_workspace tests/test_services.py tests/test_session_repository.py tests/test_api.py`：通过，29 passed，1 个 FastAPI/TestClient 依赖 warning。
 - 切换为不兼容旧 schema 后执行 `python -m pytest tests/test_session_repository.py tests/test_repositories.py`：通过，10 passed。
-- `yarn --cwd frontend lint`：通过；空目录树空态和目录删除确认调整后均重新执行通过。
-- `yarn --cwd frontend build`：通过；空目录树空态和目录删除确认调整后均重新执行通过，仍仅有既有 `@vueuse/core` PURE annotation warning。
+- `yarn --cwd web lint`：通过；空目录树空态和目录删除确认调整后均重新执行通过。
+- `yarn --cwd web build`：通过；空目录树空态和目录删除确认调整后均重新执行通过，仍仅有既有 `@vueuse/core` PURE annotation warning。
 - 切换为不兼容旧 schema 后重新执行 `python -m pytest`：通过，95 passed，1 个 FastAPI/TestClient 依赖 warning。
 - `python -m ruff check src tests`：通过。
 - `python -m mypy src`：未执行成功，当前 Python 环境未安装 `mypy`。

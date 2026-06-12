@@ -39,7 +39,7 @@ Review status: Accepted
 - `src/termbridge/models.py`
 - `src/termbridge/services.py`
 - `src/termbridge/api.py`
-- `frontend/vite.config.ts`
+- `web/vite.config.ts`
 - `.env.sample`
 - `pyproject.toml`
 - `uv.lock`
@@ -58,7 +58,7 @@ Review status: Accepted
 - `.env.sample`：新增 ttyd interface 与 Basic credential 配置示例。
 - `README.md` / `README.zh-CN.md`：更新安全提示，说明 ttyd 本地绑定与 Basic Auth 是本地加固，不是公网部署安全边界。
 - `pyproject.toml` / `uv.lock`：新增 runtime dependencies `httpx` 和 `websockets`。
-- `frontend/vite.config.ts`：新增 `/terminal` dev proxy，启用 WebSocket。
+- `web/vite.config.ts`：新增 `/terminal` dev proxy，启用 WebSocket。
 - `src/termbridge/settings.py`：新增 `ttyd_interface`、`ttyd_credential_mode`、`ttyd_credential_username`、`ttyd_credential_password`。
 - `src/termbridge/models.py`：新增 `TtydCredential`；`SessionEntryRecord` 新增 `ttyd_credential`。
 - `src/termbridge/services.py`：实现 credential 解析、随机密码生成、ttyd 命令加固、terminal proxy URL 与 proxy target。
@@ -76,7 +76,7 @@ Review status: Accepted
 | `src/termbridge/models.py` | 是 | 是 | 新增 credential 模型与字段。 |
 | `src/termbridge/services.py` | 是 | 是 | 命令构造、credential、proxy URL/target。 |
 | `src/termbridge/api.py` | 是 | 是 | HTTP/WebSocket proxy、Basic Authorization、`tty` subprotocol。 |
-| `frontend/vite.config.ts` | 是 | 是 | `/terminal` dev proxy。 |
+| `web/vite.config.ts` | 是 | 是 | `/terminal` dev proxy。 |
 | `.env.sample` | 是 | 是 | 新增配置说明。 |
 | `pyproject.toml` / `uv.lock` | 是 | 是 | 新增 runtime dependencies。 |
 | `tests/test_services.py` | 是 | 是 | 增加服务行为测试。 |
@@ -84,8 +84,8 @@ Review status: Accepted
 | `tests/test_settings.py` | 是 | 是 | 增加默认配置测试。 |
 | `README.md` / `README.zh-CN.md` | 可能 | 是 | 同步安全边界说明。 |
 | `docs/guides/fastapi-ttyd-websocket-proxy.md` | 后续新增 | 是 | 沉淀实践经验。 |
-| `frontend/src/components/AppShell.vue` | 否 | 是 | 调整 `RouterView` / `Transition` 嵌套，属于本次 diff 的额外前端结构变更。 |
-| `frontend/src/components/SessionTerminal.vue` | 否 | 是 | 移除 iframe `sandbox` 属性，属于本次 diff 的额外 iframe 行为变更。 |
+| `web/src/components/AppShell.vue` | 否 | 是 | 调整 `RouterView` / `Transition` 嵌套，属于本次 diff 的额外前端结构变更。 |
+| `web/src/components/SessionTerminal.vue` | 否 | 是 | 移除 iframe `sandbox` 属性，属于本次 diff 的额外 iframe 行为变更。 |
 
 ## 验收标准检查清单
 
@@ -125,7 +125,7 @@ uv run ruff check .
 结果：`All checks passed!`。
 
 ```powershell
-yarn --cwd frontend typecheck
+yarn --cwd web typecheck
 ```
 
 结果：`Done`。
@@ -196,8 +196,8 @@ Subagent review passes 在 proxy pivot 前运行过：
 - 扩展范围：`httpx` 和 `websockets` 成为 runtime dependencies。
 - 扩展范围：WebSocket proxy 需要转发 ttyd 前端要求的 `tty` subprotocol。
 - 扩展范围：新增 `docs/guides/fastapi-ttyd-websocket-proxy.md`，记录本次排查和实践。
-- 偏离原计划：`frontend/src/components/AppShell.vue` 调整了 `RouterView` / `Transition` 嵌套。
-- 偏离原计划：`frontend/src/components/SessionTerminal.vue` 移除了 iframe `sandbox` 属性。
+- 偏离原计划：`web/src/components/AppShell.vue` 调整了 `RouterView` / `Transition` 嵌套。
+- 偏离原计划：`web/src/components/SessionTerminal.vue` 移除了 iframe `sandbox` 属性。
 - Vite dev proxy 已更新。
 
 ## 剩余风险

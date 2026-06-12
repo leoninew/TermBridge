@@ -77,15 +77,15 @@ Review status: Accepted
 
 ## Implementation steps
 
-### Step 1: Extend backend models
+### Step 1: Extend fastapi models
 
 Files:
 
 - `src/termbridge/models.py`
-- `frontend/src/types/sessions.ts`（后续同步）
+- `web/src/types/sessions.ts`（后续同步）
 - Tests: `tests/test_services.py`
 
-Backend model direction:
+fastapi model direction:
 
 - 增加 workspace response / entry response 类型：
   - workspace: id、host、path、display name、tmux session name、status、entries。
@@ -187,7 +187,7 @@ Test scenarios:
 4. Stop entry keeps record and kills only window。
 5. Delete last entry kills workspace tmux session。
 6. Delete one of multiple entries does not kill workspace tmux session。
-7. Backend restart simulated by missing process adapter state: click/select reconnects if window exists。
+7. fastapi restart simulated by missing process adapter state: click/select reconnects if window exists。
 8. Missing window yields stopped state until restart。
 9. Missing workspace session recreates on restart。
 
@@ -196,7 +196,7 @@ Test scenarios:
 Files:
 
 - `src/termbridge/api.py`
-- `frontend/src/api/sessions.ts`
+- `web/src/api/sessions.ts`
 - Tests: existing API tests if present; otherwise add service-level coverage and keep API thin.
 
 API direction:
@@ -206,7 +206,7 @@ API direction:
   - environments
   - workspaces
   - entries
-- Preserve create/restart/delete endpoints as entry-level operations where possible to limit frontend churn。
+- Preserve create/restart/delete endpoints as entry-level operations where possible to limit web churn。
 - Add stop entry endpoint if current delete/restart semantics are insufficient:
   - `POST /api/sessions/{entry_id}/stop`
 - Reconnect can be implemented as select/get/restart behavior depending on endpoint design, but must not restart shortcut command when window exists。
@@ -219,17 +219,17 @@ Test scenarios:
 4. Delete endpoint removes entry and cleans window。
 5. Restart endpoint recreates missing window。
 
-### Step 5: Build frontend tree navigation
+### Step 5: Build web tree navigation
 
 Files:
 
-- `frontend/src/components/SessionList.vue`
-- `frontend/src/components/SessionCard.vue` or replacement entry component
-- `frontend/src/App.vue`
-- `frontend/src/types/sessions.ts`
-- `frontend/src/api/sessions.ts`
-- `frontend/src/i18n/locales/zh-CN.json`
-- `frontend/src/i18n/locales/en-US.json`
+- `web/src/components/SessionList.vue`
+- `web/src/components/SessionCard.vue` or replacement entry component
+- `web/src/App.vue`
+- `web/src/types/sessions.ts`
+- `web/src/api/sessions.ts`
+- `web/src/i18n/locales/zh-CN.json`
+- `web/src/i18n/locales/en-US.json`
 
 Implementation direction:
 
@@ -238,7 +238,7 @@ Implementation direction:
   1. environment label。
   2. workspace directory display name/path。
   3. entry display name + shortcut/status/actions。
-- Keep selected entry behavior: clicking entry shows terminal/attaches/reconnects according to backend state。
+- Keep selected entry behavior: clicking entry shows terminal/attaches/reconnects according to fastapi state。
 - Add search input above tree; filter by environment, workspace path/name, entry name, shortcut name。
 - Preserve existing create button, settings menu, collapsed sidebar behavior。
 - Do not show tmux window id/current window name。
@@ -257,8 +257,8 @@ Test/manual scenarios:
 
 Files:
 
-- `frontend/src/components/SessionTerminal.vue`
-- `frontend/src/App.vue`
+- `web/src/components/SessionTerminal.vue`
+- `web/src/App.vue`
 - i18n locale files
 
 Implementation direction:
@@ -273,7 +273,7 @@ Test/manual scenarios:
 
 1. Running entry renders iframe。
 2. Stopped entry renders restart CTA。
-3. Connection-lost entry renders reconnect CTA if backend exposes that state。
+3. Connection-lost entry renders reconnect CTA if fastapi exposes that state。
 4. Delete copy does not imply killing the entire workspace unless it is last entry/workspace delete。
 
 ### Step 7: Documentation cleanup
@@ -291,37 +291,37 @@ Implementation direction:
 
 ## Verification plan
 
-Backend commands:
+fastapi commands:
 
 - `python -m pytest tests/test_terminal_service.py tests/test_services.py -q`
 - `python -m pytest -q`
 - `python -m ruff check src tests`
 - `python -m mypy src`
 
-Frontend commands:
+web commands:
 
-- `yarn --cwd frontend typecheck`
-- `yarn --cwd frontend lint`
-- `yarn --cwd frontend format:check`
-- `yarn --cwd frontend build`
+- `yarn --cwd web typecheck`
+- `yarn --cwd web lint`
+- `yarn --cwd web format:check`
+- `yarn --cwd web build`
 
 Manual UI verification:
 
-1. Start dev server or packaged frontend according to current project workflow。
+1. Start dev server or packaged web according to current project workflow。
 2. Create entries in same environment + same directory with different shortcuts; verify tree grouping。
 3. Create same display name in different directories; verify separate workspace nodes and no cross attach。
 4. Stop an entry; verify record remains and tmux window is removed。
 5. Restart stopped entry; verify new window is created and terminal opens。
 6. Delete one entry in multi-entry workspace; verify workspace remains。
 7. Delete last entry; verify workspace session cleanup behavior。
-8. Restart backend; click existing entry; verify lazy recovery/reconnect behavior。
+8. Restart fastapi; click existing entry; verify lazy recovery/reconnect behavior。
 9. Search by path fragment, environment, shortcut, entry name。
 
 ## Rollback plan
 
 - Since state model changes are significant, keep implementation in small commits or reviewable patches。
-- If workspace model breaks create/list, revert backend model/API changes together with frontend type changes。
-- If tree UI proves unstable, temporarily render tree response as grouped sections without Reka Tree while preserving backend workspace semantics。
+- If workspace model breaks create/list, revert fastapi model/API changes together with web type changes。
+- If tree UI proves unstable, temporarily render tree response as grouped sections without Reka Tree while preserving fastapi workspace semantics。
 - Keep old flat record read compatibility until the new model has been verified against existing local `.termbridge` state。
 
 ## Risks
@@ -329,7 +329,7 @@ Manual UI verification:
 1. tmux command quoting and window-id capture may differ across Cygwin/WSL/Linux。
 2. Old flat session data may not contain enough tmux window information; treat as stopped/unknown rather than guessing。
 3. Status naming may need more nuance than current `starting/running/stopped/failed`。
-4. Frontend tree migration can become large; avoid redesigning unrelated layout。
+4. web tree migration can become large; avoid redesigning unrelated layout。
 5. Lazy recovery means list status can be stale until user clicks an entry。
 6. File repository migration must avoid corrupting existing `sessions.json`。
 

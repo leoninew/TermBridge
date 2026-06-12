@@ -243,7 +243,7 @@ Authorization: Basic <base64(username:password)>
   - 新增 terminal HTTP/WebSocket proxy routes。
   - HTTP 和 WebSocket upstream 请求注入 Basic Authorization header。
   - WebSocket proxy 转发 `tty` subprotocol。
-- `frontend/vite.config.ts`
+- `web/vite.config.ts`
   - 新增 `/terminal` dev proxy，启用 WebSocket。
 - `pyproject.toml` / `uv.lock`
   - 新增 runtime dependencies：`httpx` 和 `websockets`。

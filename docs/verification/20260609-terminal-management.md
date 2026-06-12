@@ -53,13 +53,13 @@ Review status: Accepted
   - 结果：All checks passed。
 - `cd /d/Projects/TermBridge && uv run ruff format --check .`
   - 结果：19 files already formatted。
-- `cd /d/Projects/TermBridge/frontend && yarn lint`
+- `cd /d/Projects/TermBridge/web && yarn lint`
   - 结果：通过。
-- `cd /d/Projects/TermBridge/frontend && yarn format:check`
+- `cd /d/Projects/TermBridge/web && yarn format:check`
   - 结果：All matched files use Prettier code style。
-- `cd /d/Projects/TermBridge/frontend && yarn typecheck`
+- `cd /d/Projects/TermBridge/web && yarn typecheck`
   - 结果：通过。
-- `cd /d/Projects/TermBridge/frontend && yarn build`
+- `cd /d/Projects/TermBridge/web && yarn build`
   - 结果：构建通过；Vite/Rolldown 对 `node_modules/@vueuse/core` 的 `/* #__PURE__ */` 注释给出 warning，不影响构建。
 
 ## Missed or expanded scope

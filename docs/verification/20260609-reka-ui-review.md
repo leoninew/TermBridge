@@ -6,19 +6,19 @@ Review status: Accepted
 
 ## What changed
 
-- `frontend/src/App.vue`
+- `web/src/App.vue`
   - 增加左侧会话导航折叠/收起状态。
   - 展开时保持会话管理 + 终端左右结构。
   - 收起时左侧变为 48px 轻量 rail，只保留底部展开按钮，不再显示带边框的空卡片。
   - 增加 grid 宽度过渡和 panel/rail 进出过渡动画。
   - 会话管理卡片垂直撑满可用高度，内部列表可滚动，「收起」按钮位于卡片内部底部右下角。
   - 删除会话从 `window.confirm` 改为 Reka `AlertDialog`。
-- `frontend/src/components/AppStatus.vue`
+- `web/src/components/AppStatus.vue`
   - 顶部入口改为 Reka `NavigationMenu`。
   - 明确「会话」「终端管理」两个导航项。
   - 根据 `currentPath` 标记 active 状态。
   - 产品标题不再作为隐式 Home 按钮。
-- `frontend/src/components/TerminalManagement.vue`
+- `web/src/components/TerminalManagement.vue`
   - ttyd 启动器配置改为 Reka `Dialog`。
   - 新建/编辑自定义终端改为 Reka `Dialog`。
   - 删除自定义终端确认改为 Reka `AlertDialog`。
@@ -38,13 +38,13 @@ Review status: Accepted
 
 ## Commands
 
-- `cd /d/Projects/TermBridge/frontend && yarn lint`
+- `cd /d/Projects/TermBridge/web && yarn lint`
   - 结果：通过。
-- `cd /d/Projects/TermBridge/frontend && yarn format:check`
+- `cd /d/Projects/TermBridge/web && yarn format:check`
   - 结果：All matched files use Prettier code style。
-- `cd /d/Projects/TermBridge/frontend && yarn typecheck`
+- `cd /d/Projects/TermBridge/web && yarn typecheck`
   - 结果：通过。
-- `cd /d/Projects/TermBridge/frontend && yarn build`
+- `cd /d/Projects/TermBridge/web && yarn build`
   - 结果：构建通过；Vite/Rolldown 对 `node_modules/@vueuse/core` 的 `/* #__PURE__ */` 注释给出 warning，不影响构建。
 - `visual-regression-tool run C:/Users/<user>/AppData/Local/Temp/termbridge-sidebar.yaml --headless -o C:/Users/<user>/AppData/Local/Temp/termbridge-sidebar-rail -v`
   - 结果：通过，已截图检查左栏展开和收起状态；收起状态为 48px 轻量 rail，仅保留底部展开按钮，无空边框卡片。

@@ -13,7 +13,7 @@ Review status: Accepted
 当前 session 生命周期是：
 
 ```text
-frontend session -> backend SessionRecord -> ttyd process -> child terminal process
+web session -> fastapi SessionRecord -> ttyd process -> child terminal process
 ```
 
 问题在于 ttyd 1.7.7 不提供 reconnect/resume 参数，刷新 iframe 后 child terminal 会重建。
@@ -21,7 +21,7 @@ frontend session -> backend SessionRecord -> ttyd process -> child terminal proc
 新方案将启用 persistence 的 Cygwin 终端改为：
 
 ```text
-frontend session -> backend SessionRecord -> ttyd process -> cygwin bash -lc -> tmux new-session -A -s <session_id> <terminal command>
+web session -> fastapi SessionRecord -> ttyd process -> cygwin bash -lc -> tmux new-session -A -s <session_id> <terminal command>
 ```
 
 这样刷新后 ttyd 即使重新启动 child command，也只是重新 attach 到同一个 tmux session。
@@ -150,8 +150,8 @@ tmux_bash_path: str | None = None
 
 需要同步类型：
 
-- `frontend/src/types/sessions.ts`
-- `frontend/src/api/sessions.ts` 只要复用 payload 类型，无需新增 API。
+- `web/src/types/sessions.ts`
+- `web/src/api/sessions.ts` 只要复用 payload 类型，无需新增 API。
 
 ### 8. i18n
 
@@ -159,7 +159,7 @@ tmux_bash_path: str | None = None
 
 ## Affected components
 
-### Backend
+### fastapi
 
 - `src/cc_ttyd/models.py`
   - 增加 persistence 字段。
@@ -181,11 +181,11 @@ tmux_bash_path: str | None = None
 - `tests/test_services.py`
   - 覆盖 session_id 传递和删除清理。
 
-### Frontend
+### web
 
-- `frontend/src/types/sessions.ts`
+- `web/src/types/sessions.ts`
   - 增加 `session_persistence` 字段。
-- `frontend/src/components/TerminalManagement.vue`
+- `web/src/components/TerminalManagement.vue`
   - form 增加字段。
   - 新建/编辑时读写字段。
   - Cygwin 模式显示配置项。

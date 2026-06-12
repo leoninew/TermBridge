@@ -42,7 +42,7 @@ Review status: Accepted
 - 现有 session 列表、选择、删除、iframe 打开终端能力保持可用。
 - 后端关键步骤日志覆盖 session 创建、workspace 校验、终端命令解析、端口分配、ttyd 启动、删除和状态刷新。
 - 后端自定义异常集中到独立异常模块；模型仍集中在模型模块，避免和业务逻辑混在一起。
-- `make backend` 开启后端热更新，便于开发时加载新增 API。
+- `make fastapi` 开启后端热更新，便于开发时加载新增 API。
 
 ## Decisions
 

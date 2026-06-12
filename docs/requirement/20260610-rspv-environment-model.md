@@ -54,7 +54,7 @@ Review status: Accepted
 3. 不要求支持 Windows 原生 terminal 的 tmux/screen 持久化；Windows 本身不是独立环境形态。
 4. 不要求本阶段管理 WSL distro 选择、安装或 distro-specific 配置。
 5. 不要求本阶段完整实现 Linux 宿主支持；当前 Windows 宿主只需明确展示 Linux 不可用。
-6. 不要求本阶段把 `screen` 纳入可配置 session persistence backend。
+6. 不要求本阶段把 `screen` 纳入可配置 session persistence fastapi。
 7. 不做旧 `ShortcutHost`、旧环境 API 或历史 terminal state 的向后兼容与迁移。
 8. 不改变现有 session 创建、删除、restart 的用户语义。
 
@@ -108,8 +108,8 @@ Review status: Accepted
 
 ## Open questions
 
-1. `screen` 是否应和 `tmux` 一样成为可选 session persistence backend？
-   - 待决策：`screen` 理论上可以成为类似 tmux 的 host/session persistence 方案，但如果本阶段引入，会把模型扩展为“环境形态 × persistence backend”。
+1. `screen` 是否应和 `tmux` 一样成为可选 session persistence fastapi？
+   - 待决策：`screen` 理论上可以成为类似 tmux 的 host/session persistence 方案，但如果本阶段引入，会把模型扩展为“环境形态 × persistence fastapi”。
 2. ttyd 自动检测范围：
    - 已决策：系统先自动检测 PATH 中的 `ttyd`；检测失败或用户需要覆盖时，允许用户手动指定路径并持久化，后续优先使用该路径。
 

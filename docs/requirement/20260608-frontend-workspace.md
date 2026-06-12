@@ -1,4 +1,4 @@
-# 前端工作台需求 / Frontend Workspace Requirement
+# 前端工作台需求 / web Workspace Requirement
 
 Review status: Accepted
 
@@ -60,7 +60,7 @@ README 中推荐前端技术栈为 Vue 3、TypeScript、Vite，并定位为轻�
 
 ## Open questions
 
-- 前端目录应放在仓库根目录的 `frontend/`，还是复用现有 `wetty/` 或其他目录？
+- 前端目录应放在仓库根目录的 `web/`，还是复用现有 `wetty/` 或其他目录？
 - 是否必须在本阶段引入 Pinia 和 vue-router，还是 MVP 使用单页面组件状态即可？
 - 终端组件是通过 iframe 嵌入 ttyd，还是通过 xterm.js + WebSocket 对接后端/ttyd？
 - 若使用 iframe，是否接受 ttyd 页面作为内嵌终端的第一版实现？
