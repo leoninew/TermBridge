@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - pypi
+  push:
+    branches:
+      - pypi
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --locked --dev
+
+      - name: Run Ruff
+        run: uv run ruff check .
+
+      - name: Run mypy
+        run: uv run mypy src tests
+
+      - name: Run tests
+        run: uv run pytest
+
+  web:
+    name: Web checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+
+      - name: Install dependencies
+        run: yarn --cwd web install --frozen-lockfile
+
+      - name: Run ESLint
+        run: yarn --cwd web lint
+
+      - name: Run typecheck
+        run: yarn --cwd web typecheck
+
+      - name: Build web assets
+        run: yarn --cwd web build
+
+  package:
+    name: Package build
+    runs-on: ubuntu-latest
+    needs:
+      - python
+      - web
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+
+      - name: Install Python dependencies
+        run: uv sync --locked --dev
+
+      - name: Install web dependencies
+        run: yarn --cwd web install --frozen-lockfile
+
+      - name: Build distributions
+        run: make build
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/

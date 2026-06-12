@@ -1,0 +1,52 @@
+name: Publish Python package
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+
+      - name: Install Python dependencies
+        run: uv sync --locked --dev
+
+      - name: Install web dependencies
+        run: yarn --cwd web install --frozen-lockfile
+
+      - name: Build distributions
+        run: make build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
