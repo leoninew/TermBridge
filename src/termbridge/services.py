@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any, cast
 from uuid import uuid4
 
 from termbridge.exceptions import (
@@ -132,7 +133,8 @@ class WorkspaceBrowserService:
         if os.name != "nt":
             return False
         try:
-            attributes = ctypes.windll.kernel32.GetFileAttributesW(str(path))
+            kernel32 = cast(Any, ctypes).windll.kernel32
+            attributes = kernel32.GetFileAttributesW(str(path))
         except OSError:
             return False
         return attributes != -1 and bool(attributes & 0x2)

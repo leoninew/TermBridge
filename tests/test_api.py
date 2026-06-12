@@ -1,6 +1,7 @@
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -370,18 +371,18 @@ def test_terminal_http_proxy_adds_basic_auth_header() -> None:
     app.router.on_startup.clear()
     client = TestClient(app)
     transport = httpx.MockTransport(handler)
-    original_client = httpx.AsyncClient
 
     class MockAsyncClient(httpx.AsyncClient):
-        def __init__(self, *args: object, **kwargs: object) -> None:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             kwargs["transport"] = transport
             super().__init__(*args, **kwargs)
 
-    httpx.AsyncClient = MockAsyncClient
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
     try:
         response = client.get("/terminal/sess_1/token?x=1")
     finally:
-        httpx.AsyncClient = original_client
+        monkeypatch.undo()
 
     assert response.status_code == 200
     assert response.text == "terminal"

@@ -10,6 +10,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Query, Request, Response,
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from websockets.typing import Origin, Subprotocol
 
 from termbridge.di import SessionServiceDep, TerminalServiceDep, WorkspaceBrowserServiceDep
 from termbridge.exceptions import (
@@ -427,13 +428,13 @@ async def proxy_terminal_websocket(session_id: str, websocket: WebSocket, servic
         for item in websocket.headers.get("sec-websocket-protocol", "").split(",")
         if item.strip()
     ]
-    subprotocol = "tty" if "tty" in requested_subprotocols else None
+    subprotocol = Subprotocol("tty") if "tty" in requested_subprotocols else None
     accepted = False
     try:
         async with websockets.connect(
             target_url,
             additional_headers=_target_headers(target.credential),
-            origin=target.base_url,
+            origin=Origin(target.base_url),
             subprotocols=[subprotocol] if subprotocol else None,
             proxy=None,
         ) as upstream:
