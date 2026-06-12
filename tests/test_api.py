@@ -1,8 +1,12 @@
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+import pytest
+import websockets
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from termbridge.api import create_app
 from termbridge.di import get_session_service, get_terminal_service
@@ -387,6 +391,57 @@ def test_terminal_http_proxy_adds_basic_auth_header() -> None:
         "url": "http://127.0.0.1:19001/token?x=1",
         "authorization": "Basic dGVybWJyaWRnZTpzZWNyZXQ=",
     }
+
+
+def test_terminal_websocket_upstream_close_is_not_logged_as_proxy_failure(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    class ClosingUpstream:
+        close_code: int | None = None
+        close_reason: str | None = None
+
+        async def __aenter__(self) -> "ClosingUpstream":
+            return self
+
+        async def __aexit__(self, exc_type: object, exc: object, traceback: object) -> None:
+            return None
+
+        def __aiter__(self) -> "ClosingUpstream":
+            return self
+
+        async def __anext__(self) -> str:
+            raise websockets.ConnectionClosedError(None, None)
+
+        async def send(self, message: str | bytes) -> None:
+            return None
+
+        async def close(self) -> None:
+            return None
+
+    app = create_app(serve_web=False)
+    app.dependency_overrides[get_session_service] = lambda: FakeSessionService()
+    app.router.on_startup.clear()
+    client = TestClient(app)
+    monkeypatch.setattr(websockets, "connect", lambda *args, **kwargs: ClosingUpstream())
+    records: list[logging.LogRecord] = []
+
+    class ListHandler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    api_logger = logging.getLogger("termbridge.api")
+    handler = ListHandler()
+    api_logger.addHandler(handler)
+    try:
+        with caplog.at_level(logging.INFO, logger="termbridge.api"):
+            with client.websocket_connect("/terminal/sess_1/ws", subprotocols=["tty"]) as websocket:
+                with pytest.raises(WebSocketDisconnect):
+                    websocket.receive_text()
+    finally:
+        api_logger.removeHandler(handler)
+
+    assert not any("Terminal websocket proxy failed" in record.getMessage() for record in records)
+    assert any("Terminal websocket upstream disconnected" in record.getMessage() for record in records)
 
 
 def test_environment_api_routes() -> None:

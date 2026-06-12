@@ -483,24 +483,37 @@ async def proxy_terminal_websocket(session_id: str, websocket: WebSocket, servic
 
             async def upstream_to_client() -> None:
                 nonlocal upstream_message_count
-                async for message in upstream:
-                    upstream_message_count += 1
-                    if isinstance(message, bytes):
-                        logger.debug(
-                            "Terminal websocket upstream bytes session_id=%s length=%s count=%s",
-                            session_id,
-                            len(message),
-                            upstream_message_count,
-                        )
-                        await websocket.send_bytes(message)
-                    else:
-                        logger.debug(
-                            "Terminal websocket upstream text session_id=%s length=%s count=%s",
-                            session_id,
-                            len(message),
-                            upstream_message_count,
-                        )
-                        await websocket.send_text(message)
+                try:
+                    async for message in upstream:
+                        upstream_message_count += 1
+                        if isinstance(message, bytes):
+                            logger.debug(
+                                "Terminal websocket upstream bytes session_id=%s length=%s count=%s",
+                                session_id,
+                                len(message),
+                                upstream_message_count,
+                            )
+                            await websocket.send_bytes(message)
+                        else:
+                            logger.debug(
+                                "Terminal websocket upstream text session_id=%s length=%s count=%s",
+                                session_id,
+                                len(message),
+                                upstream_message_count,
+                            )
+                            await websocket.send_text(message)
+                except websockets.ConnectionClosed as exc:
+                    logger.info(
+                        "Terminal websocket upstream disconnected session_id=%s code=%s reason=%s detail=%s client_messages=%s upstream_messages=%s",
+                        session_id,
+                        upstream.close_code,
+                        upstream.close_reason,
+                        exc,
+                        client_message_count,
+                        upstream_message_count,
+                    )
+                    await websocket.close(code=1000)
+                    return
                 logger.info(
                     "Terminal websocket upstream closed session_id=%s code=%s reason=%s client_messages=%s upstream_messages=%s",
                     session_id,
@@ -509,6 +522,7 @@ async def proxy_terminal_websocket(session_id: str, websocket: WebSocket, servic
                     client_message_count,
                     upstream_message_count,
                 )
+                await websocket.close(code=1000)
 
             done, pending = await asyncio.wait(
                 {asyncio.create_task(client_to_upstream()), asyncio.create_task(upstream_to_client())},
