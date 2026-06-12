@@ -119,6 +119,11 @@ async function load() {
   }
 }
 
+function openCreateModal() {
+  resetForm()
+  showModal.value = true
+}
+
 function edit(shortcut: Shortcut) {
   editingId.value = shortcut.id
   form.name = shortcut.name
@@ -236,7 +241,7 @@ function hostDisabledReason(host: ShortcutHost): string {
       </div>
       <button
         class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm text-white transition hover:bg-blue-700"
-        @click="showModal = true"
+        @click="openCreateModal"
       >
         <Plus class="h-4 w-4" />
         {{ t('shortcutManagement.actions.create') }}
@@ -273,10 +278,10 @@ function hostDisabledReason(host: ShortcutHost): string {
             </div>
 
             <div
-              class="absolute bottom-2.5 right-2.5 flex gap-1.5 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100"
+              class="absolute bottom-2.5 right-2.5 flex gap-1.5"
             >
               <button
-                class="rounded-md border border-blue-200 px-2 py-1 text-sm text-blue-600 transition hover:bg-blue-50 dark:border-blue-900/60 dark:text-blue-400 dark:hover:bg-blue-950/40"
+                class="rounded-md border border-blue-200 px-2 py-1 text-sm text-blue-600 opacity-0 transition hover:bg-blue-50 group-hover:opacity-100 group-focus-within:opacity-100 dark:border-blue-900/60 dark:text-blue-400 dark:hover:bg-blue-950/40"
                 @click="createSessionFromShortcut(shortcut)"
               >
                 {{ t('shortcutManagement.actions.createSession') }}
