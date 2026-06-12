@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
 from fastapi.testclient import TestClient
 
 from termbridge.api import create_app
@@ -21,12 +22,14 @@ from termbridge.models import (
     Shortcut,
     ShortcutListResponse,
     TerminalSettings,
+    TtydCredential,
     UpdateShortcutRequest,
     WindowsCygwinCheckResponse,
     WindowsCygwinSettings,
     WindowsWslCheckResponse,
     WindowsWslSettings,
 )
+from termbridge.services import TerminalProxyTarget
 
 
 class FakeSessionService:
@@ -67,6 +70,12 @@ class FakeSessionService:
 
     def get(self, session_id: str) -> SessionResponse:
         return self.session.model_copy(update={"id": session_id})
+
+    def terminal_proxy_target(self, session_id: str) -> TerminalProxyTarget:
+        return TerminalProxyTarget(
+            base_url="http://127.0.0.1:19001",
+            credential=TtydCredential(username="termbridge", password="secret"),
+        )
 
     def start(self, session_id: str) -> SessionResponse:
         return self.session.model_copy(update={"id": session_id, "status": SessionStatus.RUNNING})
@@ -342,6 +351,42 @@ def test_api_unhandled_exception_uses_structured_error() -> None:
     assert response.status_code == 409
     assert response.json() == {"code": "conflict", "error": "Shortcut is in use"}
     assert service.deleted == []
+
+
+def test_terminal_http_proxy_adds_basic_auth_header() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["authorization"] = request.headers.get("authorization")
+        return httpx.Response(200, content=b"terminal", headers={"content-type": "text/plain", "transfer-encoding": "chunked"})
+
+    app = create_app(serve_frontend=False)
+    app.dependency_overrides[get_session_service] = lambda: FakeSessionService()
+    app.router.on_startup.clear()
+    client = TestClient(app)
+    transport = httpx.MockTransport(handler)
+    original_client = httpx.AsyncClient
+
+    class MockAsyncClient(httpx.AsyncClient):
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            kwargs["transport"] = transport
+            super().__init__(*args, **kwargs)
+
+    httpx.AsyncClient = MockAsyncClient
+    try:
+        response = client.get("/terminal/sess_1/token?x=1")
+    finally:
+        httpx.AsyncClient = original_client
+
+    assert response.status_code == 200
+    assert response.text == "terminal"
+    assert response.headers["content-type"] == "text/plain"
+    assert "transfer-encoding" not in response.headers
+    assert captured == {
+        "url": "http://127.0.0.1:19001/token?x=1",
+        "authorization": "Basic dGVybWJyaWRnZTpzZWNyZXQ=",
+    }
 
 
 def test_environment_api_routes() -> None:

@@ -93,6 +93,11 @@ def make_service(
     *,
     shortcut_service: FakeShortcutService | None = None,
     ttyd_log_mode: Literal["none", "console", "file"] = "none",
+    ttyd_interface: str = "127.0.0.1",
+    ttyd_credential_mode: Literal["basic", "none"] = "basic",
+    ttyd_credential_username: str = "termbridge",
+    ttyd_credential_password: str = "",
+    public_base_url: str | None = None,
 ) -> SessionService:
     settings = Settings(
         ttyd_executable="ttyd",
@@ -100,7 +105,12 @@ def make_service(
         port_start=9201,
         port_end=9205,
         state_dir=tmp_path / "state",
+        public_base_url=public_base_url,
         ttyd_log_mode=ttyd_log_mode,
+        ttyd_interface=ttyd_interface,
+        ttyd_credential_mode=ttyd_credential_mode,
+        ttyd_credential_username=ttyd_credential_username,
+        ttyd_credential_password=ttyd_credential_password,
     )
     return SessionService(
         settings=settings,
@@ -128,15 +138,24 @@ def test_service_creates_entry_with_workspace_tmux_session(tmp_path: Path) -> No
     assert response.tmux_session_name != "Test"
     assert response.port == 9201
     assert shortcuts.created_windows[0][2] == response.tmux_session_name
+    entry = service._repository.get_entry(response.id)[1]
+    assert entry.ttyd_credential is not None
+    assert entry.ttyd_credential.username == "termbridge"
+    assert len(entry.ttyd_credential.password) >= 12
+    assert response.url == f"/terminal/{response.id}/"
     assert process.started == [
         (
             [
                 "custom-ttyd",
                 "--writable",
+                "--interface",
+                "127.0.0.1",
                 "--port",
                 "9201",
                 "--cwd",
                 str(tmp_path.resolve()),
+                "--credential",
+                f"termbridge:{entry.ttyd_credential.password}",
                 "bash.exe",
                 "-lc",
                 f"tmux select-window -t @1 && exec tmux attach -t {response.tmux_session_name}",
@@ -156,6 +175,116 @@ def test_service_uses_ttyd_log_file_when_file_mode_is_enabled(tmp_path: Path) ->
 
     assert process.started[0][2] == tmp_path / "state" / "logs" / "ttyd" / f"{response.id}.log"
     assert process.started[0][3] is False
+
+
+def test_service_omits_ttyd_credential_when_mode_is_none(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    service = make_service(tmp_path, process, ttyd_credential_mode="none")
+
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    command = process.started[0][0]
+    entry = service._repository.get_entry(response.id)[1]
+
+    assert "--credential" not in command
+    assert response.url == f"/terminal/{response.id}/"
+    assert entry.ttyd_credential is None
+
+
+def test_service_uses_explicit_ttyd_credential_password(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    service = make_service(
+        tmp_path,
+        process,
+        ttyd_credential_username="admin@example.test",
+        ttyd_credential_password="p@ss word:123",
+    )
+
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    command = process.started[0][0]
+    entry = service._repository.get_entry(response.id)[1]
+
+    assert command[command.index("--credential") + 1] == "admin@example.test:p@ss word:123"
+    assert response.url == f"/terminal/{response.id}/"
+    assert entry.ttyd_credential is not None
+    assert entry.ttyd_credential.username == "admin@example.test"
+    assert entry.ttyd_credential.password == "p@ss word:123"
+
+
+def test_service_reuses_generated_ttyd_credential_when_session_restarts(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    service = make_service(tmp_path, process)
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    original = service._repository.get_entry(response.id)[1].ttyd_credential
+    assert original is not None
+
+    stopped = service.stop(response.id)
+    restarted = service.start(stopped.id)
+    restarted_credential = service._repository.get_entry(restarted.id)[1].ttyd_credential
+
+    assert restarted_credential == original
+    assert process.started[-1][0][process.started[-1][0].index("--credential") + 1] == f"termbridge:{original.password}"
+    assert restarted.url == f"/terminal/{restarted.id}/"
+
+
+def test_service_uses_configured_ttyd_interface(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    service = make_service(tmp_path, process, ttyd_interface="192.0.2.10")
+
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    command = process.started[0][0]
+    credential = service._repository.get_entry(response.id)[1].ttyd_credential
+    assert credential is not None
+
+    assert command[command.index("--interface") + 1] == "192.0.2.10"
+    assert response.url == f"/terminal/{response.id}/"
+
+
+def test_service_builds_public_base_terminal_proxy_url(tmp_path: Path) -> None:
+    service = make_service(tmp_path, public_base_url="http://example.test/base")
+
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+
+    assert response.url == f"http://example.test/base/terminal/{response.id}/"
+
+
+def test_service_returns_terminal_proxy_target_for_running_session(tmp_path: Path) -> None:
+    service = make_service(tmp_path, ttyd_credential_password="secret")
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+
+    target = service.terminal_proxy_target(response.id)
+
+    assert target.base_url == "http://127.0.0.1:9201"
+    assert target.credential is not None
+    assert target.credential.username == "termbridge"
+    assert target.credential.password == "secret"
+
+
+def test_service_rejects_terminal_proxy_target_for_stopped_session(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    stopped = service.stop(response.id)
+
+    with pytest.raises(InvalidTerminalConfigError, match="not running"):
+        service.terminal_proxy_target(stopped.id)
+
+
+def test_service_replaces_generated_ttyd_credential_when_username_changes(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    service = make_service(tmp_path, process)
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    original = service._repository.get_entry(response.id)[1].ttyd_credential
+    assert original is not None
+    stopped = service.stop(response.id)
+
+    renamed_service = make_service(tmp_path, process, ttyd_credential_username="other-user")
+    restarted = renamed_service.start(stopped.id)
+    updated = renamed_service._repository.get_entry(restarted.id)[1].ttyd_credential
+    assert updated is not None
+
+    assert updated.username == "other-user"
+    assert updated.password != original.password
+    assert process.started[-1][0][process.started[-1][0].index("--credential") + 1] == f"other-user:{updated.password}"
+    assert restarted.url == f"/terminal/{restarted.id}/"
 
 
 def test_service_uses_console_ttyd_log_mode_when_enabled(tmp_path: Path) -> None:
@@ -337,7 +466,7 @@ def test_service_starts_stopped_entry_with_existing_window(tmp_path: Path) -> No
     assert started.status == "running"
     assert started.port == 9201
     assert [item[3] for item in shortcuts.created_windows] == ["Test"]
-    assert process.started[-1][0][8] == f"tmux select-window -t @1 && exec tmux attach -t {response.tmux_session_name}"
+    assert process.started[-1][0][-1] == f"tmux select-window -t @1 && exec tmux attach -t {response.tmux_session_name}"
 
 
 def test_service_starts_stopped_entry_with_named_window_when_recorded_window_is_missing(tmp_path: Path) -> None:
@@ -355,7 +484,7 @@ def test_service_starts_stopped_entry_with_named_window_when_recorded_window_is_
     assert started.status == "running"
     assert started.port == 9201
     assert [item[3] for item in shortcuts.created_windows] == ["Test"]
-    assert process.started[-1][0][8] == f"tmux select-window -t @7 && exec tmux attach -t {response.tmux_session_name}"
+    assert process.started[-1][0][-1] == f"tmux select-window -t @7 && exec tmux attach -t {response.tmux_session_name}"
 
 
 def test_service_starts_stopped_entry_with_new_window_when_existing_window_is_missing(tmp_path: Path) -> None:
@@ -372,7 +501,7 @@ def test_service_starts_stopped_entry_with_new_window_when_existing_window_is_mi
     assert started.status == "running"
     assert started.port == 9201
     assert [item[3] for item in shortcuts.created_windows] == ["Test", "Test"]
-    assert process.started[-1][0][8] == f"tmux select-window -t @2 && exec tmux attach -t {response.tmux_session_name}"
+    assert process.started[-1][0][-1] == f"tmux select-window -t @2 && exec tmux attach -t {response.tmux_session_name}"
 
 
 def test_service_rejects_start_when_shortcut_host_changed(tmp_path: Path) -> None:

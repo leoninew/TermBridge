@@ -6,10 +6,12 @@ import logging
 import os
 import platform
 import re
+import secrets
 import shlex
 import shutil
 import subprocess
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
@@ -43,6 +45,7 @@ from termbridge.models import (
     ShortcutListResponse,
     TerminalSettings,
     TerminalState,
+    TtydCredential,
     UpdateShortcutRequest,
     UpdateTerminalSettingsRequest,
     WindowsCygwinCheckResponse,
@@ -63,6 +66,12 @@ from termbridge.runtime import RuntimeRegistry
 from termbridge.settings import Settings
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class TerminalProxyTarget:
+    base_url: str
+    credential: TtydCredential | None
 
 
 class WorkspaceBrowserService:
@@ -916,6 +925,13 @@ class SessionService:
         entry = self._refresh_entry(workspace, entry)
         return SessionResponse.from_entry(workspace, entry)
 
+    def terminal_proxy_target(self, session_id: str) -> TerminalProxyTarget:
+        workspace, entry = self._repository.get_entry(session_id)
+        entry = self._refresh_entry(workspace, entry)
+        if entry.status != SessionStatus.RUNNING or entry.pid is None:
+            raise InvalidTerminalConfigError("Session terminal is not running")
+        return TerminalProxyTarget(base_url=self._build_ttyd_base_url(entry.port), credential=entry.ttyd_credential)
+
     def start(self, session_id: str) -> SessionResponse:
         logger.info("Starting session entry_id=%s", session_id)
         workspace, entry = self._repository.get_entry(session_id)
@@ -1037,7 +1053,9 @@ class SessionService:
             tmux_window_id=entry.tmux_window_id,
         )
         ttyd_executable = terminal_service.resolve_ttyd_executable(workspace.host)
-        command = self._build_ttyd_command(port, workspace.path, runtime_command, ttyd_executable)
+        credential = self._resolve_ttyd_credential(entry)
+        command = self._build_ttyd_command(port, workspace.path, runtime_command, ttyd_executable, credential)
+        url = self._build_url(entry.id)
         log_file, suppress_output = self._ttyd_log_options(entry.id)
         handle = self._process_adapter.start(
             command,
@@ -1052,7 +1070,8 @@ class SessionService:
                 "status": SessionStatus.RUNNING,
                 "pid": handle.pid,
                 "updated_at": utc_now(),
-                "url": self._build_url(port),
+                "url": url,
+                "ttyd_credential": credential,
             }
         )
 
@@ -1162,20 +1181,51 @@ class SessionService:
             return None, True
         return None, False
 
+    def _resolve_ttyd_credential(self, entry: SessionEntryRecord) -> TtydCredential | None:
+        if self._settings.ttyd_credential_mode == "none":
+            return None
+        username = self._settings.ttyd_credential_username
+        configured_password = self._settings.ttyd_credential_password
+        if configured_password:
+            return TtydCredential(username=username, password=configured_password)
+        if entry.ttyd_credential is not None and entry.ttyd_credential.username == username and entry.ttyd_credential.password:
+            return entry.ttyd_credential
+        return TtydCredential(username=username, password=self._generate_ttyd_password())
+
+    def _generate_ttyd_password(self) -> str:
+        password = secrets.token_urlsafe(18)
+        if len(password) >= 12:
+            return password
+        return secrets.token_urlsafe(24)
+
     def _build_ttyd_command(
-        self, port: int, workspace: Path, runtime_command: Sequence[str], ttyd_executable: str
+        self,
+        port: int,
+        workspace: Path,
+        runtime_command: Sequence[str],
+        ttyd_executable: str,
+        credential: TtydCredential | None,
     ) -> list[str]:
-        return [
+        command = [
             ttyd_executable,
             "--writable",
+            "--interface",
+            self._settings.ttyd_interface,
             "--port",
             str(port),
             "--cwd",
             str(workspace),
-            *runtime_command,
         ]
+        if credential is not None:
+            command.extend(["--credential", f"{credential.username}:{credential.password}"])
+        command.extend(runtime_command)
+        return command
 
-    def _build_url(self, port: int) -> str:
+    def _build_ttyd_base_url(self, port: int) -> str:
+        return f"http://{self._settings.ttyd_interface}:{port}"
+
+    def _build_url(self, session_id: str) -> str:
+        path = f"/terminal/{session_id}/"
         if self._settings.public_base_url:
-            return f"{self._settings.public_base_url.rstrip('/')}/{port}"
-        return f"http://{self._settings.host}:{port}"
+            return f"{self._settings.public_base_url.rstrip('/')}{path}"
+        return path

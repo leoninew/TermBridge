@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     logging_level: str = "INFO"
     tmux_command_timeout_seconds: float = 10
     ttyd_log_mode: Literal["none", "console", "file"] = "none"
+    ttyd_interface: str = "127.0.0.1"
+    ttyd_credential_mode: Literal["basic", "none"] = "basic"
+    ttyd_credential_username: str = "termbridge"
+    ttyd_credential_password: str = ""
 
     @property
     def sessions_file(self) -> Path:

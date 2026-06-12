@@ -7,7 +7,7 @@ TermBridge is a local browser workspace for managing `tmux`-backed terminal sess
 It is built for developers who keep many local shells, agent CLIs, and project workspaces open at the same time. TermBridge lets you create reusable shortcuts, launch them inside a workspace directory, attach to the terminal from a browser, and return to running work through `tmux` instead of hunting through terminal windows.
 
 > [!IMPORTANT]
-> TermBridge does **not yet** include built-in authentication, authorization, HTTPS, multi-user isolation, or hosted deployment hardening. For local development, bind it to `127.0.0.1`. If you access it through a public network, mobile client, tunnel, or reverse proxy, add appropriate access control, TLS, and isolation outside TermBridge. Do not expose an unprotected instance.
+> TermBridge does **not yet** include user authentication, authorization, HTTPS, multi-user isolation, or hosted deployment hardening. Managed `ttyd` sessions bind to `127.0.0.1` and use local Basic Authentication by default, but this is local hardening rather than a deployment security boundary. If you access TermBridge through a public network, mobile client, tunnel, or reverse proxy, add appropriate access control, TLS, and isolation outside TermBridge. Do not expose an unprotected instance.
 
 ## Why TermBridge?
 

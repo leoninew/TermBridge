@@ -1,10 +1,14 @@
+import asyncio
+import base64
 import logging
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, FastAPI, HTTPException, Query, Request, Response, status
+import httpx
+import websockets
+from fastapi import APIRouter, FastAPI, HTTPException, Query, Request, Response, WebSocket, WebSocketDisconnect, status
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from termbridge.di import SessionServiceDep, TerminalServiceDep, WorkspaceBrowserServiceDep
@@ -60,6 +64,18 @@ STATUS_ERROR_CODES = {
     status.HTTP_500_INTERNAL_SERVER_ERROR: "internal_error",
     status.HTTP_503_SERVICE_UNAVAILABLE: "service_unavailable",
 }
+HOP_BY_HOP_HEADERS = {
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+    "content-encoding",
+    "content-length",
+}
 
 
 def _error_code(status_code: int) -> str:
@@ -74,6 +90,21 @@ def _error_message(detail: Any, fallback: str) -> str:
 
 def _error_response(status_code: int, code: str, error: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"code": code, "error": error})
+
+
+def _basic_auth_header(username: str, password: str) -> str:
+    token = base64.b64encode(f"{username}:{password}".encode()).decode("ascii")
+    return f"Basic {token}"
+
+
+def _target_headers(credential: Any | None) -> dict[str, str]:
+    if credential is None:
+        return {}
+    return {"Authorization": _basic_auth_header(credential.username, credential.password)}
+
+
+def _proxy_headers(headers: httpx.Headers) -> dict[str, str]:
+    return {key: value for key, value in headers.items() if key.lower() not in HOP_BY_HOP_HEADERS}
 
 
 async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -350,6 +381,157 @@ def delete_session(session_id: str, service: SessionServiceDep) -> Response:
     except SessionRepositoryError as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/terminal/{session_id}", include_in_schema=False)
+def redirect_terminal_root(session_id: str) -> RedirectResponse:
+    return RedirectResponse(url=f"/terminal/{session_id}/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+
+@router.get("/terminal/{session_id}/{path:path}", include_in_schema=False)
+async def proxy_terminal_http(session_id: str, path: str, request: Request, service: SessionServiceDep) -> Response:
+    try:
+        target = service.terminal_proxy_target(session_id)
+    except SessionNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found") from exc
+    except InvalidTerminalConfigError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    target_path = path or ""
+    target_url = f"{target.base_url.rstrip('/')}/{target_path}"
+    if request.url.query:
+        target_url = f"{target_url}?{request.url.query}"
+    headers = _target_headers(target.credential)
+    async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
+        try:
+            upstream = await client.request(request.method, target_url, headers=headers, content=await request.body())
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Terminal proxy request failed") from exc
+    return Response(content=upstream.content, status_code=upstream.status_code, headers=_proxy_headers(upstream.headers))
+
+
+@router.websocket("/terminal/{session_id}/ws")
+async def proxy_terminal_websocket(session_id: str, websocket: WebSocket, service: SessionServiceDep) -> None:
+    try:
+        target = service.terminal_proxy_target(session_id)
+    except (SessionNotFoundError, InvalidTerminalConfigError):
+        await websocket.close(code=1008)
+        return
+    target_url = target.base_url.replace("http://", "ws://", 1).replace("https://", "wss://", 1).rstrip("/")
+    query = websocket.url.query
+    if query:
+        target_url = f"{target_url}/ws?{query}"
+    else:
+        target_url = f"{target_url}/ws"
+    requested_subprotocols = [
+        item.strip()
+        for item in websocket.headers.get("sec-websocket-protocol", "").split(",")
+        if item.strip()
+    ]
+    subprotocol = "tty" if "tty" in requested_subprotocols else None
+    accepted = False
+    try:
+        async with websockets.connect(
+            target_url,
+            additional_headers=_target_headers(target.credential),
+            origin=target.base_url,
+            subprotocols=[subprotocol] if subprotocol else None,
+            proxy=None,
+        ) as upstream:
+            await websocket.accept(subprotocol=subprotocol)
+            accepted = True
+            logger.info(
+                "Terminal websocket proxy connected session_id=%s target=%s subprotocol=%s",
+                session_id,
+                target_url,
+                subprotocol,
+            )
+            client_message_count = 0
+            upstream_message_count = 0
+
+            async def client_to_upstream() -> None:
+                nonlocal client_message_count
+                while True:
+                    message = await websocket.receive()
+                    if message["type"] == "websocket.disconnect":
+                        logger.info(
+                            "Terminal websocket client disconnected session_id=%s code=%s client_messages=%s upstream_messages=%s",
+                            session_id,
+                            message.get("code"),
+                            client_message_count,
+                            upstream_message_count,
+                        )
+                        await upstream.close()
+                        return
+                    if message.get("bytes") is not None:
+                        client_message_count += 1
+                        logger.debug(
+                            "Terminal websocket client bytes session_id=%s length=%s count=%s",
+                            session_id,
+                            len(message["bytes"]),
+                            client_message_count,
+                        )
+                        await upstream.send(message["bytes"])
+                    elif message.get("text") is not None:
+                        client_message_count += 1
+                        logger.debug(
+                            "Terminal websocket client text session_id=%s length=%s count=%s",
+                            session_id,
+                            len(message["text"]),
+                            client_message_count,
+                        )
+                        await upstream.send(message["text"])
+
+            async def upstream_to_client() -> None:
+                nonlocal upstream_message_count
+                async for message in upstream:
+                    upstream_message_count += 1
+                    if isinstance(message, bytes):
+                        logger.debug(
+                            "Terminal websocket upstream bytes session_id=%s length=%s count=%s",
+                            session_id,
+                            len(message),
+                            upstream_message_count,
+                        )
+                        await websocket.send_bytes(message)
+                    else:
+                        logger.debug(
+                            "Terminal websocket upstream text session_id=%s length=%s count=%s",
+                            session_id,
+                            len(message),
+                            upstream_message_count,
+                        )
+                        await websocket.send_text(message)
+                logger.info(
+                    "Terminal websocket upstream closed session_id=%s code=%s reason=%s client_messages=%s upstream_messages=%s",
+                    session_id,
+                    upstream.close_code,
+                    upstream.close_reason,
+                    client_message_count,
+                    upstream_message_count,
+                )
+
+            done, pending = await asyncio.wait(
+                {asyncio.create_task(client_to_upstream()), asyncio.create_task(upstream_to_client())},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            for task in pending:
+                task.cancel()
+            for task in done:
+                task.result()
+            logger.info(
+                "Terminal websocket proxy finished session_id=%s client_messages=%s upstream_messages=%s",
+                session_id,
+                client_message_count,
+                upstream_message_count,
+            )
+    except WebSocketDisconnect:
+        return
+    except Exception:
+        logger.exception("Terminal websocket proxy failed session_id=%s", session_id)
+        if accepted:
+            await websocket.close(code=1011)
+        else:
+            await websocket.close(code=1008)
 
 
 def _default_frontend_dir() -> Path:

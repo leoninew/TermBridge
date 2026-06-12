@@ -232,13 +232,21 @@ def test_request_logging_uses_error_for_unhandled_exception(
     client = make_logging_test_client()
 
     with caplog.at_level(logging.ERROR, logger="termbridge.middleware"):
-        with pytest.raises(RuntimeError, match="broken"):
-            client.get("/broken")
+        response = client.get("/broken")
 
+    assert response.status_code == 500
+    assert response.json() == {"code": "internal_error", "error": "Internal server error"}
     assert any(
         record.levelno == logging.ERROR
         and "Request failed" in record.message
         and "path=/broken" in record.message
         and record.exc_info is not None
+        for record in caplog.records
+    )
+    assert any(
+        record.levelno == logging.ERROR
+        and "Request end" in record.message
+        and "path=/broken" in record.message
+        and "status=500" in record.message
         for record in caplog.records
     )

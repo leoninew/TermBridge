@@ -142,7 +142,6 @@ function isStartingSession(session: Session) {
         <div v-else class="flex h-full min-h-0 flex-col overflow-hidden bg-slate-950">
           <iframe
             class="flex-1 border-0"
-            sandbox="allow-scripts allow-same-origin"
             :src="item.url"
             :title="t('session.terminal.iframeTitle', { name: item.name })"
           />

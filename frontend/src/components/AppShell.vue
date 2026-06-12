@@ -340,27 +340,28 @@ onMounted(() => {
       </SplitterResizeHandle>
 
       <SplitterPanel id="main-workspace" :min-size="320" size-unit="px" class="h-full min-h-0">
-        <Transition name="main-panel" mode="out-in">
-          <section
-            v-if="showCreatePanel"
-            key="create"
-            class="flex h-full min-h-0 overflow-auto bg-slate-100 p-5 dark:bg-slate-950"
-          >
-            <div class="m-auto w-full max-w-3xl border border-slate-200 bg-white/35 p-5 dark:border-slate-800 dark:bg-slate-950">
-              <SessionCreateForm
-                :environments="environmentStore.environments"
-                :submitting="creatingSession"
-                :error="createError"
-                :initial-host="createSessionContext.host"
-                :initial-workspace="createSessionContext.workspace"
-                @create="handleCreate"
-                @cancel="showCreatePanel = false"
-              />
-            </div>
-          </section>
-          <RouterView v-else v-slot="{ Component }">
+        <RouterView v-slot="{ Component }">
+          <Transition name="main-panel" mode="out-in">
+            <section
+              v-if="showCreatePanel"
+              key="create"
+              class="flex h-full min-h-0 overflow-auto bg-slate-100 p-5 dark:bg-slate-950"
+            >
+              <div class="m-auto w-full max-w-3xl border border-slate-200 bg-white/35 p-5 dark:border-slate-800 dark:bg-slate-950">
+                <SessionCreateForm
+                  :environments="environmentStore.environments"
+                  :submitting="creatingSession"
+                  :error="createError"
+                  :initial-host="createSessionContext.host"
+                  :initial-workspace="createSessionContext.workspace"
+                  @create="handleCreate"
+                  @cancel="showCreatePanel = false"
+                />
+              </div>
+            </section>
             <component
               :is="Component"
+              v-else
               :sessions="openTerminalSessions"
               :session="activeSession"
               :starting-session-id="startingSessionId"
@@ -370,8 +371,8 @@ onMounted(() => {
               @start="handleStart"
               @environments-updated="environmentStore.update"
             />
-          </RouterView>
-        </Transition>
+          </Transition>
+        </RouterView>
       </SplitterPanel>
     </SplitterGroup>
 

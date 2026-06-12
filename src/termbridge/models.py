@@ -23,6 +23,12 @@ class CreateSessionRequest(BaseModel):
     shortcut_id: str = Field(min_length=1)
 
 
+class TtydCredential(BaseModel):
+    mode: Literal["basic"] = "basic"
+    username: str
+    password: str
+
+
 class SessionEntryRecord(BaseModel):
     id: str
     workspace_id: str
@@ -41,6 +47,7 @@ class SessionEntryRecord(BaseModel):
     session_persistence: Literal["none", "tmux"] = "tmux"
     tmux_session_name: str
     tmux_window_id: str | None = None
+    ttyd_credential: TtydCredential | None = None
 
 
 class WorkspaceRecord(BaseModel):

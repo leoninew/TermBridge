@@ -10,6 +10,11 @@ export default defineConfig({
     proxy: {
       '/api': 'http://127.0.0.1:9008',
       '/health': 'http://127.0.0.1:9008',
+      '/terminal': {
+        target: 'http://127.0.0.1:9008',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 })
