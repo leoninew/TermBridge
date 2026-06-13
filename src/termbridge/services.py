@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any, cast
 from uuid import uuid4
 
 from termbridge.exceptions import (
@@ -66,6 +67,14 @@ from termbridge.runtime import RuntimeRegistry
 from termbridge.settings import Settings
 
 logger = logging.getLogger(__name__)
+
+
+def _is_windows_host() -> bool:
+    return os.name == "nt"
+
+
+def _is_linux_host() -> bool:
+    return platform.system().lower() == "linux"
 
 
 @dataclass(frozen=True)
@@ -132,7 +141,8 @@ class WorkspaceBrowserService:
         if os.name != "nt":
             return False
         try:
-            attributes = ctypes.windll.kernel32.GetFileAttributesW(str(path))
+            kernel32 = cast(Any, ctypes).windll.kernel32
+            attributes = kernel32.GetFileAttributesW(str(path))
         except OSError:
             return False
         return attributes != -1 and bool(attributes & 0x2)
@@ -203,8 +213,8 @@ class TerminalService:
 
     def list_environments(self) -> EnvironmentListResponse:
         state = self._repository.get_state()
-        is_windows = os.name == "nt"
-        is_linux = platform.system().lower() == "linux"
+        is_windows = _is_windows_host()
+        is_linux = _is_linux_host()
         return EnvironmentListResponse(
             environments=[
                 EnvironmentSummary(
@@ -272,10 +282,11 @@ class TerminalService:
         return self._check_executable_version(executable, [["--version"], ["-v"]])
 
     def check_windows_cygwin(self, bash_path: str | None = None) -> WindowsCygwinCheckResponse:
+        is_windows = _is_windows_host()
         host = RuntimeCheckResponse(
-            available=os.name == "nt",
+            available=is_windows,
             path=os.name,
-            reason=None if os.name == "nt" else "Windows/Cygwin is only available on Windows hosts",
+            reason=None if is_windows else "Windows/Cygwin is only available on Windows hosts",
         )
         settings = self.get_windows_cygwin_settings()
         resolved_bash = (
@@ -302,10 +313,11 @@ class TerminalService:
         return response
 
     def check_windows_wsl(self) -> WindowsWslCheckResponse:
+        is_windows = _is_windows_host()
         host = RuntimeCheckResponse(
-            available=os.name == "nt",
+            available=is_windows,
             path=os.name,
-            reason=None if os.name == "nt" else "Windows/WSL is only available on Windows hosts",
+            reason=None if is_windows else "Windows/WSL is only available on Windows hosts",
         )
         wsl = self._check_windows_wsl_executable()
         tmux = self._check_windows_wsl_tmux(wsl.path) if wsl.available else None
@@ -328,7 +340,7 @@ class TerminalService:
         return self._check_wsl_tmux(executable, timeout_seconds=self._settings.wsl_detection_timeout_seconds)
 
     def check_linux(self) -> LinuxCheckResponse:
-        is_linux = platform.system().lower() == "linux"
+        is_linux = _is_linux_host()
         host = RuntimeCheckResponse(
             available=is_linux,
             path=platform.system(),
@@ -810,7 +822,7 @@ class TerminalService:
         return self.get_windows_cygwin_settings().bash_path
 
     def _resolve_executable(self, name: str, *, windows_names: tuple[str, ...] | None = None) -> str | None:
-        names = windows_names if os.name == "nt" and windows_names else (name,)
+        names = windows_names if _is_windows_host() and windows_names else (name,)
         for candidate_name in names:
             candidate = shutil.which(candidate_name)
             if candidate:
@@ -818,7 +830,7 @@ class TerminalService:
         return None
 
     def _normalize_executable_path(self, path: str) -> str:
-        if os.name != "nt" or not path.lower().endswith(".exe"):
+        if not _is_windows_host() or not path.lower().endswith(".exe"):
             return path
         return f"{path[:-4]}.exe"
 

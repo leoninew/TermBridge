@@ -299,8 +299,9 @@ def test_terminal_service_lists_environments(tmp_path: Path) -> None:
     state.windows_cygwin_settings = WindowsCygwinSettings(readiness="ready", bash_path="bash.exe")
     repository.save_state(state)
 
-    with patch("termbridge.services.os.name", "nt"):
-        response = service.list_environments()
+    with patch("termbridge.services._is_windows_host", return_value=True):
+        with patch("termbridge.services._is_linux_host", return_value=False):
+            response = service.list_environments()
 
     by_host = {environment.host: environment for environment in response.environments}
     assert by_host["windows_cygwin"].label == "Cygwin on Windows"
@@ -392,7 +393,7 @@ def test_terminal_service_detects_ttyd_exe_first_on_windows(tmp_path: Path) -> N
         args=["D:/cygwin/bin/ttyd.exe", "--version"], returncode=0, stdout="ttyd 1.7.7\n", stderr=""
     )
 
-    with patch("termbridge.services.os.name", "nt"):
+    with patch("termbridge.services._is_windows_host", return_value=True):
         with patch("termbridge.services.shutil.which", side_effect=["D:/cygwin/bin/ttyd.EXE"]):
             with patch("termbridge.services.subprocess.run", return_value=completed):
                 result = service.check_ttyd()
@@ -404,7 +405,7 @@ def test_terminal_service_detects_ttyd_exe_first_on_windows(tmp_path: Path) -> N
 def test_terminal_service_resolves_ttyd_from_windows_path_for_cygwin_host(tmp_path: Path) -> None:
     service = make_service(tmp_path)
 
-    with patch("termbridge.services.os.name", "nt"):
+    with patch("termbridge.services._is_windows_host", return_value=True):
         with patch("termbridge.services.shutil.which", side_effect=["D:/tools/ttyd.exe"]):
             with patch("termbridge.services.subprocess.run") as run:
                 result = service.resolve_ttyd_executable("windows_cygwin", "D:/ProgramFiles/Cygwin64/bin/bash.exe")
@@ -425,9 +426,10 @@ def test_terminal_service_detects_cygwin_and_tmux(tmp_path: Path) -> None:
         stderr="",
     )
 
-    with patch.object(service, "_check_cygwin_tmux", return_value=_tmux_available()):
-        with patch("termbridge.services.subprocess.run", return_value=bash):
-            result = service.check_windows_cygwin("bash.exe")
+    with patch("termbridge.services._is_windows_host", return_value=True):
+        with patch.object(service, "_check_cygwin_tmux", return_value=_tmux_available()):
+            with patch("termbridge.services.subprocess.run", return_value=bash):
+                result = service.check_windows_cygwin("bash.exe")
 
     settings = make_service(tmp_path).get_windows_cygwin_settings()
     assert result.bash.available is True
@@ -493,7 +495,7 @@ def test_terminal_service_uses_configured_wsl_detection_timeout(tmp_path: Path) 
         stderr="",
     )
 
-    with patch("termbridge.services.os.name", "nt"):
+    with patch("termbridge.services._is_windows_host", return_value=True):
         with patch("termbridge.services.shutil.which", return_value="C:/WINDOWS/system32/wsl.EXE"):
             with patch("termbridge.services.subprocess.run", side_effect=[wsl, tmux]) as run:
                 result = service.check_windows_wsl()
@@ -522,7 +524,7 @@ def test_terminal_service_detects_windows_wsl_and_tmux(tmp_path: Path) -> None:
         stderr="",
     )
 
-    with patch("termbridge.services.os.name", "nt"):
+    with patch("termbridge.services._is_windows_host", return_value=True):
         with patch("termbridge.services.shutil.which", return_value="C:/WINDOWS/system32/wsl.EXE"):
             with patch("termbridge.services.subprocess.run", side_effect=[wsl, tmux]):
                 result = service.check_windows_wsl()
@@ -544,7 +546,7 @@ def test_terminal_service_detects_windows_wsl_and_tmux(tmp_path: Path) -> None:
 def test_terminal_service_reports_linux_unavailable_on_non_linux_host(tmp_path: Path) -> None:
     service = make_service(tmp_path)
 
-    with patch("termbridge.services.platform.system", return_value="Windows"):
+    with patch("termbridge.services._is_linux_host", return_value=False):
         result = service.check_linux()
 
     assert result.host.available is False
