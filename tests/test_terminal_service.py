@@ -426,9 +426,10 @@ def test_terminal_service_detects_cygwin_and_tmux(tmp_path: Path) -> None:
         stderr="",
     )
 
-    with patch.object(service, "_check_cygwin_tmux", return_value=_tmux_available()):
-        with patch("termbridge.services.subprocess.run", return_value=bash):
-            result = service.check_windows_cygwin("bash.exe")
+    with patch("termbridge.services._is_windows_host", return_value=True):
+        with patch.object(service, "_check_cygwin_tmux", return_value=_tmux_available()):
+            with patch("termbridge.services.subprocess.run", return_value=bash):
+                result = service.check_windows_cygwin("bash.exe")
 
     settings = make_service(tmp_path).get_windows_cygwin_settings()
     assert result.bash.available is True
