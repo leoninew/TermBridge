@@ -79,6 +79,7 @@
       "title": "新建会话",
       "description": "",
       "name": "名称",
+      "defaultName": "默认",
       "namePlaceholder": "例如：项目开发",
       "workspace": "目录",
       "workspacePlaceholder": "输入路径或浏览选择",

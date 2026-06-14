@@ -79,6 +79,7 @@
       "title": "New Session",
       "description": "",
       "name": "Name",
+      "defaultName": "default",
       "namePlaceholder": "For example: Project dev",
       "workspace": "Directory",
       "workspacePlaceholder": "Enter a path or browse",

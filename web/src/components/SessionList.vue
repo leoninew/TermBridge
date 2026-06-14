@@ -134,8 +134,6 @@ const hasWorkspaceNodes = computed(() => props.sessionTree.some((environment) =>
 const shouldShowEmptySessions = computed(() => props.sessions.length === 0 && !hasWorkspaceNodes.value)
 
 const defaultExpandedTreeKeys = computed(() => collectExpandableKeys(treeNodes.value))
-const selectedSession = computed(() => selectedTreeNodes.value[0]?.session)
-const selectedShortcutLabel = computed(() => selectedSession.value?.shortcut_name || selectedSession.value?.runtime || '')
 
 watch(
   defaultExpandedTreeKeys,
@@ -186,6 +184,32 @@ function isStartingSession(session: Session): boolean {
   return props.startingSessionId === session.id
 }
 
+function sessionStatusTextClass(session: Session): string {
+  if (session.status === 'running') {
+    return 'text-emerald-700 dark:text-emerald-300'
+  }
+  if (session.status === 'failed') {
+    return 'text-red-700 dark:text-red-300'
+  }
+  if (session.status === 'starting') {
+    return 'text-blue-700 dark:text-blue-300'
+  }
+  return 'text-slate-600 dark:text-slate-400'
+}
+
+function sessionStatusIconClass(session: Session): string {
+  if (session.status === 'running') {
+    return 'text-emerald-600 dark:text-emerald-400'
+  }
+  if (session.status === 'failed') {
+    return 'text-red-600 dark:text-red-400'
+  }
+  if (session.status === 'starting') {
+    return 'text-blue-600 dark:text-blue-400'
+  }
+  return 'text-slate-400 dark:text-slate-500'
+}
+
 function environmentLogo(host: ShortcutHost) {
   if (host === 'windows_cygwin') {
     return CygwinLogo
@@ -204,7 +228,6 @@ function handleCreate() {
 
 function handleTreeSelect(node: SessionTreeNode) {
   selectedTreeNodes.value = [node]
-  emit('createContext', { host: node.host, workspace: node.workspacePath })
   if (node.session) {
     emit('select', node.session)
   }
@@ -240,9 +263,9 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
 
 <template>
   <section
-    class="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-200/70 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 lg:border-r-0"
+    class="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-200/70 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 lg:border-r-0"
   >
-    <div class="flex min-h-0 flex-1 flex-col gap-2.5 p-3 pt-3">
+    <div class="flex min-h-0 flex-1 flex-col gap-2.5 p-2 pt-1.5 pb-0">
       <p
         v-if="loading || environmentsLoading"
         class="inline-flex items-center gap-2 text-sm text-slate-500"
@@ -278,20 +301,20 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
         </button>
         {{ t('session.list.emptySuffix') }}
       </p>
-      <div v-else class="flex min-h-0 flex-1 flex-col gap-2.5">
-        <div class="flex items-center gap-2">
+      <div v-else class="flex min-h-0 flex-1 flex-col">
+        <div class="flex h-11 items-center gap-2 border-b border-slate-200/70 pb-1.5 dark:border-slate-800">
           <label class="relative min-w-0 flex-1">
             <Search class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
             <input
               v-model.trim="query"
-              class="h-9 w-full rounded-md border border-slate-300/70 bg-white/45 py-1.5 pl-8 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white/65 dark:border-slate-700/80 dark:bg-slate-950/35 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-blue-500 dark:focus:bg-slate-950/60"
+              class="h-8 w-full rounded-md border border-slate-300/70 bg-white/45 py-1 pl-8 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white/65 dark:border-slate-700/80 dark:bg-slate-950/35 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-blue-500 dark:focus:bg-slate-950/60"
               :placeholder="t('session.list.searchPlaceholder')"
             />
           </label>
           <button
             type="button"
             :disabled="!hasReadyEnvironment"
-            class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-blue-500/40 bg-blue-600/90 px-2.5 text-sm font-medium text-white transition hover:bg-blue-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-400/25 dark:bg-blue-500/85 dark:hover:bg-blue-500"
+            class="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-slate-300/70 bg-white/35 px-2.5 text-sm font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700/80 dark:bg-slate-950/30 dark:text-slate-400 dark:hover:border-blue-500/50 dark:hover:bg-blue-950/30 dark:hover:text-blue-300"
             @click="handleCreate"
           >
             <Plus class="h-4 w-4" />
@@ -299,7 +322,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
           </button>
         </div>
 
-        <div class="min-h-0 flex-1 overflow-auto pr-1">
+        <div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1 pt-2">
           <TreeRoot
             v-model="selectedTreeNodes"
             v-model:expanded="expandedTreeKeys"
@@ -310,7 +333,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
             :get-key="(node: SessionTreeNode) => node.id"
             :get-children="(node: SessionTreeNode) => node.children"
             selection-behavior="replace"
-            class="grid gap-px outline-none"
+            class="grid min-w-0 gap-px outline-none"
           >
             <template #default="{ flattenItems }">
               <TreeItem
@@ -322,7 +345,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                 @select.prevent="handleTreeSelect(item.value)"
               >
                 <div
-                  class="group flex w-full items-center gap-1.5 rounded-md py-1 pr-1.5 text-left text-[13px] leading-5 transition focus:outline-none"
+                  class="group flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 text-left text-[13px] leading-5 transition focus:outline-none"
                   :class="
                     isSelectedNode(item.value)
                       ? 'bg-blue-100/65 text-blue-800 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/45 dark:text-blue-200 dark:ring-blue-800/40'
@@ -348,11 +371,12 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                   />
                   <SquareTerminal
                     v-if="item.value.kind === 'session'"
-                    class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500"
+                    class="h-4 w-4 shrink-0"
+                    :class="item.value.session ? sessionStatusIconClass(item.value.session) : 'text-slate-400 dark:text-slate-500'"
                   />
                   <span
                     class="min-w-0 flex-1 truncate"
-                    :class="item.value.kind === 'workspace' ? 'max-w-48' : ''"
+                    :class="item.value.session ? sessionStatusTextClass(item.value.session) : ''"
                     :title="item.value.kind === 'workspace' ? item.value.label : undefined"
                   >
                     {{ item.value.label }}
@@ -403,7 +427,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                       <Loader2 class="h-4 w-4 animate-spin" />
                     </span>
                     <button
-                      v-if="item.value.session.status === 'stopped'"
+                      v-if="item.value.session.status === 'stopped' && !isStartingSession(item.value.session)"
                       type="button"
                       class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-red-100/60 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
                       :aria-label="t('session.card.deleteLabel')"
@@ -421,10 +445,10 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
       </div>
     </div>
 
-    <div class="mt-auto flex items-center gap-2 border-t border-slate-200/70 bg-slate-100/80 p-2.5 dark:border-slate-800 dark:bg-slate-900/80">
+    <div class="mt-auto flex h-7 items-center gap-2 border-t border-slate-200/70 bg-slate-100/80 px-2.5 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950">
       <DropdownMenuRoot>
         <DropdownMenuTrigger
-          class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-white/50 hover:text-slate-800 focus:outline-none dark:text-slate-400 dark:hover:bg-slate-800/70 dark:hover:text-slate-100"
+          class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-500 transition hover:bg-white/50 hover:text-slate-800 focus:outline-none dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-200"
           :aria-label="t('app.settings.trigger')"
           :title="t('app.settings.trigger')"
         >
@@ -554,13 +578,9 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
           </DropdownMenuContent>
         </DropdownMenuPortal>
       </DropdownMenuRoot>
-      <span v-if="selectedShortcutLabel" class="ml-auto min-w-0 truncate text-right text-xs text-slate-500 dark:text-slate-500">
-        {{ selectedShortcutLabel }}
-      </span>
       <button
         type="button"
-        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-white/50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800/70 dark:hover:text-slate-100"
-        :class="selectedShortcutLabel ? 'ml-1' : 'ml-auto'"
+        class="ml-auto inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-500 transition hover:bg-slate-900 hover:text-slate-200"
         :aria-label="t('session.list.collapse')"
         :title="t('session.list.collapse')"
         @click="emit('collapse')"

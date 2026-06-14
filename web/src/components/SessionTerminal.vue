@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { Loader2, Monitor, Play, Plus, X } from '@lucide/vue'
+import { Loader2, Monitor, Play, Plus, SquareTerminal, X } from '@lucide/vue'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Session } from '../types/sessions'
+import CygwinLogo from './CygwinLogo.vue'
+import LinuxLogo from './LinuxLogo.vue'
+import WslLogo from './WslLogo.vue'
+import type { Session, ShortcutHost } from '../types/sessions'
 
 const { t } = useI18n()
 
@@ -21,6 +24,7 @@ const emit = defineEmits<{
 }>()
 
 const activeTab = computed(() => props.session?.id || '')
+const activeShortcutLabel = computed(() => props.session?.shortcut_name || props.session?.runtime || '')
 
 const createTabValue = '__create_session__'
 
@@ -45,6 +49,19 @@ function closeTab(event: globalThis.MouseEvent, session: Session) {
 function isStartingSession(session: Session) {
   return props.startingSessionId === session.id
 }
+
+function environmentLogo(host: ShortcutHost | null | undefined) {
+  if (host === 'windows_cygwin') {
+    return CygwinLogo
+  }
+  if (host === 'windows_wsl') {
+    return WslLogo
+  }
+  if (host === 'linux') {
+    return LinuxLogo
+  }
+  return SquareTerminal
+}
 </script>
 
 <template>
@@ -55,19 +72,21 @@ function isStartingSession(session: Session) {
       @update:model-value="updateActiveTab"
     >
       <div
-        class="min-w-0 border-b border-slate-200 bg-slate-100 px-4 text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400"
+        class="h-11 min-w-0 border-b border-slate-200 bg-slate-100 px-3 text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400"
       >
-        <TabsList class="terminal-tabs-list flex gap-4 overflow-x-auto overflow-y-hidden">
+        <TabsList class="terminal-tabs-list flex h-full items-center gap-3 overflow-x-auto overflow-y-hidden">
           <TabsTrigger
             v-for="item in sessions"
             :key="item.id"
             :value="item.id"
-            class="-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 border-transparent px-1 py-2 text-sm transition hover:text-slate-900 data-[state=active]:border-blue-500 data-[state=active]:text-slate-950 dark:hover:text-slate-100 dark:data-[state=active]:text-slate-100"
+            class="inline-flex h-8 max-w-64 shrink-0 items-center gap-2 bg-transparent px-2 text-sm transition hover:text-slate-900 data-[state=active]:font-medium data-[state=active]:text-slate-950 dark:hover:text-slate-100 dark:data-[state=active]:text-slate-100"
+            :title="item.workspace"
           >
-            <span>{{ item.name }}</span>
+            <component :is="environmentLogo(item.host)" class="h-4 w-4 shrink-0" />
+            <span class="truncate">{{ item.name }}</span>
             <button
               type="button"
-              class="inline-flex h-4 w-4 items-center justify-center rounded text-slate-400 transition hover:bg-slate-200 hover:text-slate-800 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+              class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-slate-400 transition hover:bg-slate-200 hover:text-slate-800 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-100"
               :aria-label="t('session.terminal.closeTab', { name: item.name })"
               :title="t('session.terminal.closeTab', { name: item.name })"
               @click="closeTab($event, item)"
@@ -77,7 +96,7 @@ function isStartingSession(session: Session) {
           </TabsTrigger>
           <TabsTrigger
             :value="createTabValue"
-            class="-mb-px inline-flex shrink-0 items-center border-b-2 border-transparent px-1 py-2 text-sm transition hover:text-slate-900 dark:hover:text-slate-100"
+            class="inline-flex h-8 shrink-0 items-center justify-center bg-transparent px-2 text-sm text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"
             :aria-label="t('session.terminal.createTab')"
             :title="t('session.terminal.createTab')"
           >
@@ -148,6 +167,19 @@ function isStartingSession(session: Session) {
         </div>
       </TabsContent>
     </TabsRoot>
+
+    <div
+      class="flex h-7 shrink-0 items-center gap-3 border-t border-slate-200/70 bg-slate-100 px-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-500"
+    >
+      <span v-if="session" class="inline-flex min-w-0 items-center gap-1" :title="session.workspace">
+        <span class="shrink-0">{{ t('session.create.workspace') }}:</span>
+        <span class="min-w-0 truncate text-slate-600 dark:text-slate-400">{{ session.workspace }}</span>
+      </span>
+      <span v-if="activeShortcutLabel" class="inline-flex shrink-0 items-center gap-1" :title="activeShortcutLabel">
+        <span>{{ t('session.create.shortcut') }}:</span>
+        <span class="text-slate-600 dark:text-slate-400">{{ activeShortcutLabel }}</span>
+      </span>
+    </div>
   </section>
 </template>
 

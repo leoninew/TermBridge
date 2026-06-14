@@ -51,7 +51,7 @@ const shortcuts = ref<Shortcut[]>([])
 const shortcutError = ref('')
 const submitted = ref(false)
 const form = reactive<CreateSessionPayload>({
-  name: '',
+  name: t('session.create.defaultName'),
   workspace: props.initialWorkspace || '',
   shortcut_id: props.initialShortcutId || '',
 })
@@ -87,29 +87,6 @@ const fieldErrors = computed<Record<FieldName, string>>(() => {
   }
   return validationErrors.value
 })
-
-watch(
-  () => props.initialHost,
-  (host) => {
-    if (host) {
-      selectedHost.value = host
-    }
-  },
-)
-
-watch(
-  () => props.initialWorkspace,
-  (workspace) => {
-    form.workspace = workspace || ''
-  },
-)
-
-watch(
-  () => props.initialShortcutId,
-  (shortcutId) => {
-    form.shortcut_id = shortcutId || ''
-  },
-)
 
 watch([availableHosts, filteredShortcuts], () => {
   if (!availableHosts.value.includes(selectedHost.value)) {
