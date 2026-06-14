@@ -1,4 +1,5 @@
 import subprocess
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, Protocol
@@ -11,7 +12,13 @@ class ProcessHandle:
 
 class ProcessAdapter(Protocol):
     def start(
-        self, command: list[str], cwd: Path, *, log_file: Path | None = None, suppress_output: bool = False
+        self,
+        command: list[str],
+        cwd: Path,
+        *,
+        log_file: Path | None = None,
+        suppress_output: bool = False,
+        env: Mapping[str, str] | None = None,
     ) -> ProcessHandle: ...
 
     def terminate(self, handle: ProcessHandle) -> None: ...
@@ -25,7 +32,13 @@ class TtydProcessAdapter:
         self._log_files: dict[int, BinaryIO] = {}
 
     def start(
-        self, command: list[str], cwd: Path, *, log_file: Path | None = None, suppress_output: bool = False
+        self,
+        command: list[str],
+        cwd: Path,
+        *,
+        log_file: Path | None = None,
+        suppress_output: bool = False,
+        env: Mapping[str, str] | None = None,
     ) -> ProcessHandle:
         output: BinaryIO | int | None = None
         log_output: BinaryIO | None = None
@@ -36,7 +49,7 @@ class TtydProcessAdapter:
         elif suppress_output:
             output = subprocess.DEVNULL
         try:
-            process = subprocess.Popen(command, cwd=cwd, stdout=output, stderr=output)
+            process = subprocess.Popen(command, cwd=cwd, stdout=output, stderr=output, env=env)
         except Exception:
             if log_output is not None:
                 log_output.close()

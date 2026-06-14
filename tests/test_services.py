@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal, cast
 
@@ -15,15 +16,21 @@ from termbridge.settings import Settings
 
 class FakeProcessAdapter:
     def __init__(self) -> None:
-        self.started: list[tuple[list[str], Path, Path | None, bool]] = []
+        self.started: list[tuple[list[str], Path, Path | None, bool, Mapping[str, str] | None]] = []
         self.terminated: list[ProcessHandle] = []
         self.running = True
         self.next_pid = 100
 
     def start(
-        self, command: list[str], cwd: Path, *, log_file: Path | None = None, suppress_output: bool = False
+        self,
+        command: list[str],
+        cwd: Path,
+        *,
+        log_file: Path | None = None,
+        suppress_output: bool = False,
+        env: Mapping[str, str] | None = None,
     ) -> ProcessHandle:
-        self.started.append((command, cwd, log_file, suppress_output))
+        self.started.append((command, cwd, log_file, suppress_output, env))
         handle = ProcessHandle(pid=self.next_pid)
         self.next_pid += 1
         return handle
@@ -37,14 +44,21 @@ class FakeProcessAdapter:
 
 class FailingProcessAdapter(FakeProcessAdapter):
     def start(
-        self, command: list[str], cwd: Path, *, log_file: Path | None = None, suppress_output: bool = False
+        self,
+        command: list[str],
+        cwd: Path,
+        *,
+        log_file: Path | None = None,
+        suppress_output: bool = False,
+        env: Mapping[str, str] | None = None,
     ) -> ProcessHandle:
         raise RuntimeError("process failed")
 
 
 class FakeShortcutService:
-    def __init__(self, ttyd_executable: str = "custom-ttyd") -> None:
+    def __init__(self, ttyd_executable: str = "custom-ttyd", runtime_env: Mapping[str, str] | None = None) -> None:
         self.ttyd_executable = ttyd_executable
+        self.runtime_env = runtime_env
         self.created_windows: list[tuple[Shortcut, Path, str, str]] = []
         self.killed_windows: list[tuple[str, Path, str | None]] = []
         self.killed_sessions: list[tuple[str, Path, str]] = []
@@ -85,6 +99,9 @@ class FakeShortcutService:
 
     def resolve_ttyd_executable(self, host: str, cygwin_bash_path: str | None = None) -> str:
         return self.ttyd_executable
+
+    def runtime_process_env(self, host: str) -> Mapping[str, str] | None:
+        return self.runtime_env
 
 
 def make_service(
@@ -163,6 +180,7 @@ def test_service_creates_entry_with_workspace_tmux_session(tmp_path: Path) -> No
             tmp_path.resolve(),
             None,
             True,
+            None,
         )
     ]
 
@@ -295,6 +313,17 @@ def test_service_uses_console_ttyd_log_mode_when_enabled(tmp_path: Path) -> None
 
     assert process.started[0][2] is None
     assert process.started[0][3] is False
+
+
+def test_service_passes_runtime_env_to_ttyd_process(tmp_path: Path) -> None:
+    runtime_env = {"PATH": "D:/ProgramFiles/Cygwin/bin;C:/Program Files/Git/usr/bin"}
+    process = FakeProcessAdapter()
+    service = make_service(tmp_path, process, shortcut_service=FakeShortcutService(runtime_env=runtime_env))
+
+    service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+
+    assert process.started[0][4] == runtime_env
+
 
 
 def test_service_reuses_workspace_for_same_host_and_path(tmp_path: Path) -> None:

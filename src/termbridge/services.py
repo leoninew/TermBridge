@@ -10,7 +10,7 @@ import secrets
 import shlex
 import shutil
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -377,6 +377,7 @@ class TerminalService:
                 text=True,
                 timeout=timeout_seconds,
                 check=False,
+                env=self._cygwin_process_env(cygwin_bash_path),
             )
         except subprocess.TimeoutExpired:
             return RuntimeCheckResponse(available=False, reason="tmux detection timed out")
@@ -432,15 +433,24 @@ class TerminalService:
     def create_tmux_window(
         self, shortcut: Shortcut, workspace: Path, *, tmux_session_name: str, window_name: str
     ) -> str:
-        result = self._run_tmux_command(
+        workspace_shell_path = self._workspace_shell_path(shortcut.host, workspace)
+        script = self._create_window_script(shortcut, workspace_shell_path, tmux_session_name, window_name)
+        logger.info(
+            "Creating tmux window host=%s workspace=%s workspace_shell_path=%s tmux_session=%s window_name=%s shortcut=%s",
             shortcut.host,
             workspace,
-            self._create_window_script(shortcut, workspace, tmux_session_name, window_name),
+            workspace_shell_path,
+            tmux_session_name,
+            window_name,
+            shortcut.id,
         )
+        result = self._run_tmux_command(shortcut.host, workspace, script)
         output = result.stdout.strip().splitlines()
         if result.returncode != 0 or not output:
             raise InvalidTerminalConfigError(result.stderr.strip() or "tmux window could not be created")
-        return output[-1]
+        window_id = output[-1]
+        self._log_tmux_window_path(shortcut.host, workspace, tmux_window_id=window_id)
+        return window_id
 
     def build_tmux_attach_command(
         self, host: ShortcutHost, workspace: Path, *, tmux_session_name: str, tmux_window_id: str | None
@@ -491,17 +501,23 @@ class TerminalService:
             return settings.ttyd_path
         return self._resolve_executable("ttyd", windows_names=("ttyd.exe", "ttyd")) or "ttyd"
 
+    def runtime_process_env(self, host: ShortcutHost) -> Mapping[str, str] | None:
+        if host != "windows_cygwin":
+            return None
+        bash_path = self._ensure_windows_cygwin_ready()
+        return self._cygwin_process_env(bash_path)
+
     def normalize_tmux_session_name(self, name: str, fallback: str) -> str:
         normalized = re.sub(r"[^A-Za-z0-9_.-]+", "-", name.strip()).strip("-._")
         return normalized or fallback
 
     def _create_window_script(
-        self, shortcut: Shortcut, workspace: Path, tmux_session_name: str, window_name: str
+        self, shortcut: Shortcut, workspace_shell_path: str, tmux_session_name: str, window_name: str
     ) -> str:
         quoted_session = shlex.quote(tmux_session_name)
         quoted_window = shlex.quote(window_name)
         quoted_command = shlex.quote(shortcut.command)
-        quoted_workspace = shlex.quote(self._workspace_shell_path(shortcut.host, workspace))
+        quoted_workspace = shlex.quote(workspace_shell_path)
         create_session = (
             f"tmux new-session -d -P -F '#{{window_id}}' -s {quoted_session} "
             f"-n {quoted_window} -c {quoted_workspace} {quoted_command}"
@@ -512,8 +528,26 @@ class TerminalService:
         )
         return f"tmux has-session -t {quoted_session} 2>/dev/null && {create_window} || {create_session}"
 
+    def _log_tmux_window_path(self, host: ShortcutHost, workspace: Path, *, tmux_window_id: str) -> None:
+        if host != "windows_cygwin":
+            return
+        result = self._run_tmux_command(
+            host,
+            workspace,
+            f"tmux display-message -p -t {shlex.quote(tmux_window_id)} '#{{pane_current_path}}'",
+        )
+        logger.info(
+            "tmux window current path host=%s tmux_window=%s returncode=%s stdout=%s stderr=%s",
+            host,
+            tmux_window_id,
+            result.returncode,
+            result.stdout.strip(),
+            result.stderr.strip(),
+        )
+
     def _run_tmux_command(self, host: ShortcutHost, workspace: Path, command: str) -> subprocess.CompletedProcess[str]:
         args = self._runtime_shell_command(host, workspace, command)
+        env = self.runtime_process_env(host)
         try:
             return subprocess.run(
                 args,
@@ -521,6 +555,7 @@ class TerminalService:
                 text=True,
                 timeout=self._settings.tmux_command_timeout_seconds,
                 check=False,
+                env=env,
             )
         except subprocess.TimeoutExpired:
             logger.warning(
@@ -558,10 +593,34 @@ class TerminalService:
 
     def _workspace_shell_path(self, host: ShortcutHost, workspace: Path) -> str:
         if host == "windows_cygwin":
-            return self._to_forward_slash(workspace)
+            return self._cygwin_workspace_path(workspace)
         if host == "windows_wsl":
             return "."
         return str(workspace)
+
+    def _cygwin_workspace_path(self, workspace: Path) -> str:
+        bash_path = self._ensure_windows_cygwin_ready()
+        workspace_text = str(workspace)
+        try:
+            result = subprocess.run(
+                [bash_path, "-lc", f"cygpath -u {shlex.quote(workspace_text)}"],
+                capture_output=True,
+                text=True,
+                timeout=self._settings.tmux_command_timeout_seconds,
+                check=False,
+                env=self._cygwin_process_env(bash_path),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise InvalidTerminalConfigError("Cygwin workspace path conversion timed out") from exc
+        except OSError as exc:
+            raise InvalidTerminalConfigError(f"failed to convert Cygwin workspace path: {exc}") from exc
+        converted = result.stdout.strip().splitlines()
+        if result.returncode != 0 or not converted:
+            reason = result.stderr.strip() or "Cygwin workspace path conversion failed"
+            raise InvalidTerminalConfigError(reason)
+        path = converted[-1]
+        logger.info("Converted Cygwin workspace path workspace=%s cygwin_path=%s", workspace, path)
+        return path
 
     def _find_shortcut(self, shortcut_id: str) -> Shortcut:
         for shortcut in self.list_shortcuts().shortcuts:
@@ -775,11 +834,12 @@ class TerminalService:
     def _check_bash(self, bash_path: str, *, timeout_seconds: float) -> RuntimeCheckResponse:
         try:
             result = subprocess.run(
-                [bash_path, "-lc", "cygpath -w $(command -v bash) && bash --version"],
+                [bash_path, "-lc", "cygpath -w $(command -v bash) && bash --version && uname -o"],
                 capture_output=True,
                 text=True,
                 timeout=timeout_seconds,
                 check=False,
+                env=self._cygwin_process_env(bash_path),
             )
         except subprocess.TimeoutExpired:
             return RuntimeCheckResponse(available=False, path=bash_path, reason="Cygwin bash detection timed out")
@@ -794,6 +854,9 @@ class TerminalService:
             )
         detected_path = output[0] if output else bash_path
         version = output[1] if len(output) > 1 else None
+        platform_name = output[-1].strip().lower() if output else ""
+        if platform_name != "cygwin":
+            return RuntimeCheckResponse(available=False, path=detected_path, reason="bash is not a Cygwin bash")
         return RuntimeCheckResponse(available=True, path=detected_path, version=version)
 
     def _check_wsl_tmux(self, wsl_path: str, *, timeout_seconds: float) -> RuntimeCheckResponse:
@@ -821,6 +884,13 @@ class TerminalService:
     def _resolve_configured_windows_cygwin_bash(self) -> str | None:
         return self.get_windows_cygwin_settings().bash_path
 
+    def _cygwin_process_env(self, bash_path: str) -> Mapping[str, str]:
+        env = os.environ.copy()
+        cygwin_bin = str(Path(bash_path).parent)
+        current_path = env.get("PATH", "")
+        env["PATH"] = f"{cygwin_bin}{os.pathsep}{current_path}" if current_path else cygwin_bin
+        return env
+
     def _resolve_executable(self, name: str, *, windows_names: tuple[str, ...] | None = None) -> str | None:
         names = windows_names if _is_windows_host() and windows_names else (name,)
         for candidate_name in names:
@@ -836,10 +906,13 @@ class TerminalService:
 
     def _detect_cygwin_bash_path(self) -> str | None:
         candidates = [
-            self._resolve_executable("bash"),
+            "D:/ProgramFiles/Cygwin/bin/bash.exe",
             "D:/ProgramFiles/Cygwin64/bin/bash.exe",
+            "C:/ProgramFiles/Cygwin/bin/bash.exe",
+            "C:/ProgramFiles/Cygwin64/bin/bash.exe",
             "C:/cygwin64/bin/bash.exe",
             "C:/cygwin/bin/bash.exe",
+            self._resolve_executable("bash"),
         ]
         for candidate in candidates:
             if candidate and Path(candidate).exists():
@@ -1074,11 +1147,20 @@ class SessionService:
         command = self._build_ttyd_command(port, workspace.path, runtime_command, ttyd_executable, credential)
         url = self._build_url(entry.id)
         log_file, suppress_output = self._ttyd_log_options(entry.id)
+        env = terminal_service.runtime_process_env(workspace.host)
+        logger.info(
+            "Starting ttyd process entry_id=%s host=%s workspace=%s port=%s",
+            entry.id,
+            workspace.host,
+            workspace.path,
+            port,
+        )
         handle = self._process_adapter.start(
             command,
             workspace.path,
             log_file=log_file,
             suppress_output=suppress_output,
+            env=env,
         )
         return entry.model_copy(
             update={

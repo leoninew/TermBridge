@@ -1,3 +1,4 @@
+import os
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
@@ -248,6 +249,31 @@ def test_terminal_service_uses_configured_tmux_command_timeout(tmp_path: Path) -
     assert run.call_args.kwargs["timeout"] == 12.5
 
 
+def test_terminal_service_uses_cygwin_env_for_tmux_commands(tmp_path: Path) -> None:
+    repository = FileTerminalRepository(tmp_path / "terminals.json")
+    state = repository.get_state()
+    state.windows_cygwin_settings = WindowsCygwinSettings(
+        readiness="ready",
+        bash_path="D:/ProgramFiles/Cygwin/bin/bash.exe",
+        tmux_path="D:/ProgramFiles/Cygwin/bin/tmux.exe",
+    )
+    repository.save_state(state)
+    service = TerminalService(repository)
+    shortcut = service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="windows_cygwin"))
+    converted = subprocess.CompletedProcess(args=[], returncode=0, stdout="/d/workspace\n", stderr="")
+    created = subprocess.CompletedProcess(args=[], returncode=0, stdout="@3\n", stderr="")
+    current_path = subprocess.CompletedProcess(args=[], returncode=0, stdout="/d/workspace\n", stderr="")
+
+    with patch("termbridge.services.subprocess.run", side_effect=[converted, created, current_path]) as run:
+        service.create_tmux_window(shortcut, tmp_path, tmux_session_name="tb_cyg_workspace", window_name="Agent")
+
+    env = run.call_args_list[1].kwargs["env"]
+    assert env is not None
+    assert Path(env["PATH"].split(os.pathsep)[0]) == Path("D:/ProgramFiles/Cygwin/bin")
+    assert "-c /d/workspace" in run.call_args_list[1].args[0][2]
+
+
+
 def test_shortcut_service_resolves_linux_command_when_ready(tmp_path: Path) -> None:
     repository = FileTerminalRepository(tmp_path / "terminals.json")
     service = TerminalService(repository)
@@ -420,9 +446,9 @@ def test_terminal_service_detects_cygwin_and_tmux(tmp_path: Path) -> None:
         service.get_windows_cygwin_settings().model_copy(update={"bash_path": "/usr/bin/bash"})
     )
     bash = subprocess.CompletedProcess(
-        args=["bash.exe", "-lc", "cygpath -w $(command -v bash) && bash --version"],
+        args=["bash.exe", "-lc", "cygpath -w $(command -v bash) && bash --version && uname -o"],
         returncode=0,
-        stdout="D:\\ProgramFiles\\Cygwin64\\bin\\bash.exe\nGNU bash 5.2\n",
+        stdout="D:\\ProgramFiles\\Cygwin64\\bin\\bash.exe\nGNU bash 5.2\nCygwin\n",
         stderr="",
     )
 
@@ -461,9 +487,9 @@ def test_terminal_service_uses_configured_cygwin_detection_timeout(tmp_path: Pat
     )
     service.update_windows_cygwin_settings(service.get_windows_cygwin_settings().model_copy(update={"bash_path": "bash.exe"}))
     bash = subprocess.CompletedProcess(
-        args=["bash.exe", "-lc", "cygpath -w $(command -v bash) && bash --version"],
+        args=["bash.exe", "-lc", "cygpath -w $(command -v bash) && bash --version && uname -o"],
         returncode=0,
-        stdout="D:\\ProgramFiles\\Cygwin64\\bin\\bash.exe\nGNU bash 5.2\n",
+        stdout="D:\\ProgramFiles\\Cygwin64\\bin\\bash.exe\nGNU bash 5.2\nCygwin\n",
         stderr="",
     )
 
