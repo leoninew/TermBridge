@@ -61,6 +61,7 @@ from termbridge.models import (
     WorkspaceTreeResponse,
 )
 from termbridge.settings import load_settings
+from termbridge.ttyd import normalize_ttyd_client_query
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -354,8 +355,15 @@ async def proxy_terminal_http(session_id: str, path: str, request: Request, serv
     target = service.terminal_proxy_target(session_id)
     target_path = path or ""
     target_url = f"{target.base_url.rstrip('/')}/{target_path}"
-    if request.url.query:
-        target_url = f"{target_url}?{request.url.query}"
+    original_query = request.url.query
+    normalized_query = normalize_ttyd_client_query(original_query)
+    if normalized_query != original_query:
+        redirect_url = f"/terminal/{session_id}/{target_path}"
+        if normalized_query:
+            redirect_url = f"{redirect_url}?{normalized_query}"
+        return RedirectResponse(url=redirect_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+    if normalized_query:
+        target_url = f"{target_url}?{normalized_query}"
     headers = _target_headers(target.credential)
     async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
         try:
@@ -377,7 +385,7 @@ async def proxy_terminal_websocket(session_id: str, websocket: WebSocket, servic
         await websocket.close(code=1008)
         return
     target_url = target.base_url.replace("http://", "ws://", 1).replace("https://", "wss://", 1).rstrip("/")
-    query = websocket.url.query
+    query = normalize_ttyd_client_query(websocket.url.query)
     if query:
         target_url = f"{target_url}/ws?{query}"
     else:

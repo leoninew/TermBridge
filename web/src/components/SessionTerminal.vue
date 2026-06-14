@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import CygwinLogo from './CygwinLogo.vue'
 import LinuxLogo from './LinuxLogo.vue'
 import WslLogo from './WslLogo.vue'
+import { useThemeStore } from '../stores/theme'
 import type { Session, ShortcutHost } from '../types/sessions'
 
 type DragEndEvent = {
@@ -18,6 +19,7 @@ type DragEndEvent = {
 }
 
 const { t } = useI18n()
+const themeStore = useThemeStore()
 
 const props = defineProps<{
   sessions: Session[]
@@ -40,6 +42,15 @@ const activeShortcutLabel = computed(
 )
 
 const createTabValue = '__create_session__'
+
+function terminalUrl(url: string) {
+  const [baseUrl, hash = ''] = url.split('#', 2)
+  const [path, query = ''] = baseUrl.split('?', 2)
+  const searchParams = new globalThis.URLSearchParams(query)
+  searchParams.set('theme', themeStore.mode)
+  const themedUrl = `${path}?${searchParams.toString()}`
+  return hash ? `${themedUrl}#${hash}` : themedUrl
+}
 
 watch(
   () => props.sessions,
@@ -107,7 +118,7 @@ function environmentLogo(host: ShortcutHost | null | undefined) {
 </script>
 
 <template>
-  <section class="flex h-full min-h-0 flex-col bg-slate-950 dark:bg-slate-950">
+  <section class="flex h-full min-h-0 flex-col bg-slate-950 opacity-90 dark:bg-slate-950">
     <TabsRoot
       :model-value="activeTab"
       class="flex min-h-0 flex-1 flex-col"
@@ -216,7 +227,7 @@ function environmentLogo(host: ShortcutHost | null | undefined) {
         <div v-else class="flex h-full min-h-0 flex-col overflow-hidden bg-slate-950">
           <iframe
             class="flex-1 border-0"
-            :src="item.url"
+            :src="terminalUrl(item.url)"
             :title="t('session.terminal.iframeTitle', { name: item.name })"
           />
         </div>

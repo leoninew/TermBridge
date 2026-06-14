@@ -70,9 +70,9 @@ from termbridge.process import ProcessAdapter, ProcessHandle
 from termbridge.repositories import FileSessionRepository, FileTerminalRepository
 from termbridge.runtime import RuntimeRegistry
 from termbridge.settings import Settings
+from termbridge.ttyd import ttyd_client_options
 
 logger = logging.getLogger(__name__)
-
 
 def _is_windows_host() -> bool:
     return os.name == "nt"
@@ -1388,6 +1388,8 @@ class SessionService:
         ]
         if credential is not None:
             command.extend(["--credential", f"{credential.username}:{credential.password}"])
+        for key, value in ttyd_client_options().items():
+            command.extend(["--client-option", f"{key}={value}"])
         command.extend(runtime_command)
         return command
 

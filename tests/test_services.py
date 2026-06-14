@@ -12,6 +12,7 @@ from termbridge.repositories import FileSessionRepository
 from termbridge.runtime import RuntimeRegistry
 from termbridge.services import SessionService, TerminalService
 from termbridge.settings import Settings
+from termbridge.ttyd import ttyd_client_options
 
 
 class FakeProcessAdapter:
@@ -141,6 +142,13 @@ def make_service(
     )
 
 
+def assert_ttyd_client_options(command: list[str]) -> None:
+    options = [command[index + 1] for index, item in enumerate(command) if item == "--client-option"]
+
+    assert options == [f"{key}={value}" for key, value in ttyd_client_options().items()]
+    assert any(option.startswith('theme={"background":"#020617"') for option in options)
+
+
 def test_service_creates_entry_with_workspace_tmux_session(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
     shortcuts = FakeShortcutService()
@@ -162,29 +170,26 @@ def test_service_creates_entry_with_workspace_tmux_session(tmp_path: Path) -> No
     assert entry.ttyd_credential.username == "termbridge"
     assert len(entry.ttyd_credential.password) >= 12
     assert response.url == f"/terminal/{response.id}/"
-    assert process.started == [
-        (
-            [
-                "custom-ttyd",
-                "--writable",
-                "--interface",
-                "127.0.0.1",
-                "--port",
-                "9201",
-                "--cwd",
-                str(tmp_path.resolve()),
-                "--credential",
-                f"termbridge:{entry.ttyd_credential.password}",
-                "bash.exe",
-                "-lc",
-                f"tmux select-window -t @1 && exec tmux attach -t {response.tmux_session_name}",
-            ],
-            tmp_path.resolve(),
-            None,
-            True,
-            None,
-        )
+    command = process.started[0][0]
+    assert command[:10] == [
+        "custom-ttyd",
+        "--writable",
+        "--interface",
+        "127.0.0.1",
+        "--port",
+        "9201",
+        "--cwd",
+        str(tmp_path.resolve()),
+        "--credential",
+        f"termbridge:{entry.ttyd_credential.password}",
     ]
+    assert_ttyd_client_options(command)
+    assert command[-3:] == [
+        "bash.exe",
+        "-lc",
+        f"tmux select-window -t @1 && exec tmux attach -t {response.tmux_session_name}",
+    ]
+    assert process.started == [(command, tmp_path.resolve(), None, True, None)]
 
 
 def test_service_uses_ttyd_log_file_when_file_mode_is_enabled(tmp_path: Path) -> None:

@@ -2,6 +2,7 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
@@ -37,6 +38,7 @@ from termbridge.models import (
     WindowsWslSettings,
 )
 from termbridge.services import TerminalProxyTarget
+from termbridge.ttyd import TTYD_THEMES
 
 
 class FakeSessionService:
@@ -402,7 +404,7 @@ def test_terminal_http_proxy_adds_basic_auth_header() -> None:
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
     try:
-        response = client.get("/terminal/sess_1/token?x=1")
+        response = client.get("/terminal/sess_1/token?x=1&theme=light")
     finally:
         monkeypatch.undo()
 
@@ -410,10 +412,11 @@ def test_terminal_http_proxy_adds_basic_auth_header() -> None:
     assert response.text == "terminal"
     assert response.headers["content-type"] == "text/plain"
     assert "transfer-encoding" not in response.headers
-    assert captured == {
-        "url": "http://127.0.0.1:19001/token?x=1",
-        "authorization": "Basic dGVybWJyaWRnZTpzZWNyZXQ=",
-    }
+    assert captured["authorization"] == "Basic dGVybWJyaWRnZTpzZWNyZXQ="
+    upstream_url = urlsplit(str(captured["url"]))
+    assert f"{upstream_url.scheme}://{upstream_url.netloc}{upstream_url.path}" == "http://127.0.0.1:19001/token"
+    upstream_query = parse_qs(upstream_url.query)
+    assert upstream_query == {"x": ["1"], "theme": [TTYD_THEMES["light"]]}
 
 
 def test_terminal_websocket_upstream_close_is_not_logged_as_proxy_failure(

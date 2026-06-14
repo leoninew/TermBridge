@@ -366,7 +366,7 @@ function sessionStatusTextClass(session: Session): string {
   if (session.status === 'starting') {
     return 'text-blue-700 dark:text-blue-300'
   }
-  return 'text-slate-600 dark:text-slate-400'
+  return 'text-slate-600 dark:text-slate-300'
 }
 
 function sessionStatusIconClass(session: Session): string {
@@ -379,7 +379,7 @@ function sessionStatusIconClass(session: Session): string {
   if (session.status === 'starting') {
     return 'text-blue-600 dark:text-blue-400'
   }
-  return 'text-slate-400 dark:text-slate-500'
+  return 'text-slate-400 dark:text-slate-400'
 }
 
 function environmentLogo(host: ShortcutHost) {
@@ -435,7 +435,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
 
 <template>
   <section
-    class="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-200/70 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 lg:border-r-0"
+    class="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-200/70 bg-slate-100 text-slate-700 opacity-90 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 lg:border-r-0"
   >
     <div class="flex min-h-0 flex-1 flex-col gap-2.5 px-2 pb-0">
       <p
@@ -475,22 +475,22 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
       </p>
       <div v-else class="flex min-h-0 flex-1 flex-col">
         <div
-          class="flex h-11 items-center gap-2 border-b border-slate-200/70 dark:border-slate-800"
+          class="-mx-2 flex h-11 items-center gap-2 border-b border-slate-200/70 px-2 dark:border-slate-800"
         >
           <label class="relative min-w-0 flex-1">
             <Search
-              class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500"
+              class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-400"
             />
             <input
               v-model.trim="query"
-              class="h-8 w-full rounded-md border border-slate-300/70 bg-white/45 py-1 pl-8 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white/65 dark:border-slate-700/80 dark:bg-slate-950/35 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-blue-500 dark:focus:bg-slate-950/60"
+              class="h-8 w-full rounded-md border border-slate-300/70 bg-white/45 py-1 pl-8 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white/65 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-blue-500 dark:focus:bg-slate-900"
               :placeholder="t('session.list.searchPlaceholder')"
             />
           </label>
           <button
             type="button"
             :disabled="!hasReadyEnvironment"
-            class="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-slate-300/70 bg-white/35 px-2.5 text-sm font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700/80 dark:bg-slate-950/30 dark:text-slate-400 dark:hover:border-blue-500/50 dark:hover:bg-blue-950/30 dark:hover:text-blue-300"
+            class="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-slate-300/70 bg-white/35 px-2.5 text-sm font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-500/70 dark:hover:bg-blue-950/70 dark:hover:text-blue-200"
             @click="handleCreate"
           >
             <Plus class="h-4 w-4" />
@@ -502,7 +502,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
           <div class="grid min-w-0 gap-3">
             <section v-for="group in displayTreeGroups" :key="group.id" class="grid min-w-0 gap-1">
               <div
-                class="flex min-w-0 items-center gap-2 px-1.5 py-1 text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500"
+                class="flex min-w-0 items-center gap-2 px-1.5 py-1 text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-400"
               >
                 <component :is="environmentLogo(group.host)" class="shrink-0" />
                 <span class="truncate">{{ group.label }}</span>
@@ -521,13 +521,13 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                       class="group flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 text-left text-[13px] leading-5 transition focus:outline-none"
                       :class="
                         isSelectedNode(workspace)
-                          ? 'bg-blue-100/65 text-blue-800 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/45 dark:text-blue-200 dark:ring-blue-800/40'
-                          : 'text-slate-600 hover:bg-white/45 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/55 dark:hover:text-slate-100'
+                          ? 'bg-blue-100/65 text-blue-800 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/70 dark:text-blue-100 dark:ring-blue-700/60'
+                          : 'text-slate-600 hover:bg-white/45 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-50'
                       "
                     >
                       <button
                         type="button"
-                        class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 dark:text-slate-500"
+                        class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 dark:text-slate-400"
                         @click="toggleExpanded($event, workspace)"
                       >
                         <ChevronDown
@@ -536,7 +536,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                         />
                         <ChevronRight v-else-if="workspace.children?.length" class="h-4 w-4" />
                       </button>
-                      <Folder class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+                      <Folder class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-400" />
                       <span
                         class="min-w-0 flex-1 truncate"
                         :title="workspace.workspacePath"
@@ -549,7 +549,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                       >
                         <button
                           type="button"
-                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-blue-100/60 hover:text-blue-700 focus:opacity-100 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-blue-300"
+                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-blue-100/60 hover:text-blue-700 focus:opacity-100 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-blue-300"
                           :aria-label="t('session.workspace.createLabel')"
                           :title="t('session.workspace.createLabel')"
                           @click="createFromWorkspace($event, workspace)"
@@ -558,7 +558,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                         </button>
                         <button
                           type="button"
-                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-red-100/60 hover:text-red-600 focus:opacity-100 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-red-100/60 hover:text-red-600 focus:opacity-100 dark:text-slate-400 dark:hover:bg-red-950/70 dark:hover:text-red-300"
                           :aria-label="t('session.workspace.deleteLabel')"
                           :title="t('session.workspace.deleteLabel')"
                           @click="removeWorkspace($event, workspace)"
@@ -574,7 +574,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                       ghost-class="session-list-ghost"
                       filter="button"
                       :prevent-on-filter="false"
-                      class="ml-5 grid min-w-0 gap-px border-l border-slate-200/70 pl-2 dark:border-slate-800"
+                      class="ml-7 grid min-w-0 gap-px border-l border-slate-200/70 pl-3 dark:border-slate-800"
                       @end="handleSessionReorder($event, workspace, workspace.children || [])"
                     >
                       <div
@@ -583,8 +583,8 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                         class="group flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 text-left text-[13px] leading-5 transition focus:outline-none"
                           :class="
                             isSelectedNode(sessionNode)
-                              ? 'bg-blue-100/65 text-blue-800 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/45 dark:text-blue-200 dark:ring-blue-800/40'
-                              : 'text-slate-600 hover:bg-white/45 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/55 dark:hover:text-slate-100'
+                              ? 'bg-blue-100/65 text-blue-800 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/70 dark:text-blue-100 dark:ring-blue-700/60'
+                              : 'text-slate-600 hover:bg-white/45 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-50'
                           "
                         >
                           <SquareTerminal
@@ -592,7 +592,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                             :class="
                               sessionNode.session
                                 ? sessionStatusIconClass(sessionNode.session)
-                                : 'text-slate-400 dark:text-slate-500'
+                                : 'text-slate-400 dark:text-slate-400'
                             "
                           />
                           <span
@@ -611,7 +611,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                             <button
                               v-if="sessionNode.session.status === 'running'"
                               type="button"
-                              class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 dark:text-slate-500 dark:hover:bg-amber-950/40 dark:hover:text-amber-300"
+                              class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 dark:text-slate-400 dark:hover:bg-amber-950/70 dark:hover:text-amber-300"
                               :aria-label="t('session.card.stopLabel')"
                               :title="t('session.card.stopLabel')"
                               @click="stopSession($event, sessionNode.session)"
@@ -623,7 +623,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                                 sessionNode.session.status === 'stopped' &&
                                 isStartingSession(sessionNode.session)
                               "
-                              class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 dark:text-slate-500"
+                              class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 dark:text-slate-400"
                               :aria-label="t('session.card.startLabel')"
                               :title="t('session.card.startLabel')"
                             >
@@ -635,7 +635,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                                 !isStartingSession(sessionNode.session)
                               "
                               type="button"
-                              class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-red-100/60 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+                              class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-red-100/60 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/70 dark:hover:text-red-300"
                               :aria-label="t('session.card.deleteLabel')"
                               :title="t('session.card.deleteLabel')"
                               @click="removeSession($event, sessionNode.session)"
@@ -695,7 +695,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
               <ChevronRight class="h-4 w-4 text-slate-400" />
             </DropdownMenuItem>
             <DropdownMenuItem
-              class="flex cursor-pointer items-center justify-between rounded-md px-3 py-2 text-amber-700 outline-none hover:bg-amber-50 focus:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40 dark:focus:bg-amber-950/40"
+              class="flex cursor-pointer items-center justify-between rounded-md px-3 py-2 text-amber-700 outline-none hover:bg-amber-50 focus:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/70 dark:focus:bg-amber-950/40"
               @select="emit('closeAll')"
             >
               <span class="inline-flex items-center gap-2">
