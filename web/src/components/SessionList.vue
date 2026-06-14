@@ -40,6 +40,7 @@ import { useI18n } from 'vue-i18n'
 import CygwinLogo from './CygwinLogo.vue'
 import LinuxLogo from './LinuxLogo.vue'
 import WslLogo from './WslLogo.vue'
+import { workspaceDisplayLabels } from '../sessionTreeLabels'
 import { useThemeStore } from '../stores/theme'
 import type {
   EnvironmentSummary,
@@ -200,57 +201,6 @@ function workspaceNodes(workspaces: SessionWorkspace[]): SessionTreeNode[] {
   }))
 }
 
-function workspaceDisplayLabels(workspaces: SessionWorkspace[]): Map<string, string> {
-  const partsById = new Map(
-    workspaces.map((workspace) => [workspace.id, pathParts(workspace.path)]),
-  )
-  const labelDepthById = new Map(workspaces.map((workspace) => [workspace.id, 1]))
-
-  for (let changed = true; changed; ) {
-    changed = false
-    const idsByLabel = new Map<string, string[]>()
-    for (const workspace of workspaces) {
-      const parts = partsById.get(workspace.id) || []
-      const depth = labelDepthById.get(workspace.id) || 1
-      const label = labelFromParts(parts, depth)
-      idsByLabel.set(label, [...(idsByLabel.get(label) || []), workspace.id])
-    }
-
-    for (const ids of idsByLabel.values()) {
-      if (ids.length < 2) {
-        continue
-      }
-      for (const id of ids) {
-        const parts = partsById.get(id) || []
-        const depth = labelDepthById.get(id) || 1
-        if (depth < parts.length) {
-          labelDepthById.set(id, depth + 1)
-          changed = true
-        }
-      }
-    }
-  }
-
-  return new Map(
-    workspaces.map((workspace) => {
-      const parts = partsById.get(workspace.id) || []
-      const depth = labelDepthById.get(workspace.id) || 1
-      return [workspace.id, labelFromParts(parts, depth)]
-    }),
-  )
-}
-
-function pathParts(path: string): string[] {
-  return path.replaceAll('\\', '/').split('/').filter(Boolean)
-}
-
-function labelFromParts(parts: string[], depth: number): string {
-  if (parts.length === 0) {
-    return ''
-  }
-  return parts.slice(Math.max(0, parts.length - depth)).join('/')
-}
-
 function collectExpandableKeys(nodes: SessionTreeNode[]): string[] {
   return nodes.flatMap((node) => [
     ...(node.children?.length ? [node.id] : []),
@@ -295,7 +245,11 @@ function toggleExpanded(event: globalThis.MouseEvent, node: SessionTreeNode) {
 }
 
 function hasDragged(event: DragEndEvent) {
-  return event.oldIndex !== undefined && event.newIndex !== undefined && event.oldIndex !== event.newIndex
+  return (
+    event.oldIndex !== undefined &&
+    event.newIndex !== undefined &&
+    event.oldIndex !== event.newIndex
+  )
 }
 
 function mergeVisibleOrder(fullIds: string[], visibleIds: string[]): string[] {
@@ -323,14 +277,21 @@ function handleWorkspaceReorder(event: DragEndEvent, host: ShortcutHost, nodes: 
     .map((node) => node.workspaceId)
     .filter((id): id is string => !!id)
   const workspaceIds = mergeVisibleOrder(fullWorkspaceIds, visibleWorkspaceIds)
-  if (workspaceIds.length !== fullWorkspaceIds.length || sameOrder(workspaceIds, fullWorkspaceIds)) {
+  if (
+    workspaceIds.length !== fullWorkspaceIds.length ||
+    sameOrder(workspaceIds, fullWorkspaceIds)
+  ) {
     return
   }
 
   emit('reorderWorkspaces', { host, workspaceIds })
 }
 
-function handleSessionReorder(event: DragEndEvent, workspace: SessionTreeNode, nodes: SessionTreeNode[]) {
+function handleSessionReorder(
+  event: DragEndEvent,
+  workspace: SessionTreeNode,
+  nodes: SessionTreeNode[],
+) {
   if (!workspace.workspaceId || !hasDragged(event)) {
     return
   }
@@ -343,9 +304,7 @@ function handleSessionReorder(event: DragEndEvent, workspace: SessionTreeNode, n
   }
 
   const fullSessionIds = sourceWorkspace.entries.map((session) => session.id)
-  const visibleSessionIds = nodes
-    .map((node) => node.session?.id)
-    .filter((id): id is string => !!id)
+  const visibleSessionIds = nodes.map((node) => node.session?.id).filter((id): id is string => !!id)
   const sessionIds = mergeVisibleOrder(fullSessionIds, visibleSessionIds)
   if (sessionIds.length !== fullSessionIds.length || sameOrder(sessionIds, fullSessionIds)) {
     return
@@ -537,150 +496,158 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                 class="grid min-w-0 gap-px outline-none"
                 @end="handleWorkspaceReorder($event, group.host, group.nodes)"
               >
-                <div v-for="workspace in group.nodes" :key="workspace.id" class="grid min-w-0 gap-px">
+                <div
+                  v-for="workspace in group.nodes"
+                  :key="workspace.id"
+                  class="grid min-w-0 gap-px"
+                >
+                  <div
+                    class="group flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 text-left text-[13px] leading-5 transition focus:outline-none"
+                    :class="
+                      isSelectedNode(workspace)
+                        ? 'bg-blue-100/65 text-blue-800 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/70 dark:text-blue-100 dark:ring-blue-700/60'
+                        : 'text-slate-600 hover:bg-white/45 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-50'
+                    "
+                  >
+                    <button
+                      type="button"
+                      class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 dark:text-slate-400"
+                      @click="toggleExpanded($event, workspace)"
+                    >
+                      <ChevronDown
+                        v-if="workspace.children?.length && isExpandedNode(workspace)"
+                        class="h-4 w-4"
+                      />
+                      <ChevronRight v-else-if="workspace.children?.length" class="h-4 w-4" />
+                    </button>
+                    <Folder class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-400" />
+                    <span
+                      class="min-w-0 flex-1 truncate"
+                      :title="workspace.workspacePath"
+                      @click="handleTreeSelect(workspace)"
+                    >
+                      {{ workspace.label }}
+                    </span>
+                    <span
+                      class="ml-auto inline-flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100"
+                    >
+                      <button
+                        type="button"
+                        class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-blue-100/60 hover:text-blue-700 focus:opacity-100 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-blue-300"
+                        :aria-label="t('session.workspace.createLabel')"
+                        :title="t('session.workspace.createLabel')"
+                        @click="createFromWorkspace($event, workspace)"
+                      >
+                        <Plus class="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-red-100/60 hover:text-red-600 focus:opacity-100 dark:text-slate-400 dark:hover:bg-red-950/70 dark:hover:text-red-300"
+                        :aria-label="t('session.workspace.deleteLabel')"
+                        :title="t('session.workspace.deleteLabel')"
+                        @click="removeWorkspace($event, workspace)"
+                      >
+                        <Trash2 class="h-4 w-4" />
+                      </button>
+                    </span>
+                  </div>
+                  <VueDraggable
+                    v-if="workspace.children?.length && isExpandedNode(workspace)"
+                    v-model="workspace.children"
+                    :group="{ name: `sessions:${workspace.workspaceId}`, pull: false, put: false }"
+                    ghost-class="session-list-ghost"
+                    filter="button"
+                    :prevent-on-filter="false"
+                    class="ml-7 grid min-w-0 gap-px border-l border-slate-200/70 pl-3 dark:border-slate-800"
+                    @end="handleSessionReorder($event, workspace, workspace.children || [])"
+                  >
                     <div
+                      v-for="sessionNode in workspace.children"
+                      :key="sessionNode.id"
                       class="group flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 text-left text-[13px] leading-5 transition focus:outline-none"
                       :class="
-                        isSelectedNode(workspace)
+                        isSelectedNode(sessionNode)
                           ? 'bg-blue-100/65 text-blue-800 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/70 dark:text-blue-100 dark:ring-blue-700/60'
                           : 'text-slate-600 hover:bg-white/45 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-50'
                       "
                     >
-                      <button
-                        type="button"
-                        class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 dark:text-slate-400"
-                        @click="toggleExpanded($event, workspace)"
-                      >
-                        <ChevronDown
-                          v-if="workspace.children?.length && isExpandedNode(workspace)"
-                          class="h-4 w-4"
-                        />
-                        <ChevronRight v-else-if="workspace.children?.length" class="h-4 w-4" />
-                      </button>
-                      <Folder class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-400" />
+                      <component
+                        :is="
+                          sessionNode.session
+                            ? sessionStatusIcon(sessionNode.session)
+                            : SquareTerminal
+                        "
+                        class="h-4 w-4 shrink-0"
+                        :class="
+                          sessionNode.session
+                            ? sessionStatusIconClass(sessionNode.session)
+                            : 'text-slate-400 dark:text-slate-400'
+                        "
+                      />
                       <span
                         class="min-w-0 flex-1 truncate"
-                        :title="workspace.workspacePath"
-                        @click="handleTreeSelect(workspace)"
+                        :class="
+                          sessionNode.session ? sessionStatusTextClass(sessionNode.session) : ''
+                        "
+                        @click="handleTreeSelect(sessionNode)"
                       >
-                        {{ workspace.label }}
+                        {{ sessionNode.label }}
                       </span>
                       <span
-                        class="ml-auto inline-flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100"
+                        v-if="sessionNode.session"
+                        class="inline-flex shrink-0 items-center gap-1"
                       >
                         <button
+                          v-if="sessionNode.session.status === 'running'"
                           type="button"
-                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-blue-100/60 hover:text-blue-700 focus:opacity-100 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-blue-300"
-                          :aria-label="t('session.workspace.createLabel')"
-                          :title="t('session.workspace.createLabel')"
-                          @click="createFromWorkspace($event, workspace)"
+                          class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 dark:text-slate-400 dark:hover:bg-amber-950/70 dark:hover:text-amber-300"
+                          :aria-label="t('session.card.stopLabel')"
+                          :title="t('session.card.stopLabel')"
+                          @click="stopSession($event, sessionNode.session)"
                         >
-                          <Plus class="h-4 w-4" />
+                          <Ban class="h-4 w-4" />
+                        </button>
+                        <span
+                          v-if="
+                            sessionNode.session.status === 'disconnected' &&
+                            isStartingSession(sessionNode.session)
+                          "
+                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 dark:text-slate-400"
+                          :aria-label="t('session.card.startLabel')"
+                          :title="t('session.card.startLabel')"
+                        >
+                          <Loader2 class="h-4 w-4 animate-spin" />
+                        </span>
+                        <button
+                          v-if="
+                            sessionNode.session.status === 'disconnected' &&
+                            !isStartingSession(sessionNode.session)
+                          "
+                          type="button"
+                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-blue-100/60 hover:text-blue-600 dark:text-slate-400 dark:hover:bg-blue-950/70 dark:hover:text-blue-300"
+                          :aria-label="t('session.card.startLabel')"
+                          :title="t('session.card.startLabel')"
+                          @click="startSession($event, sessionNode.session)"
+                        >
+                          <Play class="h-4 w-4" />
                         </button>
                         <button
+                          v-if="
+                            sessionNode.session.status === 'stopped' ||
+                            sessionNode.session.status === 'disconnected'
+                          "
                           type="button"
-                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-red-100/60 hover:text-red-600 focus:opacity-100 dark:text-slate-400 dark:hover:bg-red-950/70 dark:hover:text-red-300"
-                          :aria-label="t('session.workspace.deleteLabel')"
-                          :title="t('session.workspace.deleteLabel')"
-                          @click="removeWorkspace($event, workspace)"
+                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-red-100/60 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/70 dark:hover:text-red-300"
+                          :aria-label="t('session.card.deleteLabel')"
+                          :title="t('session.card.deleteLabel')"
+                          @click="removeSession($event, sessionNode.session)"
                         >
                           <Trash2 class="h-4 w-4" />
                         </button>
                       </span>
                     </div>
-                    <VueDraggable
-                      v-if="workspace.children?.length && isExpandedNode(workspace)"
-                      v-model="workspace.children"
-                      :group="{ name: `sessions:${workspace.workspaceId}`, pull: false, put: false }"
-                      ghost-class="session-list-ghost"
-                      filter="button"
-                      :prevent-on-filter="false"
-                      class="ml-7 grid min-w-0 gap-px border-l border-slate-200/70 pl-3 dark:border-slate-800"
-                      @end="handleSessionReorder($event, workspace, workspace.children || [])"
-                    >
-                      <div
-                        v-for="sessionNode in workspace.children"
-                        :key="sessionNode.id"
-                        class="group flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 text-left text-[13px] leading-5 transition focus:outline-none"
-                          :class="
-                            isSelectedNode(sessionNode)
-                              ? 'bg-blue-100/65 text-blue-800 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/70 dark:text-blue-100 dark:ring-blue-700/60'
-                              : 'text-slate-600 hover:bg-white/45 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-50'
-                          "
-                        >
-                          <component
-                            :is="sessionNode.session ? sessionStatusIcon(sessionNode.session) : SquareTerminal"
-                            class="h-4 w-4 shrink-0"
-                            :class="
-                              sessionNode.session
-                                ? sessionStatusIconClass(sessionNode.session)
-                                : 'text-slate-400 dark:text-slate-400'
-                            "
-                          />
-                          <span
-                            class="min-w-0 flex-1 truncate"
-                            :class="
-                              sessionNode.session ? sessionStatusTextClass(sessionNode.session) : ''
-                            "
-                            @click="handleTreeSelect(sessionNode)"
-                          >
-                            {{ sessionNode.label }}
-                          </span>
-                          <span
-                            v-if="sessionNode.session"
-                            class="inline-flex shrink-0 items-center gap-1"
-                          >
-                            <button
-                              v-if="sessionNode.session.status === 'running'"
-                              type="button"
-                              class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 dark:text-slate-400 dark:hover:bg-amber-950/70 dark:hover:text-amber-300"
-                              :aria-label="t('session.card.stopLabel')"
-                              :title="t('session.card.stopLabel')"
-                              @click="stopSession($event, sessionNode.session)"
-                            >
-                              <Ban class="h-4 w-4" />
-                            </button>
-                            <span
-                              v-if="
-                                sessionNode.session.status === 'disconnected' &&
-                                isStartingSession(sessionNode.session)
-                              "
-                              class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 dark:text-slate-400"
-                              :aria-label="t('session.card.startLabel')"
-                              :title="t('session.card.startLabel')"
-                            >
-                              <Loader2 class="h-4 w-4 animate-spin" />
-                            </span>
-                            <button
-                              v-if="
-                                sessionNode.session.status === 'disconnected' &&
-                                !isStartingSession(sessionNode.session)
-                              "
-                              type="button"
-                              class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-blue-100/60 hover:text-blue-600 dark:text-slate-400 dark:hover:bg-blue-950/70 dark:hover:text-blue-300"
-                              :aria-label="t('session.card.startLabel')"
-                              :title="t('session.card.startLabel')"
-                              @click="startSession($event, sessionNode.session)"
-                            >
-                              <Play class="h-4 w-4" />
-                            </button>
-                            <button
-                              v-if="
-                                sessionNode.session.status === 'stopped' ||
-                                sessionNode.session.status === 'disconnected'
-                              "
-                              type="button"
-                              class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-red-100/60 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/70 dark:hover:text-red-300"
-                              :aria-label="t('session.card.deleteLabel')"
-                              :title="t('session.card.deleteLabel')"
-                              @click="removeSession($event, sessionNode.session)"
-                            >
-                              <Trash2 class="h-4 w-4" />
-                            </button>
-                          </span>
-                      </div>
-                    </VueDraggable>
-                  </div>
+                  </VueDraggable>
+                </div>
               </VueDraggable>
             </section>
           </div>

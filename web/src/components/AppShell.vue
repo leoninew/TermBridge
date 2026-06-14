@@ -27,6 +27,7 @@ import {
 } from '../api/sessions'
 import SessionCreateForm from './SessionCreateForm.vue'
 import SessionList from './SessionList.vue'
+import { workspaceDisplayLabelsById } from '../sessionTreeLabels'
 import { useEnvironmentStore } from '../stores/environment'
 import { useToastStore } from '../stores/toast'
 import type {
@@ -91,6 +92,7 @@ const openTerminalSessions = computed(() =>
     .map((sessionId) => sessions.value.find((session) => session.id === sessionId))
     .filter((session): session is Session => !!session),
 )
+const workspaceLabels = computed(() => workspaceDisplayLabelsById(sessionTree.value))
 
 function errorTitle(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback
@@ -424,6 +426,7 @@ onMounted(() => {
               :sessions="openTerminalSessions"
               :session="activeSession"
               :starting-session-id="startingSessionId"
+              :workspace-labels="workspaceLabels"
               @close="closeTerminalSession"
               @create="showCreate"
               @select="selectSession"

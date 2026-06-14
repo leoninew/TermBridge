@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import CygwinLogo from './CygwinLogo.vue'
 import LinuxLogo from './LinuxLogo.vue'
 import WslLogo from './WslLogo.vue'
+import { sessionContextLabel } from '../sessionTreeLabels'
 import { useThemeStore } from '../stores/theme'
 import type { Session, ShortcutHost } from '../types/sessions'
 
@@ -25,6 +26,7 @@ const props = defineProps<{
   sessions: Session[]
   session?: Session
   startingSessionId?: string
+  workspaceLabels: ReadonlyMap<string, string>
 }>()
 
 const emit = defineEmits<{
@@ -68,7 +70,11 @@ watch(
 )
 
 function hasDragged(event: DragEndEvent) {
-  return event.oldIndex !== undefined && event.newIndex !== undefined && event.oldIndex !== event.newIndex
+  return (
+    event.oldIndex !== undefined &&
+    event.newIndex !== undefined &&
+    event.oldIndex !== event.newIndex
+  )
 }
 
 function handleTabReorder(event: DragEndEvent) {
@@ -145,17 +151,17 @@ function environmentLogo(host: ShortcutHost | null | undefined) {
               class="inline-flex h-8 max-w-64 shrink-0 items-center gap-2 bg-transparent px-2 text-sm transition hover:text-slate-900 data-[state=active]:font-medium data-[state=active]:text-slate-950 dark:hover:text-slate-100 dark:data-[state=active]:text-slate-100"
               :title="item.workspace"
             >
-                <component :is="environmentLogo(item.host)" class="h-4 w-4 shrink-0" />
-                <span class="truncate">{{ item.name }}</span>
-                <button
-                  type="button"
-                  class="tab-action inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-slate-400 transition hover:bg-slate-200 hover:text-slate-800 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                  :aria-label="t('session.terminal.closeTab', { name: item.name })"
-                  :title="t('session.terminal.closeTab', { name: item.name })"
-                  @click="closeTab($event, item)"
-                >
-                  <X class="h-3 w-3" />
-                </button>
+              <component :is="environmentLogo(item.host)" class="h-4 w-4 shrink-0" />
+              <span class="truncate">{{ sessionContextLabel(item, workspaceLabels) }}</span>
+              <button
+                type="button"
+                class="tab-action inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-slate-400 transition hover:bg-slate-200 hover:text-slate-800 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                :aria-label="t('session.terminal.closeTab', { name: item.name })"
+                :title="t('session.terminal.closeTab', { name: item.name })"
+                @click="closeTab($event, item)"
+              >
+                <X class="h-3 w-3" />
+              </button>
             </TabsTrigger>
           </VueDraggable>
           <TabsTrigger
