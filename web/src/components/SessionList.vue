@@ -9,6 +9,7 @@ import {
   LaptopMinimal,
   PanelLeftClose,
   Loader2,
+  Play,
   Moon,
   Plus,
   Search,
@@ -17,6 +18,7 @@ import {
   Sun,
   SquareTerminal,
   Trash2,
+  Unplug,
   XCircle,
 } from '@lucide/vue'
 import { VueDraggable } from 'vue-draggable-plus'
@@ -366,6 +368,9 @@ function sessionStatusTextClass(session: Session): string {
   if (session.status === 'starting') {
     return 'text-blue-700 dark:text-blue-300'
   }
+  if (session.status === 'disconnected') {
+    return 'text-amber-700 dark:text-amber-300'
+  }
   return 'text-slate-600 dark:text-slate-300'
 }
 
@@ -379,7 +384,17 @@ function sessionStatusIconClass(session: Session): string {
   if (session.status === 'starting') {
     return 'text-blue-600 dark:text-blue-400'
   }
+  if (session.status === 'disconnected') {
+    return 'text-amber-600 dark:text-amber-300'
+  }
   return 'text-slate-400 dark:text-slate-400'
+}
+
+function sessionStatusIcon(session: Session) {
+  if (session.status === 'disconnected') {
+    return Unplug
+  }
+  return SquareTerminal
 }
 
 function environmentLogo(host: ShortcutHost) {
@@ -403,6 +418,12 @@ function handleTreeSelect(node: SessionTreeNode) {
   if (node.session) {
     emit('select', node.session)
   }
+}
+
+function startSession(event: globalThis.MouseEvent, session: Session) {
+  event.preventDefault()
+  event.stopPropagation()
+  emit('start', session)
 }
 
 function stopSession(event: globalThis.MouseEvent, session: Session) {
@@ -587,7 +608,8 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                               : 'text-slate-600 hover:bg-white/45 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-50'
                           "
                         >
-                          <SquareTerminal
+                          <component
+                            :is="sessionNode.session ? sessionStatusIcon(sessionNode.session) : SquareTerminal"
                             class="h-4 w-4 shrink-0"
                             :class="
                               sessionNode.session
@@ -620,7 +642,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                             </button>
                             <span
                               v-if="
-                                sessionNode.session.status === 'stopped' &&
+                                sessionNode.session.status === 'disconnected' &&
                                 isStartingSession(sessionNode.session)
                               "
                               class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 dark:text-slate-400"
@@ -631,8 +653,21 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                             </span>
                             <button
                               v-if="
-                                sessionNode.session.status === 'stopped' &&
+                                sessionNode.session.status === 'disconnected' &&
                                 !isStartingSession(sessionNode.session)
+                              "
+                              type="button"
+                              class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-blue-100/60 hover:text-blue-600 dark:text-slate-400 dark:hover:bg-blue-950/70 dark:hover:text-blue-300"
+                              :aria-label="t('session.card.startLabel')"
+                              :title="t('session.card.startLabel')"
+                              @click="startSession($event, sessionNode.session)"
+                            >
+                              <Play class="h-4 w-4" />
+                            </button>
+                            <button
+                              v-if="
+                                sessionNode.session.status === 'stopped' ||
+                                sessionNode.session.status === 'disconnected'
                               "
                               type="button"
                               class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-red-100/60 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/70 dark:hover:text-red-300"

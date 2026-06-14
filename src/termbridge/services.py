@@ -1246,29 +1246,38 @@ class SessionService:
         return workspace.model_copy(update={"entries": entries})
 
     def _refresh_entry(self, workspace: WorkspaceRecord, entry: SessionEntryRecord) -> SessionEntryRecord:
-        if entry.status != SessionStatus.RUNNING or entry.pid is None:
+        if entry.status in {SessionStatus.STARTING, SessionStatus.FAILED}:
             return entry
+
         terminal_service = self._require_terminal_service()
-        if self._process_adapter.is_running(ProcessHandle(pid=entry.pid)) and terminal_service.tmux_window_exists(
+        tmux_window_exists = bool(entry.tmux_window_id) and terminal_service.tmux_window_exists(
             workspace.host,
             workspace.path,
             tmux_window_id=entry.tmux_window_id,
-        ):
-            return entry
-        tmux_window_id = (
-            entry.tmux_window_id
-            if terminal_service.tmux_window_exists(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id)
-            else None
         )
+        process_running = entry.pid is not None and self._process_adapter.is_running(ProcessHandle(pid=entry.pid))
+
+        if entry.status == SessionStatus.RUNNING and process_running and tmux_window_exists:
+            return entry
+
+        if entry.status == SessionStatus.DISCONNECTED and tmux_window_exists:
+            return entry
+
+        if entry.status == SessionStatus.STOPPED and not entry.tmux_window_id:
+            return entry
+
+        status = SessionStatus.DISCONNECTED if tmux_window_exists else SessionStatus.STOPPED
         updated = entry.model_copy(
             update={
-                "status": SessionStatus.STOPPED,
+                "status": status,
                 "pid": None,
                 "url": "",
-                "tmux_window_id": tmux_window_id,
+                "tmux_window_id": entry.tmux_window_id if tmux_window_exists else None,
                 "updated_at": utc_now(),
             }
         )
+        if updated == entry:
+            return entry
         try:
             self._repository.update_entry(updated)
         except SessionNotFoundError:
@@ -1277,11 +1286,17 @@ class SessionService:
 
     def _workspace_response(self, workspace: WorkspaceRecord) -> SessionWorkspaceResponse:
         entries = [SessionResponse.from_entry(workspace, entry) for entry in workspace.entries]
-        status = (
-            SessionStatus.RUNNING
-            if any(entry.status == SessionStatus.RUNNING for entry in workspace.entries)
-            else SessionStatus.STOPPED
-        )
+        statuses = [entry.status for entry in workspace.entries]
+        if SessionStatus.RUNNING in statuses:
+            status = SessionStatus.RUNNING
+        elif SessionStatus.DISCONNECTED in statuses:
+            status = SessionStatus.DISCONNECTED
+        elif SessionStatus.STARTING in statuses:
+            status = SessionStatus.STARTING
+        elif SessionStatus.FAILED in statuses:
+            status = SessionStatus.FAILED
+        else:
+            status = SessionStatus.STOPPED
         return SessionWorkspaceResponse(
             id=workspace.id,
             host=workspace.host,

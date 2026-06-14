@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Ban, Loader2, Play, Trash2 } from '@lucide/vue'
+import { Ban, Loader2, Play, Trash2, Unplug } from '@lucide/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Session } from '../types/sessions'
@@ -23,6 +23,7 @@ const emit = defineEmits<{
 const statusClass: Record<Session['status'], string> = {
   running: 'bg-emerald-100 text-emerald-700',
   starting: 'bg-blue-100 text-blue-700',
+  disconnected: 'bg-amber-100 text-amber-700',
   stopped: 'bg-slate-200 text-slate-700',
   failed: 'bg-red-100 text-red-700',
 }
@@ -71,8 +72,16 @@ function requestRemove() {
       >
         <Ban class="h-4 w-4" />
       </button>
+      <span
+        v-if="session.status === 'disconnected'"
+        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-amber-500"
+        :aria-label="t('session.status.disconnected')"
+        :title="t('session.status.disconnected')"
+      >
+        <Unplug class="h-4 w-4" />
+      </span>
       <button
-        v-if="session.status === 'stopped'"
+        v-if="session.status === 'stopped' || session.status === 'disconnected'"
         type="button"
         :disabled="starting"
         class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 disabled:cursor-wait disabled:opacity-60"

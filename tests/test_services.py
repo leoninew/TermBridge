@@ -4,8 +4,14 @@ from typing import Literal, cast
 
 import pytest
 
-from termbridge.exceptions import InvalidTerminalConfigError, WorkspaceNotFoundError
-from termbridge.models import CreateSessionRequest, ReorderSessionsRequest, ReorderWorkspacesRequest, Shortcut
+from termbridge.exceptions import InvalidTerminalConfigError, SessionTerminalUnavailableError, WorkspaceNotFoundError
+from termbridge.models import (
+    CreateSessionRequest,
+    ReorderSessionsRequest,
+    ReorderWorkspacesRequest,
+    SessionStatus,
+    Shortcut,
+)
 from termbridge.ports import PortAllocator
 from termbridge.process import ProcessHandle
 from termbridge.repositories import FileSessionRepository
@@ -476,6 +482,22 @@ def test_service_delete_workspace_removes_entries_and_workspace_session(tmp_path
     assert cygwin.workspaces == []
 
 
+def test_service_refresh_disconnects_entry_when_ttyd_process_stops(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    shortcuts = FakeShortcutService()
+    service = make_service(tmp_path, process, shortcut_service=shortcuts)
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    process.running = False
+
+    refreshed = service.get(response.id)
+    entry = service._repository.get_entry(response.id)[1]
+
+    assert refreshed.status == SessionStatus.DISCONNECTED
+    assert refreshed.url == ""
+    assert entry.pid is None
+    assert entry.tmux_window_id == "@1"
+
+
 def test_service_refresh_stops_entry_when_tmux_window_disappears(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
     shortcuts = FakeShortcutService()
@@ -484,13 +506,55 @@ def test_service_refresh_stops_entry_when_tmux_window_disappears(tmp_path: Path)
     shortcuts.window_exists = False
 
     refreshed = service.get(response.id)
+    entry = service._repository.get_entry(response.id)[1]
 
-    assert refreshed.status == "stopped"
+    assert refreshed.status == SessionStatus.STOPPED
     assert refreshed.url == ""
-    assert service.get(response.id).status == "stopped"
+    assert entry.pid is None
+    assert entry.tmux_window_id is None
+    assert service.get(response.id).status == SessionStatus.STOPPED
 
 
-def test_service_starts_stopped_entry_with_existing_window(tmp_path: Path) -> None:
+def test_service_refresh_promotes_stopped_entry_with_existing_window_to_disconnected(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    _, entry = service._repository.get_entry(response.id)
+    service._repository.update_entry(entry.model_copy(update={"status": SessionStatus.STOPPED, "pid": None, "url": ""}))
+
+    refreshed = service.get(response.id)
+
+    assert refreshed.status == SessionStatus.DISCONNECTED
+    assert service._repository.get_entry(response.id)[1].tmux_window_id == "@1"
+
+
+def test_service_refresh_stops_disconnected_entry_when_tmux_window_disappears(tmp_path: Path) -> None:
+    shortcuts = FakeShortcutService()
+    service = make_service(tmp_path, shortcut_service=shortcuts)
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    _, entry = service._repository.get_entry(response.id)
+    service._repository.update_entry(
+        entry.model_copy(update={"status": SessionStatus.DISCONNECTED, "pid": None, "url": ""})
+    )
+    shortcuts.window_exists = False
+
+    refreshed = service.get(response.id)
+
+    assert refreshed.status == SessionStatus.STOPPED
+    assert service._repository.get_entry(response.id)[1].tmux_window_id is None
+
+
+def test_service_rejects_terminal_proxy_for_disconnected_entry(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    service = make_service(tmp_path, process)
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    process.running = False
+    disconnected = service.get(response.id)
+
+    with pytest.raises(SessionTerminalUnavailableError):
+        service.terminal_proxy_target(disconnected.id)
+
+
+def test_service_starts_disconnected_entry_with_existing_window(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
     shortcuts = FakeShortcutService()
     service = make_service(tmp_path, process, shortcut_service=shortcuts)
@@ -570,18 +634,6 @@ def test_service_rejects_missing_workspace(tmp_path: Path) -> None:
         service.create(CreateSessionRequest(name="Test", workspace=tmp_path / "missing", shortcut_id="claude-code"))
 
 
-def test_service_refreshes_stopped_status(tmp_path: Path) -> None:
-    process = FakeProcessAdapter()
-    service = make_service(tmp_path, process)
-    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
-    process.running = False
-
-    refreshed = service.get(response.id)
-
-    assert refreshed.status == "stopped"
-    assert refreshed.url == ""
-
-
 def test_service_lists_tree_grouped_by_environment_and_workspace(tmp_path: Path) -> None:
     service = make_service(tmp_path)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
@@ -590,7 +642,21 @@ def test_service_lists_tree_grouped_by_environment_and_workspace(tmp_path: Path)
 
     cygwin = next(environment for environment in tree.environments if environment.host == "windows_cygwin")
     assert cygwin.workspaces[0].id == response.workspace_id
+    assert cygwin.workspaces[0].status == SessionStatus.RUNNING
     assert cygwin.workspaces[0].entries[0].id == response.id
+
+
+def test_service_list_tree_reports_disconnected_workspace_status(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    service = make_service(tmp_path, process)
+    service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    process.running = False
+
+    tree = service.list_tree()
+
+    cygwin = next(environment for environment in tree.environments if environment.host == "windows_cygwin")
+    assert cygwin.workspaces[0].status == SessionStatus.DISCONNECTED
+    assert cygwin.workspaces[0].entries[0].status == SessionStatus.DISCONNECTED
 
 
 def test_service_reorders_workspaces_in_environment(tmp_path: Path) -> None:

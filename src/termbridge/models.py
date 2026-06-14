@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 class SessionStatus(StrEnum):
     STARTING = "starting"
     RUNNING = "running"
+    DISCONNECTED = "disconnected"
     STOPPED = "stopped"
     FAILED = "failed"
 

@@ -132,12 +132,14 @@
       "emptySuffix": " a session to view the terminal.",
       "missingUrl": "The current session has no available terminal URL.",
       "statusUnavailable": "Current status is {status}; the terminal is unavailable.",
+      "disconnected": "The terminal connection is disconnected; the underlying session still exists and can be restored.",
       "start": "Start session",
       "iframeTitle": "{name} terminal"
     },
     "status": {
       "running": "Running",
       "starting": "Starting",
+      "disconnected": "Disconnected",
       "stopped": "Stopped",
       "failed": "Failed"
     }

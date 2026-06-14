@@ -200,13 +200,16 @@ function environmentLogo(host: ShortcutHost | null | undefined) {
           class="flex h-full min-h-0 items-center justify-center bg-slate-950 text-slate-300"
         >
           <div class="grid justify-items-center gap-3">
-            <span>{{
+            <span v-if="item.status === 'disconnected'">
+              {{ t('session.terminal.disconnected') }}
+            </span>
+            <span v-else>{{
               t('session.terminal.statusUnavailable', {
                 status: t(`session.status.${item.status}`),
               })
             }}</span>
             <button
-              v-if="item.status === 'stopped'"
+              v-if="item.status === 'stopped' || item.status === 'disconnected'"
               type="button"
               :disabled="isStartingSession(item)"
               class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-70"
