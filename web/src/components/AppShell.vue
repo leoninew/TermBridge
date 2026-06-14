@@ -42,7 +42,6 @@ const error = ref('')
 const showCreatePanel = ref(false)
 const creatingSession = ref(false)
 const startingSessionId = ref<string>()
-const createError = ref('')
 const createSessionContext = ref<{ host?: ShortcutHost; workspace?: string; shortcutId?: string }>({})
 const deletingSession = ref<Session>()
 const deletingWorkspace = ref<{ id: string; path: string }>()
@@ -147,7 +146,6 @@ function closeTerminalSession(session: Session) {
 
 async function handleCreate(payload: CreateSessionPayload) {
   creatingSession.value = true
-  createError.value = ''
   try {
     const session = await createSession(payload)
     await loadSessions()
@@ -155,7 +153,7 @@ async function handleCreate(payload: CreateSessionPayload) {
     showCreatePanel.value = false
     await router.push('/session')
   } catch (err) {
-    createError.value = err instanceof Error ? err.message : t('app.errors.createSession')
+    toast.show({ title: errorTitle(err, t('app.errors.createSession')), variant: 'error' })
   } finally {
     creatingSession.value = false
   }
@@ -274,7 +272,6 @@ async function selectSession(session: Session) {
 }
 
 async function showCreate(context?: { host?: ShortcutHost; workspace?: string; shortcutId?: string }) {
-  createError.value = ''
   if (context) {
     createSessionContext.value = {
       ...createSessionContext.value,
@@ -287,7 +284,6 @@ async function showCreate(context?: { host?: ShortcutHost; workspace?: string; s
 
 async function navigate(path: string) {
   showCreatePanel.value = false
-  createError.value = ''
   await router.push(path)
 }
 
@@ -356,7 +352,6 @@ onMounted(() => {
                 <SessionCreateForm
                   :environments="environmentStore.environments"
                   :submitting="creatingSession"
-                  :error="createError"
                   :initial-host="createSessionContext.host"
                   :initial-workspace="createSessionContext.workspace"
                   :initial-shortcut-id="createSessionContext.shortcutId"

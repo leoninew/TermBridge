@@ -28,6 +28,7 @@ import CygwinLogo from './CygwinLogo.vue'
 import LinuxLogo from './LinuxLogo.vue'
 import WslLogo from './WslLogo.vue'
 import { useToastStore } from '../stores/toast'
+import { fieldErrorClass, fieldErrorMessageClass } from '../formValidation'
 import {
   createShortcut,
   deleteShortcut,
@@ -44,6 +45,8 @@ import type {
 } from '../types/sessions'
 
 const { t } = useI18n()
+type FieldName = 'name' | 'command' | 'host'
+
 const toast = useToastStore()
 const props = defineProps<{
   sessions: Session[]
@@ -57,6 +60,7 @@ const environments = ref<EnvironmentSummary[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
+const submitted = ref(false)
 const editingId = ref<string>()
 const showModal = ref(false)
 const deletingShortcut = ref<Shortcut>()
@@ -99,6 +103,24 @@ const form = reactive<{
   host: '',
   description: '',
 })
+const validationErrors = computed<Record<FieldName, string>>(() => {
+  const errors = emptyFieldErrors()
+  errors.name = form.name ? '' : t('shortcutManagement.validation.nameRequired')
+  errors.command = form.command ? '' : t('shortcutManagement.validation.commandRequired')
+  errors.host = form.host ? '' : t('shortcutManagement.validation.hostRequired')
+
+  if (!errors.name && form.host && hasDuplicateName()) {
+    errors.name = t('shortcutManagement.validation.nameUniquePerHost')
+  }
+
+  return errors
+})
+const fieldErrors = computed<Record<FieldName, string>>(() => {
+  if (!submitted.value) {
+    return emptyFieldErrors()
+  }
+  return validationErrors.value
+})
 
 onMounted(load)
 
@@ -126,6 +148,7 @@ function openCreateModal() {
 
 function edit(shortcut: Shortcut) {
   editingId.value = shortcut.id
+  submitted.value = false
   form.name = shortcut.name
   form.command = shortcut.command
   form.host = shortcut.host
@@ -135,6 +158,7 @@ function edit(shortcut: Shortcut) {
 
 function resetForm() {
   editingId.value = undefined
+  submitted.value = false
   form.name = ''
   form.command = ''
   form.host = ''
@@ -147,7 +171,10 @@ function closeModal() {
 }
 
 async function saveShortcut() {
-  error.value = ''
+  if (!validate()) {
+    return
+  }
+
   saving.value = true
   try {
     const payload = normalizePayload()
@@ -164,7 +191,10 @@ async function saveShortcut() {
       variant: 'success',
     })
   } catch (err) {
-    error.value = err instanceof Error ? err.message : t('shortcutManagement.errors.save')
+    toast.show({
+      title: err instanceof Error ? err.message : t('shortcutManagement.errors.save'),
+      variant: 'error',
+    })
   } finally {
     saving.value = false
   }
@@ -185,25 +215,45 @@ async function confirmRemoveShortcut() {
   if (!deletingShortcut.value) {
     return
   }
-  error.value = ''
   try {
     await deleteShortcut(deletingShortcut.value.id)
     deletingShortcut.value = undefined
     await load()
     toast.show({ title: t('shortcutManagement.success.deleted'), variant: 'success' })
   } catch (err) {
-    error.value = err instanceof Error ? err.message : t('shortcutManagement.errors.delete')
+    toast.show({
+      title: err instanceof Error ? err.message : t('shortcutManagement.errors.delete'),
+      variant: 'error',
+    })
+  }
+}
+
+function validate(): boolean {
+  submitted.value = true
+  return !Object.values(validationErrors.value).some(Boolean)
+}
+
+function hasDuplicateName(): boolean {
+  const name = form.name.trim()
+  return shortcuts.value.some(
+    (shortcut) =>
+      shortcut.id !== editingId.value && shortcut.host === form.host && shortcut.name === name,
+  )
+}
+
+function emptyFieldErrors(): Record<FieldName, string> {
+  return {
+    name: '',
+    command: '',
+    host: '',
   }
 }
 
 function normalizePayload(): CreateShortcutPayload {
-  if (!form.host) {
-    throw new Error(t('shortcutManagement.errors.hostRequired'))
-  }
   return {
     name: form.name.trim(),
     command: form.command.trim(),
-    host: form.host,
+    host: form.host as ShortcutHost,
     description: form.description?.trim() || null,
   }
 }
@@ -331,23 +381,36 @@ function hostDisabledReason(host: ShortcutHost): string {
               {{ t('shortcutManagement.fields.name') }}
               <input
                 v-model.trim="form.name"
-                required
                 class="rounded-md border border-slate-300 bg-white/60 px-3 py-2 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
+                :class="fieldErrors.name ? fieldErrorClass : ''"
+                :aria-invalid="!!fieldErrors.name"
+                :aria-describedby="fieldErrors.name ? 'shortcut-name-error' : undefined"
               />
+              <span v-if="fieldErrors.name" id="shortcut-name-error" :class="fieldErrorMessageClass">
+                {{ fieldErrors.name }}
+              </span>
             </label>
             <label class="grid gap-1.5 text-sm text-slate-700 dark:text-slate-300">
               {{ t('shortcutManagement.fields.command') }}
               <input
                 v-model.trim="form.command"
-                required
                 class="rounded-md border border-slate-300 bg-white/60 px-3 py-2 font-mono text-xs outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
+                :class="fieldErrors.command ? fieldErrorClass : ''"
+                :aria-invalid="!!fieldErrors.command"
+                :aria-describedby="fieldErrors.command ? 'shortcut-command-error' : undefined"
               />
+              <span v-if="fieldErrors.command" id="shortcut-command-error" :class="fieldErrorMessageClass">
+                {{ fieldErrors.command }}
+              </span>
             </label>
             <label class="grid gap-1.5 text-sm text-slate-700 dark:text-slate-300">
               {{ t('shortcutManagement.fields.host') }}
-              <SelectRoot v-model="form.host" required>
+              <SelectRoot v-model="form.host">
                 <SelectTrigger
                   class="flex items-center justify-between rounded-md border border-slate-300 bg-white/60 px-3 py-2 text-left outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
+                  :class="fieldErrors.host ? fieldErrorClass : ''"
+                  :aria-invalid="!!fieldErrors.host"
+                  :aria-describedby="fieldErrors.host ? 'shortcut-host-error' : undefined"
                 >
                   <SelectValue :placeholder="t('shortcutManagement.fields.selectHost')" />
                   <ChevronDown class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
@@ -373,6 +436,9 @@ function hostDisabledReason(host: ShortcutHost): string {
                   </SelectViewport>
                 </SelectContent>
               </SelectRoot>
+              <span v-if="fieldErrors.host" id="shortcut-host-error" :class="fieldErrorMessageClass">
+                {{ fieldErrors.host }}
+              </span>
             </label>
             <label class="grid gap-1.5 text-sm text-slate-700 dark:text-slate-300">
               {{ t('shortcutManagement.fields.description') }}

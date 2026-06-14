@@ -21,6 +21,7 @@ import { Check, ChevronDown, FolderOpen, Loader2 } from '@lucide/vue'
 import { computed, reactive, ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { listShortcuts } from '../api/sessions'
+import { fieldErrorClass, fieldErrorMessageClass, fieldErrorWithinClass } from '../formValidation'
 import type {
   CreateSessionPayload,
   EnvironmentSummary,
@@ -30,10 +31,11 @@ import type {
 import WorkspaceBrowser from './WorkspaceBrowser.vue'
 
 const { t } = useI18n()
+type FieldName = 'workspace' | 'name' | 'host' | 'shortcut_id'
+
 const props = defineProps<{
   environments: EnvironmentSummary[]
   submitting: boolean
-  error: string
   initialHost?: ShortcutHost
   initialWorkspace?: string
   initialShortcutId?: string
@@ -47,6 +49,7 @@ const hosts: ShortcutHost[] = ['windows_cygwin', 'windows_wsl', 'linux']
 const selectedHost = ref<ShortcutHost>(props.initialHost || 'windows_cygwin')
 const shortcuts = ref<Shortcut[]>([])
 const shortcutError = ref('')
+const submitted = ref(false)
 const form = reactive<CreateSessionPayload>({
   name: '',
   workspace: props.initialWorkspace || '',
@@ -70,6 +73,20 @@ const filteredShortcuts = computed(() =>
 const selectedShortcut = computed(() =>
   filteredShortcuts.value.find((shortcut) => shortcut.id === form.shortcut_id),
 )
+const validationErrors = computed<Record<FieldName, string>>(() => ({
+  workspace: form.workspace ? '' : t('session.create.validation.workspaceRequired'),
+  name: form.name ? '' : t('session.create.validation.nameRequired'),
+  host: availableHosts.value.includes(selectedHost.value)
+    ? ''
+    : t('session.create.validation.hostReadyRequired'),
+  shortcut_id: form.shortcut_id ? '' : t('session.create.validation.shortcutRequired'),
+}))
+const fieldErrors = computed<Record<FieldName, string>>(() => {
+  if (!submitted.value) {
+    return emptyFieldErrors()
+  }
+  return validationErrors.value
+})
 
 watch(
   () => props.initialHost,
@@ -128,11 +145,29 @@ function selectWorkspace(path: string) {
 }
 
 async function submit() {
+  if (!validate()) {
+    return
+  }
+
   emit('create', {
     name: form.name,
     workspace: form.workspace,
     shortcut_id: form.shortcut_id,
   })
+}
+
+function validate(): boolean {
+  submitted.value = true
+  return !Object.values(validationErrors.value).some(Boolean)
+}
+
+function emptyFieldErrors(): Record<FieldName, string> {
+  return {
+    workspace: '',
+    name: '',
+    host: '',
+    shortcut_id: '',
+  }
 }
 
 function hostLabel(host: ShortcutHost): string {
@@ -157,10 +192,6 @@ function hostDisabledReason(host: ShortcutHost): string {
       <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-100">{{ t('session.create.title') }}</h2>
     </div>
 
-    <p v-if="props.error" class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
-      {{ props.error }}
-    </p>
-
     <p v-if="shortcutError" class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
       {{ shortcutError }}
     </p>
@@ -170,8 +201,10 @@ function hostDisabledReason(host: ShortcutHost): string {
       <div class="flex gap-2">
         <input
           v-model.trim="form.workspace"
-          required
           class="min-w-0 flex-1 rounded-md border border-slate-300 bg-white/60 px-3 py-2 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
+          :class="fieldErrors.workspace ? fieldErrorClass : ''"
+          :aria-invalid="!!fieldErrors.workspace"
+          :aria-describedby="fieldErrors.workspace ? 'session-workspace-error' : undefined"
           :placeholder="t('session.create.workspacePlaceholder')"
         />
         <button
@@ -183,6 +216,9 @@ function hostDisabledReason(host: ShortcutHost): string {
           {{ showWorkspaceBrowser ? t('session.create.collapse') : t('session.create.browse') }}
         </button>
       </div>
+      <p v-if="fieldErrors.workspace" id="session-workspace-error" :class="fieldErrorMessageClass">
+        {{ fieldErrors.workspace }}
+      </p>
       <WorkspaceBrowser
         v-if="showWorkspaceBrowser"
         :selected-path="form.workspace"
@@ -194,17 +230,25 @@ function hostDisabledReason(host: ShortcutHost): string {
       {{ t('session.create.name') }}
       <input
         v-model.trim="form.name"
-        required
         class="rounded-md border border-slate-300 bg-white/60 px-3 py-2 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
+        :class="fieldErrors.name ? fieldErrorClass : ''"
+        :aria-invalid="!!fieldErrors.name"
+        :aria-describedby="fieldErrors.name ? 'session-name-error' : undefined"
         :placeholder="t('session.create.namePlaceholder')"
       />
+      <span v-if="fieldErrors.name" id="session-name-error" :class="fieldErrorMessageClass">
+        {{ fieldErrors.name }}
+      </span>
     </label>
 
     <label class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
       {{ t('session.create.host') }}
-      <SelectRoot v-model="selectedHost" required>
+      <SelectRoot v-model="selectedHost">
         <SelectTrigger
           class="flex items-center justify-between rounded-md border border-slate-300 bg-white/60 px-3 py-2 text-left outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
+          :class="fieldErrors.host ? fieldErrorClass : ''"
+          :aria-invalid="!!fieldErrors.host"
+          :aria-describedby="fieldErrors.host ? 'session-host-error' : undefined"
         >
           <SelectValue />
           <ChevronDown class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
@@ -230,6 +274,9 @@ function hostDisabledReason(host: ShortcutHost): string {
           </SelectViewport>
         </SelectContent>
       </SelectRoot>
+      <span v-if="fieldErrors.host" id="session-host-error" :class="fieldErrorMessageClass">
+        {{ fieldErrors.host }}
+      </span>
     </label>
 
     <label class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
@@ -245,13 +292,15 @@ function hostDisabledReason(host: ShortcutHost): string {
         v-else
         v-model="form.shortcut_id"
         v-model:open="shortcutComboboxOpen"
-        required
         open-on-click
         open-on-focus
         reset-search-term-on-select
       >
         <ComboboxAnchor
           class="flex items-center rounded-md border border-slate-300 bg-white/60 outline-none transition focus-within:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:focus-within:border-blue-500"
+          :class="fieldErrors.shortcut_id ? fieldErrorWithinClass : ''"
+          :aria-invalid="!!fieldErrors.shortcut_id"
+          :aria-describedby="fieldErrors.shortcut_id ? 'session-shortcut-error' : undefined"
         >
           <ComboboxInput
             class="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-200 dark:placeholder:text-slate-500"
@@ -284,6 +333,9 @@ function hostDisabledReason(host: ShortcutHost): string {
           </ComboboxViewport>
         </ComboboxContent>
       </ComboboxRoot>
+      <span v-if="fieldErrors.shortcut_id" id="session-shortcut-error" :class="fieldErrorMessageClass">
+        {{ fieldErrors.shortcut_id }}
+      </span>
     </label>
 
     <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -297,7 +349,7 @@ function hostDisabledReason(host: ShortcutHost): string {
       </button>
       <button
         type="submit"
-        :disabled="props.submitting || !form.shortcut_id || !availableHosts.includes(selectedHost)"
+        :disabled="props.submitting"
         class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:opacity-60"
       >
         <Loader2 v-if="props.submitting" class="h-4 w-4 animate-spin" />

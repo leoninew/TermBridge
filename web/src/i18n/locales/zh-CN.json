@@ -92,7 +92,13 @@
       "noShortcutsForHost": "当前运行环境没有快捷方式，请先到快捷方式管理页新建。",
       "hostUnavailable": "当前宿主不可用",
       "hostNotReady": "未就绪",
-      "loadShortcutsError": "加载快捷方式失败"
+      "loadShortcutsError": "加载快捷方式失败",
+      "validation": {
+        "workspaceRequired": "请选择或输入目录",
+        "nameRequired": "请输入名称",
+        "hostReadyRequired": "请选择已就绪的运行环境",
+        "shortcutRequired": "请选择快捷方式"
+      }
     },
     "list": {
       "title": "会话管理",
@@ -242,6 +248,12 @@
       "save": "保存快捷方式失败",
       "delete": "删除快捷方式失败",
       "hostRequired": "请选择运行环境"
+    },
+    "validation": {
+      "nameRequired": "请输入名称",
+      "commandRequired": "请输入命令",
+      "hostRequired": "请选择运行环境",
+      "nameUniquePerHost": "同一运行环境下快捷方式名称不能重复"
     },
     "hostDisabled": {
       "unavailable": "当前宿主不可用"

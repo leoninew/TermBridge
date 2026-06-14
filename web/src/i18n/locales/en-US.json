@@ -92,7 +92,13 @@
       "noShortcutsForHost": "No shortcuts exist for this runtime environment. Create one in shortcut management first.",
       "hostUnavailable": "Unavailable on this host",
       "hostNotReady": "Not ready",
-      "loadShortcutsError": "Failed to load shortcuts"
+      "loadShortcutsError": "Failed to load shortcuts",
+      "validation": {
+        "workspaceRequired": "Select or enter a directory",
+        "nameRequired": "Enter a name",
+        "hostReadyRequired": "Select a ready runtime environment",
+        "shortcutRequired": "Select a shortcut"
+      }
     },
     "list": {
       "title": "Session Management",
@@ -242,6 +248,12 @@
       "save": "Failed to save shortcut",
       "delete": "Failed to delete shortcut",
       "hostRequired": "Select a host environment"
+    },
+    "validation": {
+      "nameRequired": "Enter a name",
+      "commandRequired": "Enter a command",
+      "hostRequired": "Select a host environment",
+      "nameUniquePerHost": "Shortcut names must be unique in the same runtime environment"
     },
     "hostDisabled": {
       "unavailable": "Unavailable on this host"
