@@ -48,8 +48,8 @@ const deletingWorkspace = ref<{ id: string; path: string }>()
 const closeAllDialogOpen = ref(false)
 const closingAllSessions = ref(false)
 const sidebarCollapsed = ref(false)
-const sidebarMinWidth = 320
-const sidebarWidth = ref(360)
+const sidebarMinWidth = 280
+const sidebarWidth = ref(sidebarMinWidth)
 const sidebarMaxWidth = 480
 const compactSidebar = computed(() => sidebarWidth.value < 360)
 const deleteDialogOpen = computed({

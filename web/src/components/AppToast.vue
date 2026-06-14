@@ -44,6 +44,6 @@ const toastClasses = computed<Record<ToastVariant, { root: string; close: string
         <X class="h-4 w-4" />
       </button>
     </ToastRoot>
-    <ToastViewport class="fixed bottom-4 right-4 z-50 grid w-80 max-w-[calc(100vw-2rem)] gap-2" />
+    <ToastViewport class="fixed right-4 top-4 z-50 grid w-80 max-w-[calc(100vw-2rem)] gap-2" />
   </ToastProvider>
 </template>

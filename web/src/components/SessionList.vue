@@ -44,18 +44,26 @@ import type {
   EnvironmentSummary,
   Session,
   SessionEnvironment,
+  SessionWorkspace,
   ShortcutHost,
 } from '../types/sessions'
 
 type SessionTreeNode = {
   id: string
   label: string
-  kind: 'environment' | 'workspace' | 'session'
+  kind: 'workspace' | 'session'
   host: ShortcutHost
   workspaceId?: string
   workspacePath?: string
   children?: SessionTreeNode[]
   session?: Session
+}
+
+type SessionTreeGroup = {
+  id: string
+  label: string
+  host: ShortcutHost
+  nodes: SessionTreeNode[]
 }
 
 const { locale, t } = useI18n()
@@ -105,30 +113,16 @@ const filteredTree = computed(() => {
     .filter((environment): environment is SessionEnvironment => !!environment)
 })
 
-const treeNodes = computed<SessionTreeNode[]>(() =>
+const treeGroups = computed<SessionTreeGroup[]>(() =>
   filteredTree.value.map((environment) => ({
     id: `environment:${environment.host}`,
-    kind: 'environment',
     label: environment.label,
     host: environment.host,
-    children: environment.workspaces.map((workspace) => ({
-      id: `workspace:${workspace.id}`,
-      kind: 'workspace',
-      label: workspace.path,
-      host: workspace.host,
-      workspaceId: workspace.id,
-      workspacePath: workspace.path,
-      children: workspace.entries.map((session) => ({
-        id: `session:${session.id}`,
-        kind: 'session',
-        label: session.name,
-        host: workspace.host,
-        workspacePath: workspace.path,
-        session,
-      })),
-    })),
+    nodes: workspaceNodes(environment.workspaces),
   })),
 )
+
+const treeNodes = computed<SessionTreeNode[]>(() => treeGroups.value.flatMap((group) => group.nodes))
 
 const hasWorkspaceNodes = computed(() => props.sessionTree.some((environment) => environment.workspaces.length > 0))
 const shouldShowEmptySessions = computed(() => props.sessions.length === 0 && !hasWorkspaceNodes.value)
@@ -151,6 +145,78 @@ watch(
   },
   { immediate: true },
 )
+
+function workspaceNodes(workspaces: SessionWorkspace[]): SessionTreeNode[] {
+  const workspaceLabels = workspaceDisplayLabels(workspaces)
+  return workspaces.map((workspace) => ({
+    id: `workspace:${workspace.id}`,
+    kind: 'workspace',
+    label: workspaceLabels.get(workspace.id) || workspace.path,
+    host: workspace.host,
+    workspaceId: workspace.id,
+    workspacePath: workspace.path,
+    children: workspace.entries.map((session) => ({
+      id: `session:${session.id}`,
+      kind: 'session',
+      label: session.name,
+      host: workspace.host,
+      workspacePath: workspace.path,
+      session,
+    })),
+  }))
+}
+
+function workspaceDisplayLabels(workspaces: SessionWorkspace[]): Map<string, string> {
+  const partsById = new Map(workspaces.map((workspace) => [workspace.id, pathParts(workspace.path)]))
+  const labelDepthById = new Map(workspaces.map((workspace) => [workspace.id, 1]))
+
+  for (let changed = true; changed;) {
+    changed = false
+    const idsByLabel = new Map<string, string[]>()
+    for (const workspace of workspaces) {
+      const parts = partsById.get(workspace.id) || []
+      const depth = labelDepthById.get(workspace.id) || 1
+      const label = labelFromParts(parts, depth)
+      idsByLabel.set(label, [...(idsByLabel.get(label) || []), workspace.id])
+    }
+
+    for (const ids of idsByLabel.values()) {
+      if (ids.length < 2) {
+        continue
+      }
+      for (const id of ids) {
+        const parts = partsById.get(id) || []
+        const depth = labelDepthById.get(id) || 1
+        if (depth < parts.length) {
+          labelDepthById.set(id, depth + 1)
+          changed = true
+        }
+      }
+    }
+  }
+
+  return new Map(
+    workspaces.map((workspace) => {
+      const parts = partsById.get(workspace.id) || []
+      const depth = labelDepthById.get(workspace.id) || 1
+      return [workspace.id, labelFromParts(parts, depth)]
+    }),
+  )
+}
+
+function pathParts(path: string): string[] {
+  return path
+    .replaceAll('\\', '/')
+    .split('/')
+    .filter(Boolean)
+}
+
+function labelFromParts(parts: string[], depth: number): string {
+  if (parts.length === 0) {
+    return ''
+  }
+  return parts.slice(Math.max(0, parts.length - depth)).join('/')
+}
 
 function collectExpandableKeys(nodes: SessionTreeNode[]): string[] {
   return nodes.flatMap((node) => [
@@ -265,7 +331,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
   <section
     class="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-200/70 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 lg:border-r-0"
   >
-    <div class="flex min-h-0 flex-1 flex-col gap-2.5 p-2 pt-1.5 pb-0">
+    <div class="flex min-h-0 flex-1 flex-col gap-2.5 px-2 pb-0">
       <p
         v-if="loading || environmentsLoading"
         class="inline-flex items-center gap-2 text-sm text-slate-500"
@@ -302,7 +368,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
         {{ t('session.list.emptySuffix') }}
       </p>
       <div v-else class="flex min-h-0 flex-1 flex-col">
-        <div class="flex h-11 items-center gap-2 border-b border-slate-200/70 pb-1.5 dark:border-slate-800">
+        <div class="flex h-11 items-center gap-2 border-b border-slate-200/70 dark:border-slate-800">
           <label class="relative min-w-0 flex-1">
             <Search class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
             <input
@@ -323,124 +389,129 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
         </div>
 
         <div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1 pt-2">
-          <TreeRoot
-            v-model="selectedTreeNodes"
-            v-model:expanded="expandedTreeKeys"
-            :items="treeNodes"
-            :default-value="[]"
-            :default-expanded="defaultExpandedTreeKeys"
-            multiple
-            :get-key="(node: SessionTreeNode) => node.id"
-            :get-children="(node: SessionTreeNode) => node.children"
-            selection-behavior="replace"
-            class="grid min-w-0 gap-px outline-none"
-          >
-            <template #default="{ flattenItems }">
-              <TreeItem
-                v-for="item in flattenItems"
-                :key="item._id"
-                v-slot="{ isExpanded }"
-                v-bind="item.bind"
-                as-child
-                @select.prevent="handleTreeSelect(item.value)"
+          <div class="grid min-w-0 gap-3">
+            <section v-for="group in treeGroups" :key="group.id" class="grid min-w-0 gap-1">
+              <div
+                class="flex min-w-0 items-center gap-2 px-1.5 py-1 text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500"
               >
-                <div
-                  class="group flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 text-left text-[13px] leading-5 transition focus:outline-none"
-                  :class="
-                    isSelectedNode(item.value)
-                      ? 'bg-blue-100/65 text-blue-800 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/45 dark:text-blue-200 dark:ring-blue-800/40'
-                      : 'text-slate-600 hover:bg-white/45 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/55 dark:hover:text-slate-100'
-                  "
-                  :style="{ paddingLeft: `${(item.level - 1) * 14 + 6}px` }"
-                >
-                  <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 dark:text-slate-500">
-                    <ChevronDown v-if="item.value.children?.length && isExpanded" class="h-4 w-4" />
-                    <ChevronRight
-                      v-else-if="item.value.children?.length"
-                      class="h-4 w-4"
-                    />
-                  </span>
-                  <component
-                    :is="environmentLogo(item.value.host)"
-                    v-if="item.value.kind === 'environment' && environmentLogo(item.value.host)"
-                    class="shrink-0"
-                  />
-                  <Folder
-                    v-if="item.value.kind === 'workspace'"
-                    class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500"
-                  />
-                  <SquareTerminal
-                    v-if="item.value.kind === 'session'"
-                    class="h-4 w-4 shrink-0"
-                    :class="item.value.session ? sessionStatusIconClass(item.value.session) : 'text-slate-400 dark:text-slate-500'"
-                  />
-                  <span
-                    class="min-w-0 flex-1 truncate"
-                    :class="item.value.session ? sessionStatusTextClass(item.value.session) : ''"
-                    :title="item.value.kind === 'workspace' ? item.value.label : undefined"
+                <component :is="environmentLogo(group.host)" class="shrink-0" />
+                <span class="truncate">{{ group.label }}</span>
+              </div>
+              <TreeRoot
+                v-model="selectedTreeNodes"
+                v-model:expanded="expandedTreeKeys"
+                :items="group.nodes"
+                :default-value="[]"
+                :default-expanded="defaultExpandedTreeKeys"
+                multiple
+                :get-key="(node: SessionTreeNode) => node.id"
+                :get-children="(node: SessionTreeNode) => node.children"
+                selection-behavior="replace"
+                class="grid min-w-0 gap-px outline-none"
+              >
+                <template #default="{ flattenItems }">
+                  <TreeItem
+                    v-for="item in flattenItems"
+                    :key="item._id"
+                    v-slot="{ isExpanded }"
+                    v-bind="item.bind"
+                    as-child
+                    @select.prevent="handleTreeSelect(item.value)"
                   >
-                    {{ item.value.label }}
-                  </span>
-                  <span
-                    v-if="item.value.kind === 'workspace'"
-                    class="ml-auto inline-flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100"
-                  >
-                    <button
-                      type="button"
-                      class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-blue-100/60 hover:text-blue-700 focus:opacity-100 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-blue-300"
-                      :aria-label="t('session.workspace.createLabel')"
-                      :title="t('session.workspace.createLabel')"
-                      @click="createFromWorkspace($event, item.value)"
+                    <div
+                      class="group flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 text-left text-[13px] leading-5 transition focus:outline-none"
+                      :class="
+                        isSelectedNode(item.value)
+                          ? 'bg-blue-100/65 text-blue-800 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/45 dark:text-blue-200 dark:ring-blue-800/40'
+                          : 'text-slate-600 hover:bg-white/45 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/55 dark:hover:text-slate-100'
+                      "
+                      :style="{ paddingLeft: `${(item.level - 1) * 14 + 6}px` }"
                     >
-                      <Plus class="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-red-100/60 hover:text-red-600 focus:opacity-100 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
-                      :aria-label="t('session.workspace.deleteLabel')"
-                      :title="t('session.workspace.deleteLabel')"
-                      @click="removeWorkspace($event, item.value)"
-                    >
-                      <Trash2 class="h-4 w-4" />
-                    </button>
-                  </span>
-                  <span
-                    v-if="item.value.session"
-                    class="inline-flex shrink-0 items-center gap-1"
-                  >
-                    <button
-                      v-if="item.value.session.status === 'running'"
-                      type="button"
-                      class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 dark:text-slate-500 dark:hover:bg-amber-950/40 dark:hover:text-amber-300"
-                      :aria-label="t('session.card.stopLabel')"
-                      :title="t('session.card.stopLabel')"
-                      @click="stopSession($event, item.value.session)"
-                    >
-                      <Ban class="h-4 w-4" />
-                    </button>
-                    <span
-                      v-if="item.value.session.status === 'stopped' && isStartingSession(item.value.session)"
-                      class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 dark:text-slate-500"
-                      :aria-label="t('session.card.startLabel')"
-                      :title="t('session.card.startLabel')"
-                    >
-                      <Loader2 class="h-4 w-4 animate-spin" />
-                    </span>
-                    <button
-                      v-if="item.value.session.status === 'stopped' && !isStartingSession(item.value.session)"
-                      type="button"
-                      class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-red-100/60 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
-                      :aria-label="t('session.card.deleteLabel')"
-                      :title="t('session.card.deleteLabel')"
-                      @click="removeSession($event, item.value.session)"
-                    >
-                      <Trash2 class="h-4 w-4" />
-                    </button>
-                  </span>
-                </div>
-              </TreeItem>
-            </template>
-          </TreeRoot>
+                      <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 dark:text-slate-500">
+                        <ChevronDown v-if="item.value.children?.length && isExpanded" class="h-4 w-4" />
+                        <ChevronRight
+                          v-else-if="item.value.children?.length"
+                          class="h-4 w-4"
+                        />
+                      </span>
+                      <Folder
+                        v-if="item.value.kind === 'workspace'"
+                        class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500"
+                      />
+                      <SquareTerminal
+                        v-if="item.value.kind === 'session'"
+                        class="h-4 w-4 shrink-0"
+                        :class="item.value.session ? sessionStatusIconClass(item.value.session) : 'text-slate-400 dark:text-slate-500'"
+                      />
+                      <span
+                        class="min-w-0 flex-1 truncate"
+                        :class="item.value.session ? sessionStatusTextClass(item.value.session) : ''"
+                        :title="item.value.kind === 'workspace' ? item.value.workspacePath : undefined"
+                      >
+                        {{ item.value.label }}
+                      </span>
+                      <span
+                        v-if="item.value.kind === 'workspace'"
+                        class="ml-auto inline-flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100"
+                      >
+                        <button
+                          type="button"
+                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-blue-100/60 hover:text-blue-700 focus:opacity-100 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-blue-300"
+                          :aria-label="t('session.workspace.createLabel')"
+                          :title="t('session.workspace.createLabel')"
+                          @click="createFromWorkspace($event, item.value)"
+                        >
+                          <Plus class="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-red-100/60 hover:text-red-600 focus:opacity-100 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+                          :aria-label="t('session.workspace.deleteLabel')"
+                          :title="t('session.workspace.deleteLabel')"
+                          @click="removeWorkspace($event, item.value)"
+                        >
+                          <Trash2 class="h-4 w-4" />
+                        </button>
+                      </span>
+                      <span
+                        v-if="item.value.session"
+                        class="inline-flex shrink-0 items-center gap-1"
+                      >
+                        <button
+                          v-if="item.value.session.status === 'running'"
+                          type="button"
+                          class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 dark:text-slate-500 dark:hover:bg-amber-950/40 dark:hover:text-amber-300"
+                          :aria-label="t('session.card.stopLabel')"
+                          :title="t('session.card.stopLabel')"
+                          @click="stopSession($event, item.value.session)"
+                        >
+                          <Ban class="h-4 w-4" />
+                        </button>
+                        <span
+                          v-if="item.value.session.status === 'stopped' && isStartingSession(item.value.session)"
+                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 dark:text-slate-500"
+                          :aria-label="t('session.card.startLabel')"
+                          :title="t('session.card.startLabel')"
+                        >
+                          <Loader2 class="h-4 w-4 animate-spin" />
+                        </span>
+                        <button
+                          v-if="item.value.session.status === 'stopped' && !isStartingSession(item.value.session)"
+                          type="button"
+                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-red-100/60 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+                          :aria-label="t('session.card.deleteLabel')"
+                          :title="t('session.card.deleteLabel')"
+                          @click="removeSession($event, item.value.session)"
+                        >
+                          <Trash2 class="h-4 w-4" />
+                        </button>
+                      </span>
+                    </div>
+                  </TreeItem>
+                </template>
+              </TreeRoot>
+            </section>
+          </div>
         </div>
       </div>
     </div>

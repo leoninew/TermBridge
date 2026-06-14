@@ -1,10 +1,11 @@
-.PHONY: help install fastapi web
+.PHONY: help install fastapi web dev
 
 help:
 	@printf "Available commands:\n"
 	@printf "  make install   Install web and fastapi dependencies\n"
 	@printf "  make fastapi   Start fastapi API on 127.0.0.1:9008 with reload\n"
 	@printf "  make web       Start frontend Vite dev server on 127.0.0.1:9007\n"
+	@printf "  make dev       Start fastapi and frontend dev servers\n"
 	@printf "  make build     Build web assets and Python distributions\n"
 	@printf "  make help      Show this help message\n"
 
@@ -17,6 +18,9 @@ fastapi:
 
 web:
 	cd web && yarn dev
+
+dev:
+	uv run python scripts/dev.py
 
 build:
 	cd web && yarn build
