@@ -66,7 +66,9 @@ class FileSessionRepository:
         entries = [entry if item.id == entry.id else item for item in workspace.entries]
         if all(item.id != entry.id for item in workspace.entries):
             raise SessionNotFoundError(entry.id)
-        state.workspaces[workspace.id] = workspace.model_copy(update={"entries": entries, "updated_at": entry.updated_at})
+        state.workspaces[workspace.id] = workspace.model_copy(
+            update={"entries": entries, "updated_at": entry.updated_at}
+        )
         self._write_state(state)
         return entry
 

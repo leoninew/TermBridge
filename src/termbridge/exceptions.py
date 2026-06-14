@@ -15,6 +15,20 @@ class SessionNotFoundError(KeyError):
         self.session_id = session_id
 
 
+class SessionWorkspaceNotFoundError(KeyError):
+    def __init__(self, workspace_id: str) -> None:
+        super().__init__(workspace_id)
+        self.workspace_id = workspace_id
+
+
+class InvalidTerminalConfigError(ValueError):
+    pass
+
+
+class SessionTerminalUnavailableError(InvalidTerminalConfigError):
+    pass
+
+
 class DuplicateSessionError(ValueError):
     def __init__(self, session_id: str) -> None:
         super().__init__(f"Duplicate session: {session_id}")
@@ -64,5 +78,6 @@ class ShortcutNotFoundError(KeyError):
         self.shortcut_id = shortcut_id
 
 
-class InvalidTerminalConfigError(ValueError):
-    pass
+class ShortcutInUseError(ValueError):
+    def __init__(self) -> None:
+        super().__init__("Shortcut is in use")

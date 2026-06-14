@@ -94,7 +94,9 @@ class FakeShortcutService:
     def tmux_window_exists(self, host: str, workspace: Path, *, tmux_window_id: str | None) -> bool:
         return self.window_exists
 
-    def find_tmux_window_by_name(self, host: str, workspace: Path, *, tmux_session_name: str, window_name: str) -> str | None:
+    def find_tmux_window_by_name(
+        self, host: str, workspace: Path, *, tmux_session_name: str, window_name: str
+    ) -> str | None:
         return self.window_by_name
 
     def resolve_ttyd_executable(self, host: str, cygwin_bash_path: str | None = None) -> str:
@@ -325,7 +327,6 @@ def test_service_passes_runtime_env_to_ttyd_process(tmp_path: Path) -> None:
     assert process.started[0][4] == runtime_env
 
 
-
 def test_service_reuses_workspace_for_same_host_and_path(tmp_path: Path) -> None:
     shortcuts = FakeShortcutService()
     service = make_service(tmp_path, shortcut_service=shortcuts)
@@ -464,7 +465,9 @@ def test_service_delete_workspace_removes_entries_and_workspace_session(tmp_path
     ]
     assert shortcuts.killed_sessions == [("windows_cygwin", tmp_path.resolve(), first.tmux_session_name)]
     assert service.list_sessions() == []
-    cygwin = next(environment for environment in service.list_tree().environments if environment.host == "windows_cygwin")
+    cygwin = next(
+        environment for environment in service.list_tree().environments if environment.host == "windows_cygwin"
+    )
     assert cygwin.workspaces == []
 
 

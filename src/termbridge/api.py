@@ -1,6 +1,8 @@
 import asyncio
 import base64
 import logging
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +21,9 @@ from termbridge.exceptions import (
     NoAvailablePortError,
     SessionNotFoundError,
     SessionRepositoryError,
+    SessionTerminalUnavailableError,
+    SessionWorkspaceNotFoundError,
+    ShortcutInUseError,
     ShortcutNotFoundError,
     ShortcutRepositoryError,
     UnknownRuntimeError,
@@ -79,6 +84,35 @@ HOP_BY_HOP_HEADERS = {
 }
 
 
+@dataclass(frozen=True)
+class DomainErrorMapping:
+    status_code: int
+    code: str
+    message: str | Callable[[Exception], str]
+
+
+DOMAIN_ERROR_MAPPINGS: tuple[tuple[type[Exception], DomainErrorMapping], ...] = (
+    (WorkspacePathNotFoundError, DomainErrorMapping(status.HTTP_404_NOT_FOUND, "not_found", str)),
+    (WorkspacePathNotDirectoryError, DomainErrorMapping(status.HTTP_400_BAD_REQUEST, "bad_request", str)),
+    (WorkspaceNotFoundError, DomainErrorMapping(status.HTTP_400_BAD_REQUEST, "bad_request", str)),
+    (WorkspaceBrowserError, DomainErrorMapping(status.HTTP_500_INTERNAL_SERVER_ERROR, "internal_error", str)),
+    (ShortcutInUseError, DomainErrorMapping(status.HTTP_409_CONFLICT, "conflict", str)),
+    (ShortcutNotFoundError, DomainErrorMapping(status.HTTP_404_NOT_FOUND, "not_found", "Shortcut not found")),
+    (
+        SessionWorkspaceNotFoundError,
+        DomainErrorMapping(status.HTTP_404_NOT_FOUND, "not_found", "Session workspace not found"),
+    ),
+    (SessionNotFoundError, DomainErrorMapping(status.HTTP_404_NOT_FOUND, "not_found", "Session not found")),
+    (SessionTerminalUnavailableError, DomainErrorMapping(status.HTTP_409_CONFLICT, "conflict", str)),
+    (NoAvailablePortError, DomainErrorMapping(status.HTTP_503_SERVICE_UNAVAILABLE, "service_unavailable", str)),
+    (UnknownRuntimeError, DomainErrorMapping(status.HTTP_400_BAD_REQUEST, "bad_request", str)),
+    (InvalidTerminalCommandError, DomainErrorMapping(status.HTTP_400_BAD_REQUEST, "bad_request", str)),
+    (InvalidTerminalConfigError, DomainErrorMapping(status.HTTP_400_BAD_REQUEST, "bad_request", str)),
+    (ShortcutRepositoryError, DomainErrorMapping(status.HTTP_500_INTERNAL_SERVER_ERROR, "internal_error", str)),
+    (SessionRepositoryError, DomainErrorMapping(status.HTTP_500_INTERNAL_SERVER_ERROR, "internal_error", str)),
+)
+
+
 def _error_code(status_code: int) -> str:
     return STATUS_ERROR_CODES.get(status_code, "request_failed")
 
@@ -91,6 +125,26 @@ def _error_message(detail: Any, fallback: str) -> str:
 
 def _error_response(status_code: int, code: str, error: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"code": code, "error": error})
+
+
+def _domain_error_mapping(exc: Exception) -> DomainErrorMapping | None:
+    for error_type, mapping in DOMAIN_ERROR_MAPPINGS:
+        if isinstance(exc, error_type):
+            return mapping
+    return None
+
+
+def _domain_error_message(exc: Exception, mapping: DomainErrorMapping) -> str:
+    if isinstance(mapping.message, str):
+        return mapping.message
+    return mapping.message(exc)
+
+
+async def domain_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    mapping = _domain_error_mapping(exc)
+    if mapping is None:
+        return await unhandled_exception_handler(request, exc)
+    return _error_response(mapping.status_code, mapping.code, _domain_error_message(exc, mapping))
 
 
 def _basic_auth_header(username: str, password: str) -> str:
@@ -134,10 +188,7 @@ def health() -> dict[str, str]:
 
 @router.get("/api/workspaces/roots", response_model=WorkspaceRootsResponse)
 def list_workspace_roots(service: WorkspaceBrowserServiceDep) -> WorkspaceRootsResponse:
-    try:
-        return service.list_roots()
-    except WorkspaceBrowserError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.list_roots()
 
 
 @router.get("/api/workspaces/tree", response_model=WorkspaceTreeResponse)
@@ -146,77 +197,40 @@ def list_workspace_tree(
     path: str = Query(min_length=1),
     show_hidden: bool = False,
 ) -> WorkspaceTreeResponse:
-    try:
-        return service.list_children(Path(path), show_hidden=show_hidden)
-    except WorkspacePathNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    except WorkspacePathNotDirectoryError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    except WorkspaceBrowserError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.list_children(Path(path), show_hidden=show_hidden)
 
 
 @router.get("/api/shortcuts", response_model=ShortcutListResponse)
 def list_shortcuts(service: TerminalServiceDep) -> ShortcutListResponse:
-    try:
-        return service.list_shortcuts()
-    except ShortcutRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.list_shortcuts()
 
 
 @router.post("/api/shortcuts", response_model=Shortcut, status_code=status.HTTP_201_CREATED)
 def create_shortcut(request: CreateShortcutRequest, service: TerminalServiceDep) -> Shortcut:
-    try:
-        return service.create_shortcut(request)
-    except InvalidTerminalConfigError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    except ShortcutRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.create_shortcut(request)
 
 
 @router.put("/api/shortcuts/{shortcut_id}", response_model=Shortcut)
 def update_shortcut(shortcut_id: str, request: UpdateShortcutRequest, service: TerminalServiceDep) -> Shortcut:
-    try:
-        return service.update_shortcut(shortcut_id, request)
-    except ShortcutNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shortcut not found") from exc
-    except InvalidTerminalConfigError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    except ShortcutRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.update_shortcut(shortcut_id, request)
 
 
 @router.delete("/api/shortcuts/{shortcut_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_shortcut(shortcut_id: str, service: TerminalServiceDep, session_service: SessionServiceDep) -> Response:
-    try:
-        if any(session.shortcut_id == shortcut_id for session in session_service.list_sessions()):
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Shortcut is in use")
-        service.delete_shortcut(shortcut_id)
-    except HTTPException:
-        raise
-    except ShortcutNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shortcut not found") from exc
-    except (SessionRepositoryError, ShortcutRepositoryError) as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    if any(session.shortcut_id == shortcut_id for session in session_service.list_sessions()):
+        raise ShortcutInUseError()
+    service.delete_shortcut(shortcut_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/api/terminal-settings", response_model=TerminalSettings)
 def get_terminal_settings(service: TerminalServiceDep) -> TerminalSettings:
-    try:
-        return service.get_settings()
-    except ShortcutRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.get_settings()
 
 
 @router.put("/api/terminal-settings", response_model=TerminalSettings)
 def update_terminal_settings(request: UpdateTerminalSettingsRequest, service: TerminalServiceDep) -> TerminalSettings:
-    try:
-        return service.update_settings(request)
-    except InvalidTerminalConfigError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    except ShortcutRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.update_settings(request)
 
 
 @router.post("/api/environment/ttyd/check", response_model=RuntimeCheckResponse)
@@ -226,53 +240,34 @@ def check_ttyd(request: RuntimeCheckRequest, service: TerminalServiceDep) -> Run
 
 @router.get("/api/environments", response_model=EnvironmentListResponse)
 def list_environments(service: TerminalServiceDep) -> EnvironmentListResponse:
-    try:
-        return service.list_environments()
-    except ShortcutRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.list_environments()
 
 
 @router.get("/api/environment/windows-cygwin/settings", response_model=WindowsCygwinSettings)
 def get_windows_cygwin_settings(service: TerminalServiceDep) -> WindowsCygwinSettings:
-    try:
-        return service.get_windows_cygwin_settings()
-    except ShortcutRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.get_windows_cygwin_settings()
 
 
 @router.put("/api/environment/windows-cygwin/settings", response_model=WindowsCygwinSettings)
 def update_windows_cygwin_settings(
     request: WindowsCygwinSettings, service: TerminalServiceDep
 ) -> WindowsCygwinSettings:
-    try:
-        return service.update_windows_cygwin_settings(request)
-    except InvalidTerminalConfigError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    except ShortcutRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.update_windows_cygwin_settings(request)
 
 
 @router.post("/api/environment/windows-cygwin/check", response_model=WindowsCygwinCheckResponse)
-def check_windows_cygwin(
-    request: WindowsCygwinCheckRequest, service: TerminalServiceDep
-) -> WindowsCygwinCheckResponse:
+def check_windows_cygwin(request: WindowsCygwinCheckRequest, service: TerminalServiceDep) -> WindowsCygwinCheckResponse:
     return service.check_windows_cygwin(request.bash_path)
 
 
 @router.get("/api/environment/windows-wsl/settings", response_model=WindowsWslSettings)
 def get_windows_wsl_settings(service: TerminalServiceDep) -> WindowsWslSettings:
-    try:
-        return service.get_windows_wsl_settings()
-    except ShortcutRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.get_windows_wsl_settings()
 
 
 @router.put("/api/environment/windows-wsl/settings", response_model=WindowsWslSettings)
 def update_windows_wsl_settings(request: WindowsWslSettings, service: TerminalServiceDep) -> WindowsWslSettings:
-    try:
-        return service.update_windows_wsl_settings(request)
-    except ShortcutRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.update_windows_wsl_settings(request)
 
 
 @router.post("/api/environment/windows-wsl/check", response_model=WindowsWslCheckResponse)
@@ -287,100 +282,48 @@ def check_linux(service: TerminalServiceDep) -> LinuxCheckResponse:
 
 @router.post("/api/sessions", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
 def create_session(request: CreateSessionRequest, service: SessionServiceDep) -> SessionResponse:
-    try:
-        return service.create(request)
-    except (
-        UnknownRuntimeError,
-        InvalidTerminalCommandError,
-        InvalidTerminalConfigError,
-        WorkspaceNotFoundError,
-    ) as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    except ShortcutNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shortcut not found") from exc
-    except NoAvailablePortError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
-    except SessionRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.create(request)
 
 
 @router.get("/api/sessions", response_model=list[SessionResponse])
 def list_sessions(service: SessionServiceDep) -> list[SessionResponse]:
-    try:
-        return service.list_sessions()
-    except SessionRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.list_sessions()
 
 
 @router.get("/api/session-tree", response_model=SessionTreeResponse)
 def list_session_tree(service: SessionServiceDep) -> SessionTreeResponse:
-    try:
-        return service.list_tree()
-    except SessionRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.list_tree()
 
 
 @router.post("/api/sessions/close-all", response_model=CloseAllSessionsResponse)
 def close_all_sessions(service: SessionServiceDep) -> CloseAllSessionsResponse:
-    try:
-        return service.close_all()
-    except SessionRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.close_all()
 
 
 @router.delete("/api/session-workspaces/{workspace_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_session_workspace(workspace_id: str, service: SessionServiceDep) -> Response:
-    try:
-        service.delete_workspace(workspace_id)
-    except SessionNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session workspace not found") from exc
-    except SessionRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    service.delete_workspace(workspace_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/api/sessions/{session_id}", response_model=SessionResponse)
 def get_session(session_id: str, service: SessionServiceDep) -> SessionResponse:
-    try:
-        return service.get(session_id)
-    except SessionNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found") from exc
-    except SessionRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.get(session_id)
 
 
 @router.post("/api/sessions/{session_id}/start", response_model=SessionResponse)
 def start_session(session_id: str, service: SessionServiceDep) -> SessionResponse:
-    try:
-        return service.start(session_id)
-    except SessionNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found") from exc
-    except NoAvailablePortError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
-    except InvalidTerminalConfigError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    except SessionRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.start(session_id)
 
 
 @router.post("/api/sessions/{session_id}/stop", response_model=SessionResponse)
 def stop_session(session_id: str, service: SessionServiceDep) -> SessionResponse:
-    try:
-        return service.stop(session_id)
-    except SessionNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found") from exc
-    except SessionRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    return service.stop(session_id)
 
 
 @router.delete("/api/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_session(session_id: str, service: SessionServiceDep) -> Response:
-    try:
-        service.delete(session_id)
-    except SessionNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found") from exc
-    except SessionRepositoryError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    service.delete(session_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -391,12 +334,7 @@ def redirect_terminal_root(session_id: str) -> RedirectResponse:
 
 @router.get("/terminal/{session_id}/{path:path}", include_in_schema=False)
 async def proxy_terminal_http(session_id: str, path: str, request: Request, service: SessionServiceDep) -> Response:
-    try:
-        target = service.terminal_proxy_target(session_id)
-    except SessionNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found") from exc
-    except InvalidTerminalConfigError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    target = service.terminal_proxy_target(session_id)
     target_path = path or ""
     target_url = f"{target.base_url.rstrip('/')}/{target_path}"
     if request.url.query:
@@ -406,8 +344,12 @@ async def proxy_terminal_http(session_id: str, path: str, request: Request, serv
         try:
             upstream = await client.request(request.method, target_url, headers=headers, content=await request.body())
         except httpx.HTTPError as exc:
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Terminal proxy request failed") from exc
-    return Response(content=upstream.content, status_code=upstream.status_code, headers=_proxy_headers(upstream.headers))
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY, detail="Terminal proxy request failed"
+            ) from exc
+    return Response(
+        content=upstream.content, status_code=upstream.status_code, headers=_proxy_headers(upstream.headers)
+    )
 
 
 @router.websocket("/terminal/{session_id}/ws")
@@ -424,9 +366,7 @@ async def proxy_terminal_websocket(session_id: str, websocket: WebSocket, servic
     else:
         target_url = f"{target_url}/ws"
     requested_subprotocols = [
-        item.strip()
-        for item in websocket.headers.get("sec-websocket-protocol", "").split(",")
-        if item.strip()
+        item.strip() for item in websocket.headers.get("sec-websocket-protocol", "").split(",") if item.strip()
     ]
     subprotocol = Subprotocol("tty") if "tty" in requested_subprotocols else None
     accepted = False
@@ -566,6 +506,8 @@ def create_app(*, serve_web: bool = True, web_dir: Path | None = None) -> FastAP
     configure_logging(settings)
 
     app = FastAPI(title="TermBridge")
+    for error_type, _mapping in DOMAIN_ERROR_MAPPINGS:
+        app.add_exception_handler(error_type, domain_exception_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

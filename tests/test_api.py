@@ -343,7 +343,6 @@ def test_api_unhandled_exception_uses_structured_error() -> None:
     assert response.status_code == 500
     assert response.json() == {"code": "internal_error", "error": "Internal server error"}
 
-
     service = FakeTerminalService()
     session_service = FakeSessionService()
     app = create_app()
@@ -364,7 +363,9 @@ def test_terminal_http_proxy_adds_basic_auth_header() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         captured["url"] = str(request.url)
         captured["authorization"] = request.headers.get("authorization")
-        return httpx.Response(200, content=b"terminal", headers={"content-type": "text/plain", "transfer-encoding": "chunked"})
+        return httpx.Response(
+            200, content=b"terminal", headers={"content-type": "text/plain", "transfer-encoding": "chunked"}
+        )
 
     app = create_app(serve_web=False)
     app.dependency_overrides[get_session_service] = lambda: FakeSessionService()

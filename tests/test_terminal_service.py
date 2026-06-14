@@ -157,7 +157,9 @@ def test_shortcut_service_resolves_windows_cygwin_command(tmp_path: Path) -> Non
 
 def test_shortcut_service_resolves_windows_wsl_command(tmp_path: Path) -> None:
     service = make_service(tmp_path)
-    service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))
+    service.update_windows_wsl_settings(
+        WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux")
+    )
     shortcut = service.create_shortcut(CreateShortcutRequest(name="WSL", command="agent run", host="windows_wsl"))
     workspace = Path(r"D:\Projects\ExampleApp")
 
@@ -182,7 +184,9 @@ def test_shortcut_service_resolves_windows_wsl_command(tmp_path: Path) -> None:
 
 def test_terminal_service_creates_wsl_tmux_window_from_wsl_cd_workspace(tmp_path: Path) -> None:
     service = make_service(tmp_path)
-    service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))
+    service.update_windows_wsl_settings(
+        WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux")
+    )
     shortcut = service.create_shortcut(CreateShortcutRequest(name="WSL", command="agent run", host="windows_wsl"))
     workspace = Path(r"D:\Projects\ExampleApp")
     completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="@3\n", stderr="")
@@ -208,7 +212,9 @@ def test_terminal_service_creates_wsl_tmux_window_from_wsl_cd_workspace(tmp_path
 
 def test_terminal_service_finds_tmux_window_by_name(tmp_path: Path) -> None:
     service = make_service(tmp_path)
-    service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))
+    service.update_windows_wsl_settings(
+        WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux")
+    )
     completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="@1\tOther\n@7\tAgent\n", stderr="")
 
     with patch("termbridge.services.subprocess.run", return_value=completed) as run:
@@ -226,7 +232,9 @@ def test_terminal_service_finds_tmux_window_by_name(tmp_path: Path) -> None:
 
 def test_terminal_service_treats_tmux_window_timeout_as_missing_window(tmp_path: Path) -> None:
     service = make_service(tmp_path)
-    service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))
+    service.update_windows_wsl_settings(
+        WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux")
+    )
 
     with patch("termbridge.services.subprocess.run", side_effect=subprocess.TimeoutExpired(["tmux"], 10)):
         exists = service.tmux_window_exists("windows_wsl", Path(r"D:\Projects\ExampleApp"), tmux_window_id="@2")
@@ -239,7 +247,9 @@ def test_terminal_service_uses_configured_tmux_command_timeout(tmp_path: Path) -
         FileTerminalRepository(tmp_path / "terminals.json"),
         settings=Settings(tmux_command_timeout_seconds=12.5),
     )
-    service.update_windows_wsl_settings(WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux"))
+    service.update_windows_wsl_settings(
+        WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux")
+    )
     shortcut = service.create_shortcut(CreateShortcutRequest(name="WSL", command="agent run", host="windows_wsl"))
     completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="@3\n", stderr="")
 
@@ -271,7 +281,6 @@ def test_terminal_service_uses_cygwin_env_for_tmux_commands(tmp_path: Path) -> N
     assert env is not None
     assert Path(env["PATH"].split(os.pathsep)[0]) == Path("D:/ProgramFiles/Cygwin/bin")
     assert "-c /d/workspace" in run.call_args_list[1].args[0][2]
-
 
 
 def test_shortcut_service_resolves_linux_command_when_ready(tmp_path: Path) -> None:
@@ -317,7 +326,6 @@ def test_terminal_service_persists_ttyd_settings(tmp_path: Path) -> None:
     assert settings.ttyd_path == "D:/ttyd.exe"
 
 
-
 def test_terminal_service_lists_environments(tmp_path: Path) -> None:
     repository = FileTerminalRepository(tmp_path / "terminals.json")
     service = TerminalService(repository)
@@ -359,9 +367,7 @@ def test_terminal_service_persists_cygwin_settings(tmp_path: Path) -> None:
 def test_terminal_service_preserves_cygwin_readiness_when_paths_do_not_change(tmp_path: Path) -> None:
     repository = FileTerminalRepository(tmp_path / "terminals.json")
     state = repository.get_state()
-    state.windows_cygwin_settings = WindowsCygwinSettings(
-        readiness="ready", bash_path="bash.exe", tmux_path="tmux.exe"
-    )
+    state.windows_cygwin_settings = WindowsCygwinSettings(readiness="ready", bash_path="bash.exe", tmux_path="tmux.exe")
     repository.save_state(state)
     service = TerminalService(repository)
 
@@ -485,7 +491,9 @@ def test_terminal_service_uses_configured_cygwin_detection_timeout(tmp_path: Pat
         FileTerminalRepository(tmp_path / "terminals.json"),
         settings=Settings(cygwin_detection_timeout_seconds=12.5),
     )
-    service.update_windows_cygwin_settings(service.get_windows_cygwin_settings().model_copy(update={"bash_path": "bash.exe"}))
+    service.update_windows_cygwin_settings(
+        service.get_windows_cygwin_settings().model_copy(update={"bash_path": "bash.exe"})
+    )
     bash = subprocess.CompletedProcess(
         args=["bash.exe", "-lc", "cygpath -w $(command -v bash) && bash --version && uname -o"],
         returncode=0,

@@ -205,8 +205,7 @@ def test_request_logging_includes_json_request_and_response_bodies(
     assert response.status_code == 200
     assert response.json() == {"received": {"name": "demo"}}
     assert any(
-        record.levelno == logging.INFO and 'Request body={"name":"demo"}' in record.message
-        for record in caplog.records
+        record.levelno == logging.INFO and 'Request body={"name":"demo"}' in record.message for record in caplog.records
     )
     assert any(
         record.levelno == logging.INFO and 'Response body={"received":{"name":"demo"}}' in record.message
