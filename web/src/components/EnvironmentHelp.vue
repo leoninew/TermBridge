@@ -7,10 +7,10 @@ const { locale, t } = useI18n()
 </script>
 
 <template>
-  <main class="min-h-screen bg-slate-100 p-5 text-sm text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-    <section
-      class="mx-auto flex min-h-[calc(100vh-2.5rem)] max-w-3xl flex-col p-6 md:p-10"
-    >
+  <main
+    class="min-h-screen bg-slate-100 p-5 text-sm text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+  >
+    <section class="mx-auto flex min-h-[calc(100vh-2.5rem)] max-w-3xl flex-col p-6 md:p-10">
       <RouterLink
         to="/"
         class="inline-flex items-center gap-2 self-start text-sm font-medium text-blue-700 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"

@@ -20,6 +20,7 @@ from uuid import uuid4
 from termbridge.exceptions import (
     InvalidTerminalConfigError,
     SessionNotFoundError,
+    SessionRepositoryError,
     SessionTerminalUnavailableError,
     SessionWorkspaceNotFoundError,
     ShortcutNotFoundError,
@@ -36,6 +37,8 @@ from termbridge.models import (
     EnvironmentSummary,
     LinuxCheckResponse,
     LinuxSettings,
+    ReorderSessionsRequest,
+    ReorderWorkspacesRequest,
     RuntimeCheckResponse,
     SessionEntryRecord,
     SessionEnvironmentResponse,
@@ -1078,6 +1081,24 @@ class SessionService:
         updated = self._stop_entry(workspace, entry)
         self._repository.update_entry(updated)
         return SessionResponse.from_entry(workspace, updated)
+
+    def reorder_workspaces(self, host: ShortcutHost, request: ReorderWorkspacesRequest) -> SessionTreeResponse:
+        logger.info("Reordering session workspaces host=%s count=%s", host, len(request.workspace_ids))
+        try:
+            self._repository.reorder_workspaces(host, request.workspace_ids)
+        except SessionRepositoryError as exc:
+            raise InvalidTerminalConfigError(str(exc)) from exc
+        return self.list_tree()
+
+    def reorder_sessions(self, workspace_id: str, request: ReorderSessionsRequest) -> SessionTreeResponse:
+        logger.info("Reordering workspace sessions workspace_id=%s count=%s", workspace_id, len(request.session_ids))
+        try:
+            self._repository.reorder_entries(workspace_id, request.session_ids)
+        except SessionNotFoundError as exc:
+            raise SessionWorkspaceNotFoundError(workspace_id) from exc
+        except SessionRepositoryError as exc:
+            raise InvalidTerminalConfigError(str(exc)) from exc
+        return self.list_tree()
 
     def close_all(self) -> CloseAllSessionsResponse:
         logger.info("Closing all session entries")

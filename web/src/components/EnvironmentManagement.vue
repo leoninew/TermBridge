@@ -244,7 +244,9 @@ function readinessLabel(host: EnvironmentTab): string {
     class="grid min-h-full content-start gap-4 bg-slate-100 p-4 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
   >
     <div>
-      <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-100">{{ t('environmentManagement.title') }}</h2>
+      <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-100">
+        {{ t('environmentManagement.title') }}
+      </h2>
     </div>
 
     <p v-if="loading" class="inline-flex items-center gap-2 text-sm text-slate-500">
@@ -316,7 +318,10 @@ function readinessLabel(host: EnvironmentTab): string {
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="windows_cygwin" class="grid gap-4 border-b border-slate-200 py-4 dark:border-slate-800">
+      <TabsContent
+        value="windows_cygwin"
+        class="grid gap-4 border-b border-slate-200 py-4 dark:border-slate-800"
+      >
         <div class="flex items-start justify-between gap-3">
           <h3 class="text-lg font-semibold text-slate-950 dark:text-slate-100">
             {{ t('environmentManagement.windowsCygwin.title') }}
@@ -383,7 +388,10 @@ function readinessLabel(host: EnvironmentTab): string {
         </div>
       </TabsContent>
 
-      <TabsContent value="windows_wsl" class="grid gap-4 border-b border-slate-200 py-4 dark:border-slate-800">
+      <TabsContent
+        value="windows_wsl"
+        class="grid gap-4 border-b border-slate-200 py-4 dark:border-slate-800"
+      >
         <div class="flex items-start justify-between gap-3">
           <h3 class="text-lg font-semibold text-slate-950 dark:text-slate-100">
             {{ t('environmentManagement.windowsWsl.title') }}
@@ -454,7 +462,10 @@ function readinessLabel(host: EnvironmentTab): string {
         </div>
       </TabsContent>
 
-      <TabsContent value="linux" class="grid gap-3 border-b border-slate-200 py-4 dark:border-slate-800">
+      <TabsContent
+        value="linux"
+        class="grid gap-3 border-b border-slate-200 py-4 dark:border-slate-800"
+      >
         <div class="flex items-start justify-between gap-3">
           <h3 class="text-lg font-semibold text-slate-950 dark:text-slate-100">
             {{ t('environmentManagement.linux.title') }}

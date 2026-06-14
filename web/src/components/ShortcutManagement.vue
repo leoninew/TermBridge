@@ -187,7 +187,9 @@ async function saveShortcut() {
     closeModal()
     await load()
     toast.show({
-      title: t(updating ? 'shortcutManagement.success.updated' : 'shortcutManagement.success.created'),
+      title: t(
+        updating ? 'shortcutManagement.success.updated' : 'shortcutManagement.success.created',
+      ),
       variant: 'success',
     })
   } catch (err) {
@@ -285,9 +287,13 @@ function hostDisabledReason(host: ShortcutHost): string {
   <section
     class="flex h-full min-h-0 flex-col gap-4 bg-slate-100 p-4 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
   >
-    <div class="flex items-start justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
+    <div
+      class="flex items-start justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800"
+    >
       <div>
-        <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-100">{{ t('shortcutManagement.title') }}</h2>
+        <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-100">
+          {{ t('shortcutManagement.title') }}
+        </h2>
       </div>
       <button
         class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm text-white transition hover:bg-blue-700"
@@ -308,7 +314,9 @@ function hostDisabledReason(host: ShortcutHost): string {
       <section v-for="group in shortcutGroups" :key="group.host" class="grid gap-2.5">
         <div class="flex items-center gap-2 border-b border-slate-200 pb-2 dark:border-slate-800">
           <component :is="hostLogo(group.host)" class="shrink-0" />
-          <h3 class="text-sm font-semibold text-slate-950 dark:text-slate-100">{{ hostLabel(group.host) }}</h3>
+          <h3 class="text-sm font-semibold text-slate-950 dark:text-slate-100">
+            {{ hostLabel(group.host) }}
+          </h3>
         </div>
 
         <div class="grid gap-2.5 md:grid-cols-3 xl:grid-cols-4">
@@ -318,7 +326,9 @@ function hostDisabledReason(host: ShortcutHost): string {
             class="group relative flex flex-col justify-between border border-slate-200 bg-white/35 p-2.5 pb-12 transition hover:border-blue-400 hover:bg-white/70 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-blue-500 dark:hover:bg-slate-900/50"
           >
             <div>
-              <p class="truncate text-sm font-semibold text-slate-950 dark:text-slate-100">{{ shortcut.name }}</p>
+              <p class="truncate text-sm font-semibold text-slate-950 dark:text-slate-100">
+                {{ shortcut.name }}
+              </p>
               <p
                 class="mt-1.5 truncate rounded-md border border-slate-300 bg-slate-200/80 px-2 py-1.5 font-mono text-xs text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
                 :title="shortcut.command"
@@ -327,9 +337,7 @@ function hostDisabledReason(host: ShortcutHost): string {
               </p>
             </div>
 
-            <div
-              class="absolute bottom-2.5 right-2.5 flex gap-1.5"
-            >
+            <div class="absolute bottom-2.5 right-2.5 flex gap-1.5">
               <button
                 class="rounded-md border border-blue-200 px-2 py-1 text-sm text-blue-600 opacity-0 transition hover:bg-blue-50 group-hover:opacity-100 group-focus-within:opacity-100 dark:border-blue-900/60 dark:text-blue-400 dark:hover:bg-blue-950/40"
                 @click="createSessionFromShortcut(shortcut)"
@@ -386,7 +394,11 @@ function hostDisabledReason(host: ShortcutHost): string {
                 :aria-invalid="!!fieldErrors.name"
                 :aria-describedby="fieldErrors.name ? 'shortcut-name-error' : undefined"
               />
-              <span v-if="fieldErrors.name" id="shortcut-name-error" :class="fieldErrorMessageClass">
+              <span
+                v-if="fieldErrors.name"
+                id="shortcut-name-error"
+                :class="fieldErrorMessageClass"
+              >
                 {{ fieldErrors.name }}
               </span>
             </label>
@@ -399,7 +411,11 @@ function hostDisabledReason(host: ShortcutHost): string {
                 :aria-invalid="!!fieldErrors.command"
                 :aria-describedby="fieldErrors.command ? 'shortcut-command-error' : undefined"
               />
-              <span v-if="fieldErrors.command" id="shortcut-command-error" :class="fieldErrorMessageClass">
+              <span
+                v-if="fieldErrors.command"
+                id="shortcut-command-error"
+                :class="fieldErrorMessageClass"
+              >
                 {{ fieldErrors.command }}
               </span>
             </label>
@@ -436,7 +452,11 @@ function hostDisabledReason(host: ShortcutHost): string {
                   </SelectViewport>
                 </SelectContent>
               </SelectRoot>
-              <span v-if="fieldErrors.host" id="shortcut-host-error" :class="fieldErrorMessageClass">
+              <span
+                v-if="fieldErrors.host"
+                id="shortcut-host-error"
+                :class="fieldErrorMessageClass"
+              >
                 {{ fieldErrors.host }}
               </span>
             </label>
@@ -486,7 +506,9 @@ function hostDisabledReason(host: ShortcutHost): string {
             </p>
           </div>
           <div class="flex justify-end gap-2">
-            <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900">
+            <AlertDialogCancel
+              class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+            >
               {{ t('app.actions.cancel') }}
             </AlertDialogCancel>
             <AlertDialogAction

@@ -6,6 +6,8 @@ import type {
   EnvironmentListResponse,
   HealthResponse,
   LinuxCheckResponse,
+  ReorderSessionsPayload,
+  ReorderWorkspacesPayload,
   RuntimeCheckResponse,
   Session,
   SessionTreeResponse,
@@ -83,6 +85,32 @@ export function listSessions(): Promise<Session[]> {
 
 export function listSessionTree(): Promise<SessionTreeResponse> {
   return request<SessionTreeResponse>('/api/session-tree')
+}
+
+export function reorderEnvironmentWorkspaces(
+  host: string,
+  payload: ReorderWorkspacesPayload,
+): Promise<SessionTreeResponse> {
+  return request<SessionTreeResponse>(
+    `/api/session-tree/environments/${encodeURIComponent(host)}/workspaces/order`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
+  )
+}
+
+export function reorderWorkspaceSessions(
+  workspaceId: string,
+  payload: ReorderSessionsPayload,
+): Promise<SessionTreeResponse> {
+  return request<SessionTreeResponse>(
+    `/api/session-workspaces/${encodeURIComponent(workspaceId)}/sessions/order`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
+  )
 }
 
 export function createSession(payload: CreateSessionPayload): Promise<Session> {

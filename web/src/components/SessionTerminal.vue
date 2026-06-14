@@ -1,12 +1,21 @@
 <script setup lang="ts">
 import { Loader2, Monitor, Play, Plus, SquareTerminal, X } from '@lucide/vue'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { VueDraggable } from 'vue-draggable-plus'
 import { useI18n } from 'vue-i18n'
 import CygwinLogo from './CygwinLogo.vue'
 import LinuxLogo from './LinuxLogo.vue'
 import WslLogo from './WslLogo.vue'
 import type { Session, ShortcutHost } from '../types/sessions'
+
+type DragEndEvent = {
+  oldIndex?: number
+  newIndex?: number
+  from: globalThis.HTMLElement
+  to: globalThis.HTMLElement
+  item: globalThis.HTMLElement
+}
 
 const { t } = useI18n()
 
@@ -21,12 +30,45 @@ const emit = defineEmits<{
   create: []
   start: [session: Session]
   select: [session: Session]
+  reorderTabs: [sessionIds: string[]]
 }>()
 
+const orderedTabs = ref<Session[]>([])
 const activeTab = computed(() => props.session?.id || '')
-const activeShortcutLabel = computed(() => props.session?.shortcut_name || props.session?.runtime || '')
+const activeShortcutLabel = computed(
+  () => props.session?.shortcut_name || props.session?.runtime || '',
+)
 
 const createTabValue = '__create_session__'
+
+watch(
+  () => props.sessions,
+  (sessions) => {
+    const sessionById = new Map(sessions.map((session) => [session.id, session]))
+    const orderedSessionIds = orderedTabs.value.map((session) => session.id)
+    orderedTabs.value = [
+      ...orderedSessionIds
+        .map((sessionId) => sessionById.get(sessionId))
+        .filter((session): session is Session => !!session),
+      ...sessions.filter((session) => !orderedSessionIds.includes(session.id)),
+    ]
+  },
+  { immediate: true },
+)
+
+function hasDragged(event: DragEndEvent) {
+  return event.oldIndex !== undefined && event.newIndex !== undefined && event.oldIndex !== event.newIndex
+}
+
+function handleTabReorder(event: DragEndEvent) {
+  if (!hasDragged(event)) {
+    return
+  }
+  emit(
+    'reorderTabs',
+    orderedTabs.value.map((session) => session.id),
+  )
+}
 
 function updateActiveTab(value: string | number) {
   const tabValue = String(value)
@@ -74,26 +116,37 @@ function environmentLogo(host: ShortcutHost | null | undefined) {
       <div
         class="h-11 min-w-0 border-b border-slate-200 bg-slate-100 px-3 text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400"
       >
-        <TabsList class="terminal-tabs-list flex h-full items-center gap-3 overflow-x-auto overflow-y-hidden">
-          <TabsTrigger
-            v-for="item in sessions"
-            :key="item.id"
-            :value="item.id"
-            class="inline-flex h-8 max-w-64 shrink-0 items-center gap-2 bg-transparent px-2 text-sm transition hover:text-slate-900 data-[state=active]:font-medium data-[state=active]:text-slate-950 dark:hover:text-slate-100 dark:data-[state=active]:text-slate-100"
-            :title="item.workspace"
+        <TabsList
+          class="terminal-tabs-list flex h-full items-center gap-3 overflow-x-auto overflow-y-hidden"
+        >
+          <VueDraggable
+            v-model="orderedTabs"
+            ghost-class="opacity-60"
+            filter=".tab-action"
+            :prevent-on-filter="false"
+            class="flex h-full items-center gap-3"
+            @end="handleTabReorder"
           >
-            <component :is="environmentLogo(item.host)" class="h-4 w-4 shrink-0" />
-            <span class="truncate">{{ item.name }}</span>
-            <button
-              type="button"
-              class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-slate-400 transition hover:bg-slate-200 hover:text-slate-800 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-              :aria-label="t('session.terminal.closeTab', { name: item.name })"
-              :title="t('session.terminal.closeTab', { name: item.name })"
-              @click="closeTab($event, item)"
+            <TabsTrigger
+              v-for="item in orderedTabs"
+              :key="item.id"
+              :value="item.id"
+              class="inline-flex h-8 max-w-64 shrink-0 items-center gap-2 bg-transparent px-2 text-sm transition hover:text-slate-900 data-[state=active]:font-medium data-[state=active]:text-slate-950 dark:hover:text-slate-100 dark:data-[state=active]:text-slate-100"
+              :title="item.workspace"
             >
-              <X class="h-3 w-3" />
-            </button>
-          </TabsTrigger>
+                <component :is="environmentLogo(item.host)" class="h-4 w-4 shrink-0" />
+                <span class="truncate">{{ item.name }}</span>
+                <button
+                  type="button"
+                  class="tab-action inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-slate-400 transition hover:bg-slate-200 hover:text-slate-800 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  :aria-label="t('session.terminal.closeTab', { name: item.name })"
+                  :title="t('session.terminal.closeTab', { name: item.name })"
+                  @click="closeTab($event, item)"
+                >
+                  <X class="h-3 w-3" />
+                </button>
+            </TabsTrigger>
+          </VueDraggable>
           <TabsTrigger
             :value="createTabValue"
             class="inline-flex h-8 shrink-0 items-center justify-center bg-transparent px-2 text-sm text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"
@@ -137,7 +190,9 @@ function environmentLogo(host: ShortcutHost | null | undefined) {
         >
           <div class="grid justify-items-center gap-3">
             <span>{{
-              t('session.terminal.statusUnavailable', { status: t(`session.status.${item.status}`) })
+              t('session.terminal.statusUnavailable', {
+                status: t(`session.status.${item.status}`),
+              })
             }}</span>
             <button
               v-if="item.status === 'stopped'"
@@ -171,11 +226,21 @@ function environmentLogo(host: ShortcutHost | null | undefined) {
     <div
       class="flex h-7 shrink-0 items-center gap-3 border-t border-slate-200/70 bg-slate-100 px-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-500"
     >
-      <span v-if="session" class="inline-flex min-w-0 items-center gap-1" :title="session.workspace">
+      <span
+        v-if="session"
+        class="inline-flex min-w-0 items-center gap-1"
+        :title="session.workspace"
+      >
         <span class="shrink-0">{{ t('session.create.workspace') }}:</span>
-        <span class="min-w-0 truncate text-slate-600 dark:text-slate-400">{{ session.workspace }}</span>
+        <span class="min-w-0 truncate text-slate-600 dark:text-slate-400">{{
+          session.workspace
+        }}</span>
       </span>
-      <span v-if="activeShortcutLabel" class="inline-flex shrink-0 items-center gap-1" :title="activeShortcutLabel">
+      <span
+        v-if="activeShortcutLabel"
+        class="inline-flex shrink-0 items-center gap-1"
+        :title="activeShortcutLabel"
+      >
         <span>{{ t('session.create.shortcut') }}:</span>
         <span class="text-slate-600 dark:text-slate-400">{{ activeShortcutLabel }}</span>
       </span>

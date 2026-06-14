@@ -18,6 +18,8 @@ from termbridge.models import (
     EnvironmentListResponse,
     EnvironmentSummary,
     LinuxCheckResponse,
+    ReorderSessionsRequest,
+    ReorderWorkspacesRequest,
     RuntimeCheckResponse,
     SessionEnvironmentResponse,
     SessionResponse,
@@ -113,6 +115,13 @@ class FakeSessionService:
                 )
             ]
         )
+
+    def reorder_workspaces(self, host: str, request: ReorderWorkspacesRequest) -> SessionTreeResponse:
+        return self.list_tree()
+
+    def reorder_sessions(self, workspace_id: str, request: ReorderSessionsRequest) -> SessionTreeResponse:
+        self.sessions = [next(session for session in self.sessions if session.id == session_id) for session_id in request.session_ids]
+        return self.list_tree()
 
     def delete(self, session_id: str) -> None:
         self.deleted.append(session_id)
@@ -275,6 +284,14 @@ def test_session_api_routes(tmp_path: Path) -> None:
     started = client.post("/api/sessions/sess_2/start")
     stopped = client.post("/api/sessions/sess_2/stop")
     close_all = client.post("/api/sessions/close-all")
+    reordered_workspaces = client.put(
+        "/api/session-tree/environments/windows_cygwin/workspaces/order",
+        json={"workspace_ids": ["ws_1"]},
+    )
+    reordered_sessions = client.put(
+        "/api/session-workspaces/ws_1/sessions/order",
+        json={"session_ids": ["sess_1"]},
+    )
     deleted_workspace = client.delete("/api/session-workspaces/ws_1")
     deleted = client.delete("/api/sessions/sess_2")
 
@@ -289,6 +306,10 @@ def test_session_api_routes(tmp_path: Path) -> None:
     assert detail.json()["session_persistence"] == "tmux"
     assert tree.status_code == 200
     assert tree.json()["environments"][0]["workspaces"][0]["entries"][0]["id"] == "sess_1"
+    assert reordered_workspaces.status_code == 200
+    assert reordered_workspaces.json()["environments"][0]["workspaces"][0]["id"] == "ws_1"
+    assert reordered_sessions.status_code == 200
+    assert reordered_sessions.json()["environments"][0]["workspaces"][0]["entries"][0]["id"] == "sess_1"
     assert started.status_code == 200
     assert started.json()["id"] == "sess_2"
     assert started.json()["status"] == "running"

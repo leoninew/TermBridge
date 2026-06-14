@@ -49,6 +49,38 @@ class FileSessionRepository:
         self._write_state(state)
         return workspace
 
+    def reorder_workspaces(self, host: ShortcutHost, workspace_ids: list[str]) -> SessionState:
+        state = self._read_state()
+        requested = set(workspace_ids)
+        host_workspace_ids = [workspace.id for workspace in state.workspaces.values() if workspace.host == host]
+        if requested != set(host_workspace_ids) or len(requested) != len(workspace_ids):
+            raise SessionRepositoryError("Workspace order must include each workspace in the environment exactly once")
+
+        ordered_ids = iter(workspace_ids)
+        reordered: dict[str, WorkspaceRecord] = {}
+        for workspace in state.workspaces.values():
+            workspace_id = next(ordered_ids) if workspace.host == host else workspace.id
+            reordered[workspace_id] = state.workspaces[workspace_id]
+        state.workspaces = reordered
+        self._write_state(state)
+        return state
+
+    def reorder_entries(self, workspace_id: str, entry_ids: list[str]) -> WorkspaceRecord:
+        state = self._read_state()
+        workspace = state.workspaces.get(workspace_id)
+        if workspace is None:
+            raise SessionNotFoundError(workspace_id)
+        requested = set(entry_ids)
+        current_ids = [entry.id for entry in workspace.entries]
+        if requested != set(current_ids) or len(requested) != len(entry_ids):
+            raise SessionRepositoryError("Session order must include each session in the workspace exactly once")
+
+        entries_by_id = {entry.id: entry for entry in workspace.entries}
+        updated = workspace.model_copy(update={"entries": [entries_by_id[entry_id] for entry_id in entry_ids]})
+        state.workspaces[workspace.id] = updated
+        self._write_state(state)
+        return updated
+
     def list_entries(self) -> list[tuple[WorkspaceRecord, SessionEntryRecord]]:
         return [(workspace, entry) for workspace in self.list_workspaces() for entry in workspace.entries]
 

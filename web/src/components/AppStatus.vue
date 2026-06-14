@@ -68,7 +68,10 @@ function isActive(path: string): boolean {
             <SelectValue />
             <ChevronDown class="h-4 w-4 shrink-0 text-slate-400" />
           </SelectTrigger>
-          <SelectContent position="popper" class="z-50 min-w-[var(--reka-select-trigger-width)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-blue-900/5">
+          <SelectContent
+            position="popper"
+            class="z-50 min-w-[var(--reka-select-trigger-width)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-blue-900/5"
+          >
             <SelectViewport class="p-1">
               <SelectItem
                 value="zh-CN"

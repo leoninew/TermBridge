@@ -204,7 +204,11 @@ function collapse(entry: TreeEntry, index: number) {
           :key="entry.path"
           type="button"
           class="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition hover:bg-blue-50 dark:hover:bg-slate-900"
-          :class="selectedPath === entry.path ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'"
+          :class="
+            selectedPath === entry.path
+              ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300'
+              : 'text-slate-700 dark:text-slate-300'
+          "
           :style="{ paddingLeft: `${8 + entry.depth * 18}px` }"
           :data-selected-workspace="selectedPath === entry.path"
           @click="toggle(entry, index)"
@@ -216,7 +220,10 @@ function collapse(entry: TreeEntry, index: number) {
             :class="{ 'rotate-90': entry.expanded }"
           />
           <span v-else class="h-4 w-4" />
-          <HardDrive v-if="entry.kind === 'root'" class="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
+          <HardDrive
+            v-if="entry.kind === 'root'"
+            class="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400"
+          />
           <Folder v-else class="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
           <span class="truncate">{{ entry.name }}</span>
         </button>

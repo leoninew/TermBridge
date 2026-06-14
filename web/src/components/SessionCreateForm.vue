@@ -93,9 +93,11 @@ watch([availableHosts, filteredShortcuts], () => {
     selectedHost.value = availableHosts.value[0] || 'windows_cygwin'
   }
   if (!filteredShortcuts.value.some((shortcut) => shortcut.id === form.shortcut_id)) {
-    form.shortcut_id = props.initialShortcutId && filteredShortcuts.value.some((shortcut) => shortcut.id === props.initialShortcutId)
-      ? props.initialShortcutId
-      : filteredShortcuts.value[0]?.id || ''
+    form.shortcut_id =
+      props.initialShortcutId &&
+      filteredShortcuts.value.some((shortcut) => shortcut.id === props.initialShortcutId)
+        ? props.initialShortcutId
+        : filteredShortcuts.value[0]?.id || ''
   }
 })
 
@@ -106,9 +108,11 @@ async function loadShortcuts() {
   try {
     const response = await listShortcuts()
     shortcuts.value = response.shortcuts
-    form.shortcut_id = props.initialShortcutId && filteredShortcuts.value.some((shortcut) => shortcut.id === props.initialShortcutId)
-      ? props.initialShortcutId
-      : filteredShortcuts.value[0]?.id || ''
+    form.shortcut_id =
+      props.initialShortcutId &&
+      filteredShortcuts.value.some((shortcut) => shortcut.id === props.initialShortcutId)
+        ? props.initialShortcutId
+        : filteredShortcuts.value[0]?.id || ''
   } catch (err) {
     shortcutError.value =
       err instanceof Error ? err.message : t('session.create.loadShortcutsError')
@@ -166,7 +170,9 @@ function hostDisabledReason(host: ShortcutHost): string {
 <template>
   <form class="grid gap-5" @submit.prevent="submit">
     <div>
-      <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-100">{{ t('session.create.title') }}</h2>
+      <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-100">
+        {{ t('session.create.title') }}
+      </h2>
     </div>
 
     <p v-if="shortcutError" class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -283,7 +289,9 @@ function hostDisabledReason(host: ShortcutHost): string {
             class="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-200 dark:placeholder:text-slate-500"
             :display-value="() => selectedShortcut?.name || ''"
           />
-          <ComboboxTrigger class="inline-flex h-full shrink-0 items-center px-3 text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">
+          <ComboboxTrigger
+            class="inline-flex h-full shrink-0 items-center px-3 text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+          >
             <ChevronDown class="h-4 w-4" />
           </ComboboxTrigger>
         </ComboboxAnchor>
@@ -310,7 +318,11 @@ function hostDisabledReason(host: ShortcutHost): string {
           </ComboboxViewport>
         </ComboboxContent>
       </ComboboxRoot>
-      <span v-if="fieldErrors.shortcut_id" id="session-shortcut-error" :class="fieldErrorMessageClass">
+      <span
+        v-if="fieldErrors.shortcut_id"
+        id="session-shortcut-error"
+        :class="fieldErrorMessageClass"
+      >
         {{ fieldErrors.shortcut_id }}
       </span>
     </label>

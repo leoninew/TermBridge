@@ -19,6 +19,7 @@ import {
   Trash2,
   XCircle,
 } from '@lucide/vue'
+import { VueDraggable } from 'vue-draggable-plus'
 import {
   DropdownMenuContent,
   DropdownMenuItem,
@@ -31,8 +32,6 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-  TreeItem,
-  TreeRoot,
 } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -66,11 +65,20 @@ type SessionTreeGroup = {
   nodes: SessionTreeNode[]
 }
 
+type DragEndEvent = {
+  oldIndex?: number
+  newIndex?: number
+  from: globalThis.HTMLElement
+  to: globalThis.HTMLElement
+  item: globalThis.HTMLElement
+}
+
 const { locale, t } = useI18n()
 const theme = useThemeStore()
 const query = ref('')
 const selectedTreeNodes = ref<SessionTreeNode[]>([])
 const expandedTreeKeys = ref<string[]>([])
+const displayTreeGroups = ref<SessionTreeGroup[]>([])
 
 const props = defineProps<{
   sessions: Session[]
@@ -94,6 +102,8 @@ const emit = defineEmits<{
   stop: [session: Session]
   remove: [session: Session]
   removeWorkspace: [workspace: { id: string; path: string }]
+  reorderWorkspaces: [payload: { host: ShortcutHost; workspaceIds: string[] }]
+  reorderSessions: [payload: { workspaceId: string; sessionIds: string[] }]
   closeAll: []
   navigate: [path: string]
 }>()
@@ -122,12 +132,32 @@ const treeGroups = computed<SessionTreeGroup[]>(() =>
   })),
 )
 
-const treeNodes = computed<SessionTreeNode[]>(() => treeGroups.value.flatMap((group) => group.nodes))
+const treeNodes = computed<SessionTreeNode[]>(() =>
+  displayTreeGroups.value.flatMap((group) => group.nodes),
+)
 
-const hasWorkspaceNodes = computed(() => props.sessionTree.some((environment) => environment.workspaces.length > 0))
-const shouldShowEmptySessions = computed(() => props.sessions.length === 0 && !hasWorkspaceNodes.value)
+const hasWorkspaceNodes = computed(() =>
+  props.sessionTree.some((environment) => environment.workspaces.length > 0),
+)
+const shouldShowEmptySessions = computed(
+  () => props.sessions.length === 0 && !hasWorkspaceNodes.value,
+)
 
 const defaultExpandedTreeKeys = computed(() => collectExpandableKeys(treeNodes.value))
+
+watch(
+  treeGroups,
+  (groups) => {
+    displayTreeGroups.value = groups.map((group) => ({
+      ...group,
+      nodes: group.nodes.map((node) => ({
+        ...node,
+        children: node.children ? [...node.children] : [],
+      })),
+    }))
+  },
+  { immediate: true },
+)
 
 watch(
   defaultExpandedTreeKeys,
@@ -140,7 +170,9 @@ watch(
 watch(
   [treeNodes, () => props.activeSessionId],
   ([nodes, activeSessionId]) => {
-    const selectedNode = activeSessionId ? findTreeNode(nodes, `session:${activeSessionId}`) : undefined
+    const selectedNode = activeSessionId
+      ? findTreeNode(nodes, `session:${activeSessionId}`)
+      : undefined
     selectedTreeNodes.value = asSelectedList(selectedNode)
   },
   { immediate: true },
@@ -167,10 +199,12 @@ function workspaceNodes(workspaces: SessionWorkspace[]): SessionTreeNode[] {
 }
 
 function workspaceDisplayLabels(workspaces: SessionWorkspace[]): Map<string, string> {
-  const partsById = new Map(workspaces.map((workspace) => [workspace.id, pathParts(workspace.path)]))
+  const partsById = new Map(
+    workspaces.map((workspace) => [workspace.id, pathParts(workspace.path)]),
+  )
   const labelDepthById = new Map(workspaces.map((workspace) => [workspace.id, 1]))
 
-  for (let changed = true; changed;) {
+  for (let changed = true; changed; ) {
     changed = false
     const idsByLabel = new Map<string, string[]>()
     for (const workspace of workspaces) {
@@ -205,10 +239,7 @@ function workspaceDisplayLabels(workspaces: SessionWorkspace[]): Map<string, str
 }
 
 function pathParts(path: string): string[] {
-  return path
-    .replaceAll('\\', '/')
-    .split('/')
-    .filter(Boolean)
+  return path.replaceAll('\\', '/').split('/').filter(Boolean)
 }
 
 function labelFromParts(parts: string[], depth: number): string {
@@ -244,6 +275,81 @@ function asSelectedList(node: SessionTreeNode | undefined): SessionTreeNode[] {
 
 function isSelectedNode(node: SessionTreeNode): boolean {
   return selectedTreeNodes.value.some((selected) => selected.id === node.id)
+}
+
+function isExpandedNode(node: SessionTreeNode): boolean {
+  return expandedTreeKeys.value.includes(node.id)
+}
+
+function toggleExpanded(event: globalThis.MouseEvent, node: SessionTreeNode) {
+  event.preventDefault()
+  event.stopPropagation()
+  if (!node.children?.length) {
+    return
+  }
+  expandedTreeKeys.value = isExpandedNode(node)
+    ? expandedTreeKeys.value.filter((key) => key !== node.id)
+    : [...expandedTreeKeys.value, node.id]
+}
+
+function hasDragged(event: DragEndEvent) {
+  return event.oldIndex !== undefined && event.newIndex !== undefined && event.oldIndex !== event.newIndex
+}
+
+function mergeVisibleOrder(fullIds: string[], visibleIds: string[]): string[] {
+  const visibleIdSet = new Set(visibleIds)
+  const orderedVisibleIds = [...visibleIds]
+  return fullIds.map((id) => (visibleIdSet.has(id) ? orderedVisibleIds.shift() || id : id))
+}
+
+function sameOrder(left: string[], right: string[]) {
+  return left.length === right.length && left.every((id, index) => id === right[index])
+}
+
+function handleWorkspaceReorder(event: DragEndEvent, host: ShortcutHost, nodes: SessionTreeNode[]) {
+  if (!hasDragged(event)) {
+    return
+  }
+
+  const environment = props.sessionTree.find((item) => item.host === host)
+  if (!environment) {
+    return
+  }
+
+  const fullWorkspaceIds = environment.workspaces.map((workspace) => workspace.id)
+  const visibleWorkspaceIds = nodes
+    .map((node) => node.workspaceId)
+    .filter((id): id is string => !!id)
+  const workspaceIds = mergeVisibleOrder(fullWorkspaceIds, visibleWorkspaceIds)
+  if (workspaceIds.length !== fullWorkspaceIds.length || sameOrder(workspaceIds, fullWorkspaceIds)) {
+    return
+  }
+
+  emit('reorderWorkspaces', { host, workspaceIds })
+}
+
+function handleSessionReorder(event: DragEndEvent, workspace: SessionTreeNode, nodes: SessionTreeNode[]) {
+  if (!workspace.workspaceId || !hasDragged(event)) {
+    return
+  }
+
+  const sourceWorkspace = props.sessionTree
+    .flatMap((environment) => environment.workspaces)
+    .find((item) => item.id === workspace.workspaceId)
+  if (!sourceWorkspace) {
+    return
+  }
+
+  const fullSessionIds = sourceWorkspace.entries.map((session) => session.id)
+  const visibleSessionIds = nodes
+    .map((node) => node.session?.id)
+    .filter((id): id is string => !!id)
+  const sessionIds = mergeVisibleOrder(fullSessionIds, visibleSessionIds)
+  if (sessionIds.length !== fullSessionIds.length || sameOrder(sessionIds, fullSessionIds)) {
+    return
+  }
+
+  emit('reorderSessions', { workspaceId: workspace.workspaceId, sessionIds })
 }
 
 function isStartingSession(session: Session): boolean {
@@ -368,9 +474,13 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
         {{ t('session.list.emptySuffix') }}
       </p>
       <div v-else class="flex min-h-0 flex-1 flex-col">
-        <div class="flex h-11 items-center gap-2 border-b border-slate-200/70 dark:border-slate-800">
+        <div
+          class="flex h-11 items-center gap-2 border-b border-slate-200/70 dark:border-slate-800"
+        >
           <label class="relative min-w-0 flex-1">
-            <Search class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
+            <Search
+              class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500"
+            />
             <input
               v-model.trim="query"
               class="h-8 w-full rounded-md border border-slate-300/70 bg-white/45 py-1 pl-8 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white/65 dark:border-slate-700/80 dark:bg-slate-950/35 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-blue-500 dark:focus:bg-slate-950/60"
@@ -390,68 +500,51 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
 
         <div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1 pt-2">
           <div class="grid min-w-0 gap-3">
-            <section v-for="group in treeGroups" :key="group.id" class="grid min-w-0 gap-1">
+            <section v-for="group in displayTreeGroups" :key="group.id" class="grid min-w-0 gap-1">
               <div
                 class="flex min-w-0 items-center gap-2 px-1.5 py-1 text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500"
               >
                 <component :is="environmentLogo(group.host)" class="shrink-0" />
                 <span class="truncate">{{ group.label }}</span>
               </div>
-              <TreeRoot
-                v-model="selectedTreeNodes"
-                v-model:expanded="expandedTreeKeys"
-                :items="group.nodes"
-                :default-value="[]"
-                :default-expanded="defaultExpandedTreeKeys"
-                multiple
-                :get-key="(node: SessionTreeNode) => node.id"
-                :get-children="(node: SessionTreeNode) => node.children"
-                selection-behavior="replace"
+              <VueDraggable
+                v-model="group.nodes"
+                :group="{ name: `workspaces:${group.host}`, pull: false, put: false }"
+                ghost-class="session-list-ghost"
+                filter="button"
+                :prevent-on-filter="false"
                 class="grid min-w-0 gap-px outline-none"
+                @end="handleWorkspaceReorder($event, group.host, group.nodes)"
               >
-                <template #default="{ flattenItems }">
-                  <TreeItem
-                    v-for="item in flattenItems"
-                    :key="item._id"
-                    v-slot="{ isExpanded }"
-                    v-bind="item.bind"
-                    as-child
-                    @select.prevent="handleTreeSelect(item.value)"
-                  >
+                <div v-for="workspace in group.nodes" :key="workspace.id" class="grid min-w-0 gap-px">
                     <div
                       class="group flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 text-left text-[13px] leading-5 transition focus:outline-none"
                       :class="
-                        isSelectedNode(item.value)
+                        isSelectedNode(workspace)
                           ? 'bg-blue-100/65 text-blue-800 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/45 dark:text-blue-200 dark:ring-blue-800/40'
                           : 'text-slate-600 hover:bg-white/45 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/55 dark:hover:text-slate-100'
                       "
-                      :style="{ paddingLeft: `${(item.level - 1) * 14 + 6}px` }"
                     >
-                      <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 dark:text-slate-500">
-                        <ChevronDown v-if="item.value.children?.length && isExpanded" class="h-4 w-4" />
-                        <ChevronRight
-                          v-else-if="item.value.children?.length"
+                      <button
+                        type="button"
+                        class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 dark:text-slate-500"
+                        @click="toggleExpanded($event, workspace)"
+                      >
+                        <ChevronDown
+                          v-if="workspace.children?.length && isExpandedNode(workspace)"
                           class="h-4 w-4"
                         />
-                      </span>
-                      <Folder
-                        v-if="item.value.kind === 'workspace'"
-                        class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500"
-                      />
-                      <SquareTerminal
-                        v-if="item.value.kind === 'session'"
-                        class="h-4 w-4 shrink-0"
-                        :class="item.value.session ? sessionStatusIconClass(item.value.session) : 'text-slate-400 dark:text-slate-500'"
-                      />
+                        <ChevronRight v-else-if="workspace.children?.length" class="h-4 w-4" />
+                      </button>
+                      <Folder class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
                       <span
                         class="min-w-0 flex-1 truncate"
-                        :class="item.value.session ? sessionStatusTextClass(item.value.session) : ''"
-                        :title="item.value.kind === 'workspace' ? item.value.workspacePath : undefined"
+                        :title="workspace.workspacePath"
+                        @click="handleTreeSelect(workspace)"
                       >
-                        {{ item.value.label }}
+                        {{ workspace.label }}
                       </span>
                       <span
-                        v-if="item.value.kind === 'workspace'"
                         class="ml-auto inline-flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100"
                       >
                         <button
@@ -459,7 +552,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                           class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-blue-100/60 hover:text-blue-700 focus:opacity-100 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-blue-300"
                           :aria-label="t('session.workspace.createLabel')"
                           :title="t('session.workspace.createLabel')"
-                          @click="createFromWorkspace($event, item.value)"
+                          @click="createFromWorkspace($event, workspace)"
                         >
                           <Plus class="h-4 w-4" />
                         </button>
@@ -468,55 +561,101 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                           class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400/70 transition hover:bg-red-100/60 hover:text-red-600 focus:opacity-100 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
                           :aria-label="t('session.workspace.deleteLabel')"
                           :title="t('session.workspace.deleteLabel')"
-                          @click="removeWorkspace($event, item.value)"
-                        >
-                          <Trash2 class="h-4 w-4" />
-                        </button>
-                      </span>
-                      <span
-                        v-if="item.value.session"
-                        class="inline-flex shrink-0 items-center gap-1"
-                      >
-                        <button
-                          v-if="item.value.session.status === 'running'"
-                          type="button"
-                          class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 dark:text-slate-500 dark:hover:bg-amber-950/40 dark:hover:text-amber-300"
-                          :aria-label="t('session.card.stopLabel')"
-                          :title="t('session.card.stopLabel')"
-                          @click="stopSession($event, item.value.session)"
-                        >
-                          <Ban class="h-4 w-4" />
-                        </button>
-                        <span
-                          v-if="item.value.session.status === 'stopped' && isStartingSession(item.value.session)"
-                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 dark:text-slate-500"
-                          :aria-label="t('session.card.startLabel')"
-                          :title="t('session.card.startLabel')"
-                        >
-                          <Loader2 class="h-4 w-4 animate-spin" />
-                        </span>
-                        <button
-                          v-if="item.value.session.status === 'stopped' && !isStartingSession(item.value.session)"
-                          type="button"
-                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-red-100/60 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
-                          :aria-label="t('session.card.deleteLabel')"
-                          :title="t('session.card.deleteLabel')"
-                          @click="removeSession($event, item.value.session)"
+                          @click="removeWorkspace($event, workspace)"
                         >
                           <Trash2 class="h-4 w-4" />
                         </button>
                       </span>
                     </div>
-                  </TreeItem>
-                </template>
-              </TreeRoot>
+                    <VueDraggable
+                      v-if="workspace.children?.length && isExpandedNode(workspace)"
+                      v-model="workspace.children"
+                      :group="{ name: `sessions:${workspace.workspaceId}`, pull: false, put: false }"
+                      ghost-class="session-list-ghost"
+                      filter="button"
+                      :prevent-on-filter="false"
+                      class="ml-5 grid min-w-0 gap-px border-l border-slate-200/70 pl-2 dark:border-slate-800"
+                      @end="handleSessionReorder($event, workspace, workspace.children || [])"
+                    >
+                      <div
+                        v-for="sessionNode in workspace.children"
+                        :key="sessionNode.id"
+                        class="group flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 text-left text-[13px] leading-5 transition focus:outline-none"
+                          :class="
+                            isSelectedNode(sessionNode)
+                              ? 'bg-blue-100/65 text-blue-800 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/45 dark:text-blue-200 dark:ring-blue-800/40'
+                              : 'text-slate-600 hover:bg-white/45 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/55 dark:hover:text-slate-100'
+                          "
+                        >
+                          <SquareTerminal
+                            class="h-4 w-4 shrink-0"
+                            :class="
+                              sessionNode.session
+                                ? sessionStatusIconClass(sessionNode.session)
+                                : 'text-slate-400 dark:text-slate-500'
+                            "
+                          />
+                          <span
+                            class="min-w-0 flex-1 truncate"
+                            :class="
+                              sessionNode.session ? sessionStatusTextClass(sessionNode.session) : ''
+                            "
+                            @click="handleTreeSelect(sessionNode)"
+                          >
+                            {{ sessionNode.label }}
+                          </span>
+                          <span
+                            v-if="sessionNode.session"
+                            class="inline-flex shrink-0 items-center gap-1"
+                          >
+                            <button
+                              v-if="sessionNode.session.status === 'running'"
+                              type="button"
+                              class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 dark:text-slate-500 dark:hover:bg-amber-950/40 dark:hover:text-amber-300"
+                              :aria-label="t('session.card.stopLabel')"
+                              :title="t('session.card.stopLabel')"
+                              @click="stopSession($event, sessionNode.session)"
+                            >
+                              <Ban class="h-4 w-4" />
+                            </button>
+                            <span
+                              v-if="
+                                sessionNode.session.status === 'stopped' &&
+                                isStartingSession(sessionNode.session)
+                              "
+                              class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 dark:text-slate-500"
+                              :aria-label="t('session.card.startLabel')"
+                              :title="t('session.card.startLabel')"
+                            >
+                              <Loader2 class="h-4 w-4 animate-spin" />
+                            </span>
+                            <button
+                              v-if="
+                                sessionNode.session.status === 'stopped' &&
+                                !isStartingSession(sessionNode.session)
+                              "
+                              type="button"
+                              class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-red-100/60 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+                              :aria-label="t('session.card.deleteLabel')"
+                              :title="t('session.card.deleteLabel')"
+                              @click="removeSession($event, sessionNode.session)"
+                            >
+                              <Trash2 class="h-4 w-4" />
+                            </button>
+                          </span>
+                      </div>
+                    </VueDraggable>
+                  </div>
+              </VueDraggable>
             </section>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="mt-auto flex h-7 items-center gap-2 border-t border-slate-200/70 bg-slate-100/80 px-2.5 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950">
+    <div
+      class="mt-auto flex h-7 items-center gap-2 border-t border-slate-200/70 bg-slate-100/80 px-2.5 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950"
+    >
       <DropdownMenuRoot>
         <DropdownMenuTrigger
           class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-500 transition hover:bg-white/50 hover:text-slate-800 focus:outline-none dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-200"
@@ -661,3 +800,14 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
     </div>
   </section>
 </template>
+
+<style scoped>
+:deep(.session-list-ghost) {
+  border-radius: 0.375rem;
+  background-color: rgb(219 234 254 / 0.7);
+}
+
+:global(.dark) :deep(.session-list-ghost) {
+  background-color: rgb(23 37 84 / 0.5);
+}
+</style>

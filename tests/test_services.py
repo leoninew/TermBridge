@@ -5,7 +5,7 @@ from typing import Literal, cast
 import pytest
 
 from termbridge.exceptions import InvalidTerminalConfigError, WorkspaceNotFoundError
-from termbridge.models import CreateSessionRequest, Shortcut
+from termbridge.models import CreateSessionRequest, ReorderSessionsRequest, ReorderWorkspacesRequest, Shortcut
 from termbridge.ports import PortAllocator
 from termbridge.process import ProcessHandle
 from termbridge.repositories import FileSessionRepository
@@ -586,3 +586,44 @@ def test_service_lists_tree_grouped_by_environment_and_workspace(tmp_path: Path)
     cygwin = next(environment for environment in tree.environments if environment.host == "windows_cygwin")
     assert cygwin.workspaces[0].id == response.workspace_id
     assert cygwin.workspaces[0].entries[0].id == response.id
+
+
+def test_service_reorders_workspaces_in_environment(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    first_dir = tmp_path / "first"
+    second_dir = tmp_path / "second"
+    first_dir.mkdir()
+    second_dir.mkdir()
+    first = service.create(CreateSessionRequest(name="One", workspace=first_dir, shortcut_id="claude-code"))
+    second = service.create(CreateSessionRequest(name="Two", workspace=second_dir, shortcut_id="claude-code"))
+
+    tree = service.reorder_workspaces(
+        "windows_cygwin",
+        ReorderWorkspacesRequest(workspace_ids=[second.workspace_id, first.workspace_id]),
+    )
+
+    cygwin = next(environment for environment in tree.environments if environment.host == "windows_cygwin")
+    assert [workspace.id for workspace in cygwin.workspaces] == [second.workspace_id, first.workspace_id]
+
+
+def test_service_reorders_sessions_in_workspace(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    first = service.create(CreateSessionRequest(name="One", workspace=tmp_path, shortcut_id="claude-code"))
+    second = service.create(CreateSessionRequest(name="Two", workspace=tmp_path, shortcut_id="claude-code"))
+
+    tree = service.reorder_sessions(
+        first.workspace_id,
+        ReorderSessionsRequest(session_ids=[second.id, first.id]),
+    )
+
+    cygwin = next(environment for environment in tree.environments if environment.host == "windows_cygwin")
+    assert [session.id for session in cygwin.workspaces[0].entries] == [second.id, first.id]
+
+
+def test_service_rejects_incomplete_session_order(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    first = service.create(CreateSessionRequest(name="One", workspace=tmp_path, shortcut_id="claude-code"))
+    service.create(CreateSessionRequest(name="Two", workspace=tmp_path, shortcut_id="claude-code"))
+
+    with pytest.raises(InvalidTerminalConfigError, match="Session order"):
+        service.reorder_sessions(first.workspace_id, ReorderSessionsRequest(session_ids=[first.id]))

@@ -20,6 +20,8 @@ import {
   deleteSession,
   deleteSessionWorkspace,
   listSessionTree,
+  reorderEnvironmentWorkspaces,
+  reorderWorkspaceSessions,
   startSession,
   stopSession,
 } from '../api/sessions'
@@ -27,7 +29,12 @@ import SessionCreateForm from './SessionCreateForm.vue'
 import SessionList from './SessionList.vue'
 import { useEnvironmentStore } from '../stores/environment'
 import { useToastStore } from '../stores/toast'
-import type { CreateSessionPayload, Session, SessionEnvironment, ShortcutHost } from '../types/sessions'
+import type {
+  CreateSessionPayload,
+  Session,
+  SessionEnvironment,
+  ShortcutHost,
+} from '../types/sessions'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -42,7 +49,9 @@ const error = ref('')
 const showCreatePanel = ref(false)
 const creatingSession = ref(false)
 const startingSessionId = ref<string>()
-const createSessionContext = ref<{ host?: ShortcutHost; workspace?: string; shortcutId?: string }>({})
+const createSessionContext = ref<{ host?: ShortcutHost; workspace?: string; shortcutId?: string }>(
+  {},
+)
 const deletingSession = ref<Session>()
 const deletingWorkspace = ref<{ id: string; path: string }>()
 const closeAllDialogOpen = ref(false)
@@ -73,7 +82,8 @@ const activeSession = computed(() =>
 )
 const deletingWorkspaceSessionCount = computed(() =>
   deletingWorkspace.value
-    ? sessions.value.filter((session) => session.workspace_id === deletingWorkspace.value?.id).length
+    ? sessions.value.filter((session) => session.workspace_id === deletingWorkspace.value?.id)
+        .length
     : 0,
 )
 const openTerminalSessions = computed(() =>
@@ -98,18 +108,7 @@ async function refresh() {
 
 async function loadSessions() {
   try {
-    const tree = (await listSessionTree()).environments
-    sessionTree.value = tree
-    sessions.value = tree.flatMap((environment) =>
-      environment.workspaces.flatMap((workspace) => workspace.entries),
-    )
-    const sessionIds = new Set(sessions.value.map((session) => session.id))
-    openTerminalSessionIds.value = openTerminalSessionIds.value.filter((sessionId) =>
-      sessionIds.has(sessionId),
-    )
-    if (activeSessionId.value && !sessionIds.has(activeSessionId.value)) {
-      activeSessionId.value = openTerminalSessionIds.value[0]
-    }
+    applySessionTree((await listSessionTree()).environments)
   } catch (err) {
     const title = errorTitle(err, t('app.errors.loadSessions'))
     if (sessionTree.value.length > 0 || sessions.value.length > 0) {
@@ -120,6 +119,20 @@ async function loadSessions() {
   }
 }
 
+function applySessionTree(tree: SessionEnvironment[]) {
+  sessionTree.value = tree
+  sessions.value = tree.flatMap((environment) =>
+    environment.workspaces.flatMap((workspace) => workspace.entries),
+  )
+  const sessionIds = new Set(sessions.value.map((session) => session.id))
+  openTerminalSessionIds.value = openTerminalSessionIds.value.filter((sessionId) =>
+    sessionIds.has(sessionId),
+  )
+  if (activeSessionId.value && !sessionIds.has(activeSessionId.value)) {
+    activeSessionId.value = openTerminalSessionIds.value[0]
+  }
+}
+
 function openTerminalSession(session: Session) {
   if (!openTerminalSessionIds.value.includes(session.id)) {
     openTerminalSessionIds.value = [...openTerminalSessionIds.value, session.id]
@@ -127,7 +140,11 @@ function openTerminalSession(session: Session) {
   activeSessionId.value = session.id
 }
 
-function updateCreateSessionContext(context: { host?: ShortcutHost; workspace?: string; shortcutId?: string }) {
+function updateCreateSessionContext(context: {
+  host?: ShortcutHost
+  workspace?: string
+  shortcutId?: string
+}) {
   createSessionContext.value = context
 }
 
@@ -247,6 +264,34 @@ async function handleStop(session: Session) {
   }
 }
 
+async function handleReorderWorkspaces(payload: { host: ShortcutHost; workspaceIds: string[] }) {
+  try {
+    applySessionTree(
+      (await reorderEnvironmentWorkspaces(payload.host, { workspace_ids: payload.workspaceIds }))
+        .environments,
+    )
+  } catch (err) {
+    toast.show({ title: errorTitle(err, t('app.errors.loadSessions')), variant: 'error' })
+    await loadSessions()
+  }
+}
+
+async function handleReorderSessions(payload: { workspaceId: string; sessionIds: string[] }) {
+  try {
+    applySessionTree(
+      (await reorderWorkspaceSessions(payload.workspaceId, { session_ids: payload.sessionIds }))
+        .environments,
+    )
+  } catch (err) {
+    toast.show({ title: errorTitle(err, t('app.errors.loadSessions')), variant: 'error' })
+    await loadSessions()
+  }
+}
+
+function handleReorderTabs(sessionIds: string[]) {
+  openTerminalSessionIds.value = sessionIds
+}
+
 async function confirmCloseAllSessions() {
   error.value = ''
   closingAllSessions.value = true
@@ -256,7 +301,10 @@ async function confirmCloseAllSessions() {
     openTerminalSessionIds.value = []
     activeSessionId.value = undefined
     closeAllDialogOpen.value = false
-    toast.show({ title: t('app.success.closeAllSessions', { count: result.stopped_count }), variant: 'success' })
+    toast.show({
+      title: t('app.success.closeAllSessions', { count: result.stopped_count }),
+      variant: 'success',
+    })
     await router.push('/session')
   } catch (err) {
     toast.show({ title: errorTitle(err, t('app.errors.closeAllSessions')), variant: 'error' })
@@ -271,7 +319,11 @@ async function selectSession(session: Session) {
   await router.push('/session')
 }
 
-async function showCreate(context?: { host?: ShortcutHost; workspace?: string; shortcutId?: string }) {
+async function showCreate(context?: {
+  host?: ShortcutHost
+  workspace?: string
+  shortcutId?: string
+}) {
   if (context) {
     createSessionContext.value = {
       ...createSessionContext.value,
@@ -293,7 +345,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="h-screen overflow-hidden bg-slate-100 text-sm text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+  <main
+    class="h-screen overflow-hidden bg-slate-100 text-sm text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+  >
     <SplitterGroup direction="horizontal" class="flex h-full bg-slate-100 dark:bg-slate-950">
       <SplitterPanel
         v-if="!sidebarCollapsed"
@@ -325,6 +379,8 @@ onMounted(() => {
           @stop="handleStop"
           @remove="askRemove"
           @remove-workspace="askRemoveWorkspace"
+          @reorder-workspaces="handleReorderWorkspaces"
+          @reorder-sessions="handleReorderSessions"
           @close-all="closeAllDialogOpen = true"
           @navigate="navigate"
         />
@@ -348,7 +404,9 @@ onMounted(() => {
               key="create"
               class="flex h-full min-h-0 overflow-auto bg-slate-100 p-5 dark:bg-slate-950"
             >
-              <div class="m-auto w-full max-w-3xl border border-slate-200 bg-white/35 p-5 dark:border-slate-800 dark:bg-slate-950">
+              <div
+                class="m-auto w-full max-w-3xl border border-slate-200 bg-white/35 p-5 dark:border-slate-800 dark:bg-slate-950"
+              >
                 <SessionCreateForm
                   :environments="environmentStore.environments"
                   :submitting="creatingSession"
@@ -370,6 +428,7 @@ onMounted(() => {
               @create="showCreate"
               @select="selectSession"
               @start="handleStart"
+              @reorder-tabs="handleReorderTabs"
               @create-session="showCreate"
               @environments-updated="environmentStore.update"
             />
@@ -404,7 +463,9 @@ onMounted(() => {
             </p>
           </div>
           <div class="flex justify-end gap-2">
-            <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900">
+            <AlertDialogCancel
+              class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+            >
               {{ t('app.actions.cancel') }}
             </AlertDialogCancel>
             <button
@@ -448,13 +509,19 @@ onMounted(() => {
             </p>
           </div>
           <div class="flex justify-end gap-2">
-            <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900">
+            <AlertDialogCancel
+              class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+            >
               {{ t('app.actions.cancel') }}
             </AlertDialogCancel>
             <button
               type="button"
               class="rounded-lg px-4 py-2 text-white"
-              :class="deletingWorkspaceSessionCount > 0 ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600'"
+              :class="
+                deletingWorkspaceSessionCount > 0
+                  ? 'bg-amber-600 hover:bg-amber-700'
+                  : 'bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600'
+              "
               @click="confirmRemoveWorkspace"
             >
               {{ t('app.deleteWorkspace.confirm') }}
@@ -479,7 +546,9 @@ onMounted(() => {
             </p>
           </div>
           <div class="flex justify-end gap-2">
-            <AlertDialogCancel class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900">
+            <AlertDialogCancel
+              class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+            >
               {{ t('app.actions.cancel') }}
             </AlertDialogCancel>
             <button

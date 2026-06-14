@@ -23,6 +23,14 @@ class CreateSessionRequest(BaseModel):
     shortcut_id: str = Field(min_length=1)
 
 
+class ReorderWorkspacesRequest(BaseModel):
+    workspace_ids: list[str]
+
+
+class ReorderSessionsRequest(BaseModel):
+    session_ids: list[str]
+
+
 class TtydCredential(BaseModel):
     mode: Literal["basic"] = "basic"
     username: str

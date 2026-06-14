@@ -40,11 +40,14 @@ from termbridge.models import (
     CreateShortcutRequest,
     EnvironmentListResponse,
     LinuxCheckResponse,
+    ReorderSessionsRequest,
+    ReorderWorkspacesRequest,
     RuntimeCheckRequest,
     RuntimeCheckResponse,
     SessionResponse,
     SessionTreeResponse,
     Shortcut,
+    ShortcutHost,
     ShortcutListResponse,
     TerminalSettings,
     UpdateShortcutRequest,
@@ -293,6 +296,20 @@ def list_sessions(service: SessionServiceDep) -> list[SessionResponse]:
 @router.get("/api/session-tree", response_model=SessionTreeResponse)
 def list_session_tree(service: SessionServiceDep) -> SessionTreeResponse:
     return service.list_tree()
+
+
+@router.put("/api/session-tree/environments/{host}/workspaces/order", response_model=SessionTreeResponse)
+def reorder_session_workspaces(
+    host: ShortcutHost, request: ReorderWorkspacesRequest, service: SessionServiceDep
+) -> SessionTreeResponse:
+    return service.reorder_workspaces(host, request)
+
+
+@router.put("/api/session-workspaces/{workspace_id}/sessions/order", response_model=SessionTreeResponse)
+def reorder_workspace_sessions(
+    workspace_id: str, request: ReorderSessionsRequest, service: SessionServiceDep
+) -> SessionTreeResponse:
+    return service.reorder_sessions(workspace_id, request)
 
 
 @router.post("/api/sessions/close-all", response_model=CloseAllSessionsResponse)
