@@ -13,18 +13,34 @@ export const useEnvironmentStore = defineStore('environment', () => {
       (environment) => environment.readiness === 'ready' && environment.available_on_host,
     ),
   )
+  let loadPromise: Promise<void> | undefined
 
   async function load() {
+    if (loadPromise) {
+      return loadPromise
+    }
+
     loading.value = true
     error.value = ''
-    try {
-      environments.value = (await listEnvironments()).environments
-      loaded.value = true
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to load environments'
-    } finally {
-      loading.value = false
+    loadPromise = (async () => {
+      try {
+        environments.value = (await listEnvironments()).environments
+        loaded.value = true
+      } catch (err) {
+        error.value = err instanceof Error ? err.message : 'Failed to load environments'
+      } finally {
+        loading.value = false
+        loadPromise = undefined
+      }
+    })()
+    return loadPromise
+  }
+
+  async function ensureLoaded() {
+    if (loaded.value) {
+      return
     }
+    await load()
   }
 
   function update(nextEnvironments: EnvironmentSummary[]) {
@@ -33,5 +49,5 @@ export const useEnvironmentStore = defineStore('environment', () => {
     error.value = ''
   }
 
-  return { environments, loading, error, loaded, hasReadyEnvironment, load, update }
+  return { environments, loading, error, loaded, hasReadyEnvironment, load, ensureLoaded, update }
 })

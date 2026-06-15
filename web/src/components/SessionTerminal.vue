@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Loader2, Monitor, Play, Plus, SquareTerminal, X } from '@lucide/vue'
+import { Loader2, Monitor, Play, Plus, RefreshCw, SquareTerminal, X } from '@lucide/vue'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
@@ -107,6 +107,12 @@ function closeTab(event: globalThis.MouseEvent, session: Session) {
 
 function isStartingSession(session: Session) {
   return props.startingSessionId === session.id
+}
+
+function startSessionLabel(session: Session): string {
+  return t(
+    session.status === 'disconnected' ? 'session.terminal.reconnect' : 'session.terminal.start',
+  )
 }
 
 function environmentLogo(host: ShortcutHost | null | undefined) {
@@ -222,8 +228,9 @@ function environmentLogo(host: ShortcutHost | null | undefined) {
               @click="emit('start', item)"
             >
               <Loader2 v-if="isStartingSession(item)" class="h-4 w-4 animate-spin" />
+              <RefreshCw v-else-if="item.status === 'disconnected'" class="h-4 w-4" />
               <Play v-else class="h-4 w-4" />
-              {{ t('session.terminal.start') }}
+              {{ startSessionLabel(item) }}
             </button>
           </div>
         </div>

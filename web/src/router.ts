@@ -31,9 +31,7 @@ router.beforeEach(async (to) => {
   }
 
   const environmentStore = useEnvironmentStore()
-  if (!environmentStore.loaded && !environmentStore.loading) {
-    await environmentStore.load()
-  }
+  await environmentStore.ensureLoaded()
 
   if (to.path === '/' && environmentStore.hasReadyEnvironment) {
     return '/session'

@@ -60,10 +60,11 @@ const submitted = ref(false)
 const editingId = ref<string>()
 const showModal = ref(false)
 const deletingShortcut = ref<Shortcut>()
+const deletingShortcutId = ref<string>()
 const deleteDialogOpen = computed({
   get: () => !!deletingShortcut.value,
   set: (open: boolean) => {
-    if (!open) {
+    if (!open && !deletingShortcutId.value) {
       deletingShortcut.value = undefined
     }
   },
@@ -121,8 +122,11 @@ async function load() {
   }
 }
 
-function openCreateModal() {
+function openCreateModal(host?: ShortcutHost) {
   resetForm()
+  if (host) {
+    form.host = host
+  }
   showModal.value = true
 }
 
@@ -151,7 +155,7 @@ function closeModal() {
 }
 
 async function saveShortcut() {
-  if (!validate()) {
+  if (saving.value || !validate()) {
     return
   }
 
@@ -194,11 +198,14 @@ function askRemoveShortcut(shortcut: Shortcut) {
 }
 
 async function confirmRemoveShortcut() {
-  if (!deletingShortcut.value) {
+  if (!deletingShortcut.value || deletingShortcutId.value) {
     return
   }
+
+  const shortcutId = deletingShortcut.value.id
+  deletingShortcutId.value = shortcutId
   try {
-    await deleteShortcut(deletingShortcut.value.id)
+    await deleteShortcut(shortcutId)
     deletingShortcut.value = undefined
     await load()
     toast.show({ title: t('shortcutManagement.success.deleted'), variant: 'success' })
@@ -207,6 +214,8 @@ async function confirmRemoveShortcut() {
       title: err instanceof Error ? err.message : t('shortcutManagement.errors.delete'),
       variant: 'error',
     })
+  } finally {
+    deletingShortcutId.value = undefined
   }
 }
 
@@ -267,21 +276,10 @@ function hostDisabledReason(host: ShortcutHost): string {
   <section
     class="flex h-full min-h-0 flex-col gap-4 bg-slate-100 p-4 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
   >
-    <div
-      class="flex items-start justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800"
-    >
-      <div>
-        <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-100">
-          {{ t('shortcutManagement.title') }}
-        </h2>
-      </div>
-      <button
-        class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm text-white transition hover:bg-blue-700"
-        @click="openCreateModal"
-      >
-        <Plus class="h-4 w-4" />
-        {{ t('shortcutManagement.actions.create') }}
-      </button>
+    <div>
+      <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-100">
+        {{ t('shortcutManagement.title') }}
+      </h2>
     </div>
 
     <p v-if="error" class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
@@ -297,6 +295,14 @@ function hostDisabledReason(host: ShortcutHost): string {
           <h3 class="text-sm font-semibold text-slate-950 dark:text-slate-100">
             {{ hostLabel(group.host) }}
           </h3>
+          <button
+            type="button"
+            class="ml-auto inline-flex items-center justify-center gap-1.5 rounded-md border border-blue-200 px-2 py-1 text-sm text-blue-600 transition hover:bg-blue-50 dark:border-blue-900/60 dark:text-blue-400 dark:hover:bg-blue-950/40"
+            @click="openCreateModal(group.host)"
+          >
+            <Plus class="h-4 w-4" />
+            {{ t('shortcutManagement.actions.create') }}
+          </button>
         </div>
 
         <div class="grid gap-2.5 md:grid-cols-3 xl:grid-cols-4">
@@ -454,7 +460,8 @@ function hostDisabledReason(host: ShortcutHost): string {
               <DialogClose as-child>
                 <button
                   type="button"
-                  class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+                  :disabled="saving"
+                  class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
                 >
                   {{ t('app.actions.cancel') }}
                 </button>
@@ -489,15 +496,18 @@ function hostDisabledReason(host: ShortcutHost): string {
           </div>
           <div class="flex justify-end gap-2">
             <AlertDialogCancel
-              class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+              :disabled="!!deletingShortcutId"
+              class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
             >
               {{ t('app.actions.cancel') }}
             </AlertDialogCancel>
             <button
               type="button"
-              class="rounded-lg bg-red-600 px-4 py-2 text-white transition hover:bg-red-700"
+              :disabled="!!deletingShortcutId"
+              class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-white transition hover:bg-red-700 disabled:cursor-wait disabled:opacity-60"
               @click="confirmRemoveShortcut"
             >
+              <Loader2 v-if="deletingShortcutId" class="h-4 w-4 animate-spin" />
               {{ t('app.actions.delete') }}
             </button>
           </div>

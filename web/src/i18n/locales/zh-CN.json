@@ -115,6 +115,7 @@
     },
     "card": {
       "startLabel": "启动会话",
+      "reconnectLabel": "重连会话",
       "stopLabel": "停止会话",
       "deleteLabel": "删除会话",
       "shortcut": "快捷方式：{shortcut}"
@@ -132,8 +133,9 @@
       "emptySuffix": "一个会话查看终端。",
       "missingUrl": "当前会话没有可用终端 URL。",
       "statusUnavailable": "当前状态为 {status}，终端暂不可用。",
-      "disconnected": "终端连接已断开，底层会话仍在，可恢复连接。",
+      "disconnected": "终端连接已断开，底层会话仍在，可重连。",
       "start": "启动会话",
+      "reconnect": "重连会话",
       "iframeTitle": "{name} terminal"
     },
     "status": {

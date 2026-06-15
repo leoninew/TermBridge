@@ -9,7 +9,7 @@ import {
   LaptopMinimal,
   PanelLeftClose,
   Loader2,
-  Play,
+  RefreshCw,
   Moon,
   Plus,
   Search,
@@ -94,6 +94,7 @@ const props = defineProps<{
   environments: EnvironmentSummary[]
   hasReadyEnvironment: boolean
   startingSessionId?: string
+  stoppingSessionId?: string
 }>()
 
 const emit = defineEmits<{
@@ -315,6 +316,14 @@ function handleSessionReorder(
 
 function isStartingSession(session: Session): boolean {
   return props.startingSessionId === session.id
+}
+
+function isStoppingSession(session: Session): boolean {
+  return props.stoppingSessionId === session.id
+}
+
+function startSessionLabel(session: Session): string {
+  return t(session.status === 'disconnected' ? 'session.card.reconnectLabel' : 'session.card.startLabel')
 }
 
 function sessionStatusTextClass(session: Session): string {
@@ -600,12 +609,17 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                         <button
                           v-if="sessionNode.session.status === 'running'"
                           type="button"
-                          class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 dark:text-slate-400 dark:hover:bg-amber-950/70 dark:hover:text-amber-300"
+                          :disabled="isStoppingSession(sessionNode.session)"
+                          class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 disabled:cursor-wait disabled:opacity-60 dark:text-slate-400 dark:hover:bg-amber-950/70 dark:hover:text-amber-300"
                           :aria-label="t('session.card.stopLabel')"
                           :title="t('session.card.stopLabel')"
                           @click="stopSession($event, sessionNode.session)"
                         >
-                          <Ban class="h-4 w-4" />
+                          <Loader2
+                            v-if="isStoppingSession(sessionNode.session)"
+                            class="h-4 w-4 animate-spin"
+                          />
+                          <Ban v-else class="h-4 w-4" />
                         </button>
                         <span
                           v-if="
@@ -613,8 +627,8 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                             isStartingSession(sessionNode.session)
                           "
                           class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 dark:text-slate-400"
-                          :aria-label="t('session.card.startLabel')"
-                          :title="t('session.card.startLabel')"
+                          :aria-label="startSessionLabel(sessionNode.session)"
+                          :title="startSessionLabel(sessionNode.session)"
                         >
                           <Loader2 class="h-4 w-4 animate-spin" />
                         </span>
@@ -625,17 +639,29 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                           "
                           type="button"
                           class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-blue-100/60 hover:text-blue-600 dark:text-slate-400 dark:hover:bg-blue-950/70 dark:hover:text-blue-300"
-                          :aria-label="t('session.card.startLabel')"
-                          :title="t('session.card.startLabel')"
+                          :aria-label="startSessionLabel(sessionNode.session)"
+                          :title="startSessionLabel(sessionNode.session)"
                           @click="startSession($event, sessionNode.session)"
                         >
-                          <Play class="h-4 w-4" />
+                          <RefreshCw class="h-4 w-4" />
                         </button>
                         <button
-                          v-if="
-                            sessionNode.session.status === 'stopped' ||
-                            sessionNode.session.status === 'disconnected'
-                          "
+                          v-if="sessionNode.session.status === 'disconnected'"
+                          type="button"
+                          :disabled="isStoppingSession(sessionNode.session)"
+                          class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 disabled:cursor-wait disabled:opacity-60 dark:text-slate-400 dark:hover:bg-amber-950/70 dark:hover:text-amber-300"
+                          :aria-label="t('session.card.stopLabel')"
+                          :title="t('session.card.stopLabel')"
+                          @click="stopSession($event, sessionNode.session)"
+                        >
+                          <Loader2
+                            v-if="isStoppingSession(sessionNode.session)"
+                            class="h-4 w-4 animate-spin"
+                          />
+                          <Ban v-else class="h-4 w-4" />
+                        </button>
+                        <button
+                          v-if="sessionNode.session.status === 'stopped'"
                           type="button"
                           class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-red-100/60 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/70 dark:hover:text-red-300"
                           :aria-label="t('session.card.deleteLabel')"

@@ -13,7 +13,7 @@ import {
   SplitterPanel,
   SplitterResizeHandle,
 } from 'reka-ui'
-import { PanelLeftOpen } from '@lucide/vue'
+import { Loader2, PanelLeftOpen } from '@lucide/vue'
 import {
   closeAllSessions,
   createSession,
@@ -50,11 +50,14 @@ const error = ref('')
 const showCreatePanel = ref(false)
 const creatingSession = ref(false)
 const startingSessionId = ref<string>()
+const stoppingSessionId = ref<string>()
 const createSessionContext = ref<{ host?: ShortcutHost; workspace?: string; shortcutId?: string }>(
   {},
 )
 const deletingSession = ref<Session>()
+const deletingSessionId = ref<string>()
 const deletingWorkspace = ref<{ id: string; path: string }>()
+const deletingWorkspaceId = ref<string>()
 const closeAllDialogOpen = ref(false)
 const closingAllSessions = ref(false)
 const sidebarCollapsed = ref(false)
@@ -65,7 +68,7 @@ const compactSidebar = computed(() => sidebarWidth.value < 360)
 const deleteDialogOpen = computed({
   get: () => !!deletingSession.value,
   set: (open: boolean) => {
-    if (!open) {
+    if (!open && !deletingSessionId.value) {
       deletingSession.value = undefined
     }
   },
@@ -73,7 +76,7 @@ const deleteDialogOpen = computed({
 const deleteWorkspaceDialogOpen = computed({
   get: () => !!deletingWorkspace.value,
   set: (open: boolean) => {
-    if (!open) {
+    if (!open && !deletingWorkspaceId.value) {
       deletingWorkspace.value = undefined
     }
   },
@@ -102,7 +105,7 @@ async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    await Promise.all([loadSessions(), environmentStore.load()])
+    await Promise.all([loadSessions(), environmentStore.ensureLoaded()])
   } finally {
     loading.value = false
   }
@@ -164,6 +167,10 @@ function closeTerminalSession(session: Session) {
 }
 
 async function handleCreate(payload: CreateSessionPayload) {
+  if (creatingSession.value) {
+    return
+  }
+
   creatingSession.value = true
   try {
     const session = await createSession(payload)
@@ -183,12 +190,13 @@ function askRemove(session: Session) {
 }
 
 async function confirmRemove() {
-  if (!deletingSession.value) {
+  if (!deletingSession.value || deletingSessionId.value) {
     return
   }
 
   error.value = ''
   const sessionId = deletingSession.value.id
+  deletingSessionId.value = sessionId
   try {
     await deleteSession(sessionId)
     await loadSessions()
@@ -200,6 +208,8 @@ async function confirmRemove() {
     toast.show({ title: t('app.success.deleteSession'), variant: 'success' })
   } catch (err) {
     toast.show({ title: errorTitle(err, t('app.errors.deleteSession')), variant: 'error' })
+  } finally {
+    deletingSessionId.value = undefined
   }
 }
 
@@ -208,12 +218,13 @@ function askRemoveWorkspace(workspace: { id: string; path: string }) {
 }
 
 async function confirmRemoveWorkspace() {
-  if (!deletingWorkspace.value) {
+  if (!deletingWorkspace.value || deletingWorkspaceId.value) {
     return
   }
 
   error.value = ''
   const workspaceId = deletingWorkspace.value.id
+  deletingWorkspaceId.value = workspaceId
   const deletedSessionIds = sessions.value
     .filter((session) => session.workspace_id === workspaceId)
     .map((session) => session.id)
@@ -230,6 +241,8 @@ async function confirmRemoveWorkspace() {
     toast.show({ title: t('app.success.deleteWorkspace'), variant: 'success' })
   } catch (err) {
     toast.show({ title: errorTitle(err, t('app.errors.deleteWorkspace')), variant: 'error' })
+  } finally {
+    deletingWorkspaceId.value = undefined
   }
 }
 
@@ -254,7 +267,12 @@ async function handleStart(session: Session) {
 }
 
 async function handleStop(session: Session) {
+  if (stoppingSessionId.value) {
+    return
+  }
+
   error.value = ''
+  stoppingSessionId.value = session.id
   try {
     const stopped = await stopSession(session.id)
     await loadSessions()
@@ -263,6 +281,8 @@ async function handleStop(session: Session) {
     await router.push('/session')
   } catch (err) {
     toast.show({ title: errorTitle(err, t('app.errors.stopSession')), variant: 'error' })
+  } finally {
+    stoppingSessionId.value = undefined
   }
 }
 
@@ -295,6 +315,10 @@ function handleReorderTabs(sessionIds: string[]) {
 }
 
 async function confirmCloseAllSessions() {
+  if (closingAllSessions.value) {
+    return
+  }
+
   error.value = ''
   closingAllSessions.value = true
   try {
@@ -373,6 +397,7 @@ onMounted(() => {
           :environments="environmentStore.environments"
           :has-ready-environment="environmentStore.hasReadyEnvironment"
           :starting-session-id="startingSessionId"
+          :stopping-session-id="stoppingSessionId"
           @create="showCreate"
           @collapse="sidebarCollapsed = true"
           @create-context="updateCreateSessionContext"
@@ -467,15 +492,18 @@ onMounted(() => {
           </div>
           <div class="flex justify-end gap-2">
             <AlertDialogCancel
-              class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+              :disabled="!!deletingSessionId"
+              class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
             >
               {{ t('app.actions.cancel') }}
             </AlertDialogCancel>
             <button
               type="button"
-              class="rounded-lg bg-red-600 px-4 py-2 text-white"
+              :disabled="!!deletingSessionId"
+              class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-white disabled:cursor-wait disabled:opacity-60"
               @click="confirmRemove"
             >
+              <Loader2 v-if="deletingSessionId" class="h-4 w-4 animate-spin" />
               {{ t('app.actions.delete') }}
             </button>
           </div>
@@ -513,13 +541,15 @@ onMounted(() => {
           </div>
           <div class="flex justify-end gap-2">
             <AlertDialogCancel
-              class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+              :disabled="!!deletingWorkspaceId"
+              class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
             >
               {{ t('app.actions.cancel') }}
             </AlertDialogCancel>
             <button
               type="button"
-              class="rounded-lg px-4 py-2 text-white"
+              :disabled="!!deletingWorkspaceId"
+              class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-white disabled:cursor-wait disabled:opacity-60"
               :class="
                 deletingWorkspaceSessionCount > 0
                   ? 'bg-amber-600 hover:bg-amber-700'
@@ -527,6 +557,7 @@ onMounted(() => {
               "
               @click="confirmRemoveWorkspace"
             >
+              <Loader2 v-if="deletingWorkspaceId" class="h-4 w-4 animate-spin" />
               {{ t('app.deleteWorkspace.confirm') }}
             </button>
           </div>
@@ -550,16 +581,18 @@ onMounted(() => {
           </div>
           <div class="flex justify-end gap-2">
             <AlertDialogCancel
-              class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+              :disabled="closingAllSessions"
+              class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
             >
               {{ t('app.actions.cancel') }}
             </AlertDialogCancel>
             <button
               type="button"
               :disabled="closingAllSessions"
-              class="rounded-lg bg-amber-600 px-4 py-2 text-white disabled:opacity-60"
+              class="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-white disabled:cursor-wait disabled:opacity-60"
               @click="confirmCloseAllSessions"
             >
+              <Loader2 v-if="closingAllSessions" class="h-4 w-4 animate-spin" />
               {{ t('app.closeAllSessions.confirm') }}
             </button>
           </div>
