@@ -276,7 +276,7 @@
     "delete": {
       "title": "Delete Shortcut",
       "description": "Delete shortcut \"{name}\"?",
-      "inUse": "Shortcuts in use cannot be deleted"
+      "inUse": "This shortcut is used by {count} session(s) and cannot be deleted"
     }
   }
 }

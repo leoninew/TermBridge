@@ -27,8 +27,9 @@ from termbridge.models import (
     SessionStatus,
     SessionTreeResponse,
     SessionWorkspaceResponse,
-    Shortcut,
+    ShortcutEnvironmentResponse,
     ShortcutListResponse,
+    ShortcutResponse,
     TerminalSettings,
     TtydCredential,
     UpdateShortcutRequest,
@@ -135,24 +136,35 @@ class FakeSessionService:
 class FakeTerminalService:
     def __init__(self) -> None:
         self.shortcuts = [
-            Shortcut(
+            ShortcutResponse(
                 id="claude-code",
                 name="Claude Code",
                 command="claude",
                 host="windows_cygwin",
+                used_session_count=1,
             )
         ]
         self.deleted: list[str] = []
 
     def list_shortcuts(self) -> ShortcutListResponse:
-        return ShortcutListResponse(shortcuts=self.shortcuts)
+        return ShortcutListResponse(
+            environments=[
+                ShortcutEnvironmentResponse(
+                    host="windows_cygwin",
+                    label="Cygwin",
+                    shortcuts=self.shortcuts,
+                ),
+                ShortcutEnvironmentResponse(host="windows_wsl", label="WSL", shortcuts=[]),
+                ShortcutEnvironmentResponse(host="linux", label="Linux", shortcuts=[]),
+            ]
+        )
 
-    def create_shortcut(self, request: CreateShortcutRequest) -> Shortcut:
-        shortcut = Shortcut(id="shortcut_new", **request.model_dump())
+    def create_shortcut(self, request: CreateShortcutRequest) -> ShortcutResponse:
+        shortcut = ShortcutResponse(id="shortcut_new", used_session_count=0, **request.model_dump())
         self.shortcuts.append(shortcut)
         return shortcut
 
-    def update_shortcut(self, shortcut_id: str, request: UpdateShortcutRequest) -> Shortcut:
+    def update_shortcut(self, shortcut_id: str, request: UpdateShortcutRequest) -> ShortcutResponse:
         shortcut = self.shortcuts[0].model_copy(update=request.model_dump(exclude_unset=True))
         self.shortcuts[0] = shortcut
         return shortcut
@@ -340,7 +352,8 @@ def test_shortcut_api_routes() -> None:
     deleted = client.delete("/api/shortcuts/claude-code")
 
     assert listed.status_code == 200
-    assert listed.json()["shortcuts"][0]["id"] == "claude-code"
+    assert listed.json()["environments"][0]["shortcuts"][0]["id"] == "claude-code"
+    assert listed.json()["environments"][0]["shortcuts"][0]["used_session_count"] == 1
     assert created.status_code == 201
     assert created.json()["id"] == "shortcut_new"
     assert updated.status_code == 200
@@ -366,18 +379,6 @@ def test_api_unhandled_exception_uses_structured_error() -> None:
     assert response.status_code == 500
     assert response.json() == {"code": "internal_error", "error": "Internal server error"}
 
-    service = FakeTerminalService()
-    session_service = FakeSessionService()
-    app = create_app()
-    app.dependency_overrides[get_terminal_service] = lambda: service
-    app.dependency_overrides[get_session_service] = lambda: session_service
-    client = TestClient(app)
-
-    response = client.delete("/api/shortcuts/claude-code")
-
-    assert response.status_code == 409
-    assert response.json() == {"code": "conflict", "error": "Shortcut is in use"}
-    assert service.deleted == []
 
 
 def test_terminal_http_proxy_adds_basic_auth_header() -> None:

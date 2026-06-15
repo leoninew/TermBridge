@@ -46,9 +46,9 @@ from termbridge.models import (
     RuntimeCheckResponse,
     SessionResponse,
     SessionTreeResponse,
-    Shortcut,
     ShortcutHost,
     ShortcutListResponse,
+    ShortcutResponse,
     TerminalSettings,
     UpdateShortcutRequest,
     UpdateTerminalSettingsRequest,
@@ -209,20 +209,18 @@ def list_shortcuts(service: TerminalServiceDep) -> ShortcutListResponse:
     return service.list_shortcuts()
 
 
-@router.post("/api/shortcuts", response_model=Shortcut, status_code=status.HTTP_201_CREATED)
-def create_shortcut(request: CreateShortcutRequest, service: TerminalServiceDep) -> Shortcut:
+@router.post("/api/shortcuts", response_model=ShortcutResponse, status_code=status.HTTP_201_CREATED)
+def create_shortcut(request: CreateShortcutRequest, service: TerminalServiceDep) -> ShortcutResponse:
     return service.create_shortcut(request)
 
 
-@router.put("/api/shortcuts/{shortcut_id}", response_model=Shortcut)
-def update_shortcut(shortcut_id: str, request: UpdateShortcutRequest, service: TerminalServiceDep) -> Shortcut:
+@router.put("/api/shortcuts/{shortcut_id}", response_model=ShortcutResponse)
+def update_shortcut(shortcut_id: str, request: UpdateShortcutRequest, service: TerminalServiceDep) -> ShortcutResponse:
     return service.update_shortcut(shortcut_id, request)
 
 
 @router.delete("/api/shortcuts/{shortcut_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_shortcut(shortcut_id: str, service: TerminalServiceDep, session_service: SessionServiceDep) -> Response:
-    if any(session.shortcut_id == shortcut_id for session in session_service.list_sessions()):
-        raise ShortcutInUseError()
+def delete_shortcut(shortcut_id: str, service: TerminalServiceDep) -> Response:
     service.delete_shortcut(shortcut_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

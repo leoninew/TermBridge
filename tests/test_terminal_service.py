@@ -5,24 +5,70 @@ from unittest.mock import patch
 
 import pytest
 
-from termbridge.exceptions import InvalidTerminalConfigError
+from termbridge.exceptions import InvalidTerminalConfigError, ShortcutInUseError
 from termbridge.models import (
     CreateShortcutRequest,
     LinuxSettings,
     RuntimeCheckResponse,
+    SessionEntryRecord,
+    SessionState,
+    SessionStatus,
+    ShortcutResponse,
     TerminalState,
     UpdateShortcutRequest,
     UpdateTerminalSettingsRequest,
     WindowsCygwinSettings,
     WindowsWslSettings,
+    WorkspaceRecord,
+    utc_now,
 )
-from termbridge.repositories import FileTerminalRepository
+from termbridge.repositories import FileSessionRepository, FileShortcutRepository, FileTerminalRepository
 from termbridge.services import TerminalService
 from termbridge.settings import Settings
 
 
-def make_service(tmp_path: Path) -> TerminalService:
-    return TerminalService(FileTerminalRepository(tmp_path / "terminals.json"))
+def make_service(tmp_path: Path, *, settings: Settings | None = None) -> TerminalService:
+    return TerminalService(
+        FileTerminalRepository(tmp_path / "terminals.json"),
+        FileShortcutRepository(tmp_path / "shortcuts.json"),
+        FileSessionRepository(tmp_path / "sessions.json"),
+        settings=settings,
+    )
+
+
+def flatten_shortcuts(service: TerminalService) -> list[ShortcutResponse]:
+    return [shortcut for environment in service.list_shortcuts().environments for shortcut in environment.shortcuts]
+
+
+def save_session_reference(tmp_path: Path, shortcut_id: str = "cygwin-bash") -> None:
+    now = utc_now()
+    entry = SessionEntryRecord(
+        id="sess_1",
+        workspace_id="ws_1",
+        name="Test",
+        runtime="windows_cygwin",
+        command=[],
+        port=0,
+        status=SessionStatus.STOPPED,
+        created_at=now,
+        updated_at=now,
+        url="",
+        shortcut_id=shortcut_id,
+        shortcut_name="bash",
+        host="windows_cygwin",
+        tmux_session_name="tb_cyg_123",
+    )
+    workspace = WorkspaceRecord(
+        id="ws_1",
+        host="windows_cygwin",
+        path=tmp_path,
+        name="workspace",
+        tmux_session_name="tb_cyg_123",
+        created_at=now,
+        updated_at=now,
+        entries=[entry],
+    )
+    FileSessionRepository(tmp_path / "sessions.json").save_state(SessionState(workspaces={workspace.id: workspace}))
 
 
 def _tmux_available() -> RuntimeCheckResponse:
@@ -32,7 +78,7 @@ def _tmux_available() -> RuntimeCheckResponse:
 def test_shortcut_service_initializes_default_shortcuts(tmp_path: Path) -> None:
     service = make_service(tmp_path)
 
-    shortcuts = service.list_shortcuts().shortcuts
+    shortcuts = flatten_shortcuts(service)
 
     assert [(shortcut.id, shortcut.command, shortcut.host) for shortcut in shortcuts] == [
         ("cygwin-bash", "bash", "windows_cygwin"),
@@ -49,6 +95,20 @@ def test_shortcut_service_initializes_default_shortcuts(tmp_path: Path) -> None:
     ]
 
 
+def test_shortcut_service_list_returns_grouped_shortcuts_with_usage_count(tmp_path: Path) -> None:
+    save_session_reference(tmp_path, "cygwin-bash")
+    service = make_service(tmp_path)
+
+    response = service.list_shortcuts()
+
+    assert [environment.host for environment in response.environments] == ["windows_cygwin", "windows_wsl", "linux"]
+    assert [environment.label for environment in response.environments] == ["Cygwin", "WSL", "Linux"]
+    assert response.environments[2].shortcuts == []
+    cygwin_bash = response.environments[0].shortcuts[0]
+    assert cygwin_bash.id == "cygwin-bash"
+    assert cygwin_bash.used_session_count == 1
+
+
 def test_shortcut_service_creates_and_persists_shortcut(tmp_path: Path) -> None:
     service = make_service(tmp_path)
 
@@ -56,8 +116,10 @@ def test_shortcut_service_creates_and_persists_shortcut(tmp_path: Path) -> None:
         CreateShortcutRequest(name="Agent", command="agent run", host="windows_cygwin", description="Run agent")
     )
 
-    restored = make_service(tmp_path).list_shortcuts().shortcuts
+    restored = flatten_shortcuts(make_service(tmp_path))
     by_id = {item.id: item for item in restored}
+    assert shortcut.id.startswith("shortcut_")
+    assert shortcut.used_session_count == 0
     assert by_id[shortcut.id].command == "agent run"
     assert by_id[shortcut.id].description == "Run agent"
 
@@ -68,7 +130,22 @@ def test_shortcut_service_updates_shortcut(tmp_path: Path) -> None:
 
     updated = service.update_shortcut(shortcut.id, UpdateShortcutRequest(command="agent run --verbose"))
 
+    assert updated.id == shortcut.id
     assert updated.command == "agent run --verbose"
+
+
+def test_shortcut_service_updates_name_and_host_for_unused_shortcut(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    shortcut = service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="windows_cygwin"))
+
+    updated = service.update_shortcut(shortcut.id, UpdateShortcutRequest(name="Agent WSL", host="windows_wsl"))
+    by_id = {item.id: item for item in flatten_shortcuts(service)}
+
+    assert updated.id == shortcut.id
+    assert updated.name == "Agent WSL"
+    assert updated.host == "windows_wsl"
+    assert by_id[shortcut.id].name == "Agent WSL"
+    assert by_id[shortcut.id].host == "windows_wsl"
 
 
 def test_shortcut_service_rejects_duplicate_name_in_same_host(tmp_path: Path) -> None:
@@ -97,7 +174,23 @@ def test_shortcut_service_deletes_default_shortcut(tmp_path: Path) -> None:
 
     service.delete_shortcut("cygwin-codex")
 
-    assert "cygwin-codex" not in {shortcut.id for shortcut in service.list_shortcuts().shortcuts}
+    assert "cygwin-codex" not in {shortcut.id for shortcut in flatten_shortcuts(service)}
+
+
+def test_shortcut_service_rejects_used_shortcut_delete_and_key_update(tmp_path: Path) -> None:
+    save_session_reference(tmp_path, "cygwin-bash")
+    service = make_service(tmp_path)
+
+    with pytest.raises(ShortcutInUseError):
+        service.delete_shortcut("cygwin-bash")
+    with pytest.raises(ShortcutInUseError):
+        service.update_shortcut("cygwin-bash", UpdateShortcutRequest(name="bash renamed"))
+
+    updated = service.update_shortcut("cygwin-bash", UpdateShortcutRequest(command="bash -l", description="Login bash"))
+
+    assert updated.command == "bash -l"
+    assert updated.description == "Login bash"
+    assert updated.used_session_count == 1
 
 
 def test_shortcut_service_rejects_blank_command(tmp_path: Path) -> None:
@@ -119,7 +212,7 @@ def test_shortcut_service_ignores_old_terminal_definitions(tmp_path: Path) -> No
     repository = FileTerminalRepository(tmp_path / "terminals.json")
     repository.save_state(TerminalState.model_validate({"user_terminals": [{"id": "old", "name": "Old"}]}))
 
-    shortcuts = TerminalService(repository).list_shortcuts().shortcuts
+    shortcuts = flatten_shortcuts(make_service(tmp_path))
 
     assert {shortcut.id for shortcut in shortcuts} == {
         "cygwin-bash",
@@ -141,7 +234,7 @@ def test_shortcut_service_resolves_windows_cygwin_command(tmp_path: Path) -> Non
     state = repository.get_state()
     state.windows_cygwin_settings = WindowsCygwinSettings(readiness="ready", bash_path="bash.exe")
     repository.save_state(state)
-    service = TerminalService(repository)
+    service = make_service(tmp_path)
     shortcut = service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="windows_cygwin"))
 
     with patch.object(service, "resolve_ttyd_executable", return_value="ttyd"):
@@ -243,10 +336,7 @@ def test_terminal_service_treats_tmux_window_timeout_as_missing_window(tmp_path:
 
 
 def test_terminal_service_uses_configured_tmux_command_timeout(tmp_path: Path) -> None:
-    service = TerminalService(
-        FileTerminalRepository(tmp_path / "terminals.json"),
-        settings=Settings(tmux_command_timeout_seconds=12.5),
-    )
+    service = make_service(tmp_path, settings=Settings(tmux_command_timeout_seconds=12.5))
     service.update_windows_wsl_settings(
         WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux")
     )
@@ -268,7 +358,7 @@ def test_terminal_service_uses_cygwin_env_for_tmux_commands(tmp_path: Path) -> N
         tmux_path="D:/ProgramFiles/Cygwin/bin/tmux.exe",
     )
     repository.save_state(state)
-    service = TerminalService(repository)
+    service = make_service(tmp_path)
     shortcut = service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="windows_cygwin"))
     converted = subprocess.CompletedProcess(args=[], returncode=0, stdout="/d/workspace\n", stderr="")
     created = subprocess.CompletedProcess(args=[], returncode=0, stdout="@3\n", stderr="")
@@ -285,7 +375,7 @@ def test_terminal_service_uses_cygwin_env_for_tmux_commands(tmp_path: Path) -> N
 
 def test_shortcut_service_resolves_linux_command_when_ready(tmp_path: Path) -> None:
     repository = FileTerminalRepository(tmp_path / "terminals.json")
-    service = TerminalService(repository)
+    service = make_service(tmp_path)
     state = repository.get_state()
     state.linux_settings = LinuxSettings(readiness="ready", shell_path="/bin/sh", tmux_path="/usr/bin/tmux")
     repository.save_state(state)
@@ -328,7 +418,7 @@ def test_terminal_service_persists_ttyd_settings(tmp_path: Path) -> None:
 
 def test_terminal_service_lists_environments(tmp_path: Path) -> None:
     repository = FileTerminalRepository(tmp_path / "terminals.json")
-    service = TerminalService(repository)
+    service = make_service(tmp_path)
     state = repository.get_state()
     state.windows_cygwin_settings = WindowsCygwinSettings(readiness="ready", bash_path="bash.exe")
     repository.save_state(state)
@@ -369,7 +459,7 @@ def test_terminal_service_preserves_cygwin_readiness_when_paths_do_not_change(tm
     state = repository.get_state()
     state.windows_cygwin_settings = WindowsCygwinSettings(readiness="ready", bash_path="bash.exe", tmux_path="tmux.exe")
     repository.save_state(state)
-    service = TerminalService(repository)
+    service = make_service(tmp_path)
 
     settings = service.update_windows_cygwin_settings(
         WindowsCygwinSettings(readiness="not_ready", bash_path="bash.exe", tmux_path="tmux.exe")
@@ -386,7 +476,7 @@ def test_terminal_service_resets_cygwin_readiness_when_paths_change(tmp_path: Pa
         readiness="ready", bash_path="old-bash.exe", tmux_path="old-tmux.exe"
     )
     repository.save_state(state)
-    service = TerminalService(repository)
+    service = make_service(tmp_path)
 
     settings = service.update_windows_cygwin_settings(
         WindowsCygwinSettings(readiness="ready", bash_path="new-bash.exe", tmux_path="old-tmux.exe")
@@ -487,10 +577,7 @@ def test_terminal_service_ignores_persisted_cygwin_unix_path(tmp_path: Path) -> 
 
 
 def test_terminal_service_uses_configured_cygwin_detection_timeout(tmp_path: Path) -> None:
-    service = TerminalService(
-        FileTerminalRepository(tmp_path / "terminals.json"),
-        settings=Settings(cygwin_detection_timeout_seconds=12.5),
-    )
+    service = make_service(tmp_path, settings=Settings(cygwin_detection_timeout_seconds=12.5))
     service.update_windows_cygwin_settings(
         service.get_windows_cygwin_settings().model_copy(update={"bash_path": "bash.exe"})
     )
@@ -511,10 +598,7 @@ def test_terminal_service_uses_configured_cygwin_detection_timeout(tmp_path: Pat
 
 
 def test_terminal_service_uses_configured_wsl_detection_timeout(tmp_path: Path) -> None:
-    service = TerminalService(
-        FileTerminalRepository(tmp_path / "terminals.json"),
-        settings=Settings(wsl_detection_timeout_seconds=12.5),
-    )
+    service = make_service(tmp_path, settings=Settings(wsl_detection_timeout_seconds=12.5))
     wsl_path = "C:/WINDOWS/system32/wsl.exe"
     wsl = subprocess.CompletedProcess(
         args=[wsl_path, "--version"],

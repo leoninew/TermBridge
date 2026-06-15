@@ -23,6 +23,7 @@ from termbridge.exceptions import (
     SessionRepositoryError,
     SessionTerminalUnavailableError,
     SessionWorkspaceNotFoundError,
+    ShortcutInUseError,
     ShortcutNotFoundError,
     WorkspaceBrowserError,
     WorkspaceNotFoundError,
@@ -47,10 +48,13 @@ from termbridge.models import (
     SessionTreeResponse,
     SessionWorkspaceResponse,
     Shortcut,
+    ShortcutDefinition,
+    ShortcutEnvironmentResponse,
     ShortcutHost,
     ShortcutListResponse,
+    ShortcutResponse,
+    ShortcutState,
     TerminalSettings,
-    TerminalState,
     TtydCredential,
     UpdateShortcutRequest,
     UpdateTerminalSettingsRequest,
@@ -67,7 +71,7 @@ from termbridge.models import (
 )
 from termbridge.ports import PortAllocator
 from termbridge.process import ProcessAdapter, ProcessHandle
-from termbridge.repositories import FileSessionRepository, FileTerminalRepository
+from termbridge.repositories import FileSessionRepository, FileShortcutRepository, FileTerminalRepository
 from termbridge.runtime import RuntimeRegistry
 from termbridge.settings import Settings
 from termbridge.ttyd import ttyd_client_options
@@ -154,16 +158,41 @@ class WorkspaceBrowserService:
 
 
 class TerminalService:
-    def __init__(self, repository: FileTerminalRepository, *, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        repository: FileTerminalRepository,
+        shortcut_repository: FileShortcutRepository,
+        session_repository: FileSessionRepository,
+        *,
+        settings: Settings | None = None,
+    ) -> None:
         self._repository = repository
+        self._shortcut_repository = shortcut_repository
+        self._session_repository = session_repository
         self._settings = settings or Settings()
 
     def list_shortcuts(self) -> ShortcutListResponse:
-        state = self._ensure_default_shortcuts(self._repository.get_state())
-        return ShortcutListResponse(shortcuts=state.shortcuts)
+        state = self._ensure_default_shortcuts(self._shortcut_repository.get_state())
+        usage_counts = self._shortcut_usage_counts()
+        return ShortcutListResponse(
+            environments=[
+                ShortcutEnvironmentResponse(
+                    host=host,
+                    label=self._environment_labels()[host],
+                    shortcuts=[
+                        ShortcutResponse(
+                            **self._shortcut_from_definition(host, name, definition).model_dump(),
+                            used_session_count=usage_counts.get(definition.id, 0),
+                        )
+                        for name, definition in state.shortcuts[host].items()
+                    ],
+                )
+                for host in self._shortcut_hosts()
+            ]
+        )
 
-    def create_shortcut(self, request: CreateShortcutRequest) -> Shortcut:
-        state = self._ensure_default_shortcuts(self._repository.get_state())
+    def create_shortcut(self, request: CreateShortcutRequest) -> ShortcutResponse:
+        state = self._ensure_default_shortcuts(self._shortcut_repository.get_state())
         shortcut = Shortcut(
             id=f"shortcut_{uuid4().hex}",
             name=request.name.strip(),
@@ -172,35 +201,52 @@ class TerminalService:
             description=request.description,
         )
         self._validate_shortcut(shortcut)
-        self._ensure_unique_shortcut_name(state.shortcuts, shortcut)
-        state.shortcuts.append(shortcut)
-        self._repository.save_state(state)
-        return shortcut
+        self._ensure_unique_shortcut_name(state, shortcut.host, shortcut.name)
+        state.shortcuts[shortcut.host][shortcut.name] = ShortcutDefinition(
+            id=shortcut.id,
+            command=shortcut.command,
+            description=shortcut.description,
+        )
+        self._shortcut_repository.save_state(state)
+        return self._shortcut_response(shortcut)
 
-    def update_shortcut(self, shortcut_id: str, request: UpdateShortcutRequest) -> Shortcut:
-        state = self._ensure_default_shortcuts(self._repository.get_state())
-        for index, shortcut in enumerate(state.shortcuts):
-            if shortcut.id == shortcut_id:
-                update = request.model_dump(exclude_unset=True)
-                if "name" in update and update["name"] is not None:
-                    update["name"] = update["name"].strip()
-                if "command" in update and update["command"] is not None:
-                    update["command"] = update["command"].strip()
-                updated = shortcut.model_copy(update=update)
-                self._validate_shortcut(updated)
-                self._ensure_unique_shortcut_name(state.shortcuts, updated, ignored_shortcut_id=shortcut.id)
-                state.shortcuts[index] = updated
-                self._repository.save_state(state)
-                return updated
-        raise ShortcutNotFoundError(shortcut_id)
+    def update_shortcut(self, shortcut_id: str, request: UpdateShortcutRequest) -> ShortcutResponse:
+        state = self._ensure_default_shortcuts(self._shortcut_repository.get_state())
+        host, name, definition = self._find_shortcut_entry(state, shortcut_id)
+        update = request.model_dump(exclude_unset=True)
+        new_name = name if update.get("name") is None else update["name"].strip()
+        new_command = definition.command if update.get("command") is None else update["command"].strip()
+        new_host = host if update.get("host") is None else update["host"]
+        new_description = update.get("description", definition.description)
+        updated = Shortcut(
+            id=definition.id,
+            name=new_name,
+            command=new_command,
+            host=new_host,
+            description=new_description,
+        )
+        self._validate_shortcut(updated)
+        if (updated.name != name or updated.host != host) and self._shortcut_usage_counts().get(shortcut_id, 0) > 0:
+            raise ShortcutInUseError()
+        self._ensure_unique_shortcut_name(state, updated.host, updated.name, ignored_shortcut_id=shortcut_id)
+        if updated.name != name or updated.host != host:
+            del state.shortcuts[host][name]
+        state.shortcuts[updated.host][updated.name] = ShortcutDefinition(
+            id=updated.id,
+            command=updated.command,
+            description=updated.description,
+        )
+        self._shortcut_repository.save_state(state)
+        return self._shortcut_response(updated)
 
     def delete_shortcut(self, shortcut_id: str) -> None:
-        state = self._ensure_default_shortcuts(self._repository.get_state())
-        remaining = [shortcut for shortcut in state.shortcuts if shortcut.id != shortcut_id]
-        if len(remaining) == len(state.shortcuts):
-            raise ShortcutNotFoundError(shortcut_id)
-        state.shortcuts = remaining
-        self._repository.save_state(state)
+        usage_count = self._shortcut_usage_counts().get(shortcut_id, 0)
+        if usage_count > 0:
+            raise ShortcutInUseError()
+        state = self._ensure_default_shortcuts(self._shortcut_repository.get_state())
+        host, name, _ = self._find_shortcut_entry(state, shortcut_id)
+        del state.shortcuts[host][name]
+        self._shortcut_repository.save_state(state)
 
     def get_settings(self) -> TerminalSettings:
         return self._repository.get_state().settings
@@ -629,15 +675,40 @@ class TerminalService:
         return path
 
     def _find_shortcut(self, shortcut_id: str) -> Shortcut:
-        for shortcut in self.list_shortcuts().shortcuts:
-            if shortcut.id == shortcut_id:
-                return shortcut
+        state = self._ensure_default_shortcuts(self._shortcut_repository.get_state())
+        host, name, definition = self._find_shortcut_entry(state, shortcut_id)
+        return self._shortcut_from_definition(host, name, definition)
+
+    def _find_shortcut_entry(
+        self, state: ShortcutState, shortcut_id: str
+    ) -> tuple[ShortcutHost, str, ShortcutDefinition]:
+        for host in self._shortcut_hosts():
+            for name, definition in state.shortcuts[host].items():
+                if definition.id == shortcut_id:
+                    return host, name, definition
         raise ShortcutNotFoundError(shortcut_id)
 
-    def _ensure_default_shortcuts(self, state: TerminalState) -> TerminalState:
-        if state.shortcuts:
+    def _ensure_default_shortcuts(self, state: ShortcutState) -> ShortcutState:
+        changed = False
+        for host in self._shortcut_hosts():
+            if host not in state.shortcuts:
+                state.shortcuts[host] = {}
+                changed = True
+        if any(state.shortcuts[host] for host in self._shortcut_hosts()):
+            if changed:
+                self._shortcut_repository.save_state(state)
             return state
-        state.shortcuts = [
+        for shortcut in self._default_shortcuts():
+            state.shortcuts[shortcut.host][shortcut.name] = ShortcutDefinition(
+                id=shortcut.id,
+                command=shortcut.command,
+                description=shortcut.description,
+            )
+        self._shortcut_repository.save_state(state)
+        return state
+
+    def _default_shortcuts(self) -> list[Shortcut]:
+        return [
             Shortcut(
                 id="cygwin-bash",
                 name="bash",
@@ -716,8 +787,39 @@ class TerminalService:
                 description="Start Codex without sandbox restrictions in Windows/WSL tmux",
             ),
         ]
-        self._repository.save_state(state)
-        return state
+
+    def _shortcut_hosts(self) -> tuple[ShortcutHost, ShortcutHost, ShortcutHost]:
+        return ("windows_cygwin", "windows_wsl", "linux")
+
+    def _environment_labels(self) -> dict[ShortcutHost, str]:
+        return {
+            "windows_cygwin": "Cygwin",
+            "windows_wsl": "WSL",
+            "linux": "Linux",
+        }
+
+    def _shortcut_from_definition(
+        self, host: ShortcutHost, name: str, definition: ShortcutDefinition
+    ) -> Shortcut:
+        return Shortcut(
+            id=definition.id,
+            name=name,
+            command=definition.command,
+            host=host,
+            description=definition.description,
+        )
+
+    def _shortcut_response(self, shortcut: Shortcut) -> ShortcutResponse:
+        return ShortcutResponse(
+            **shortcut.model_dump(),
+            used_session_count=self._shortcut_usage_counts().get(shortcut.id, 0),
+        )
+
+    def _shortcut_usage_counts(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for _, entry in self._session_repository.list_entries():
+            counts[entry.shortcut_id] = counts.get(entry.shortcut_id, 0) + 1
+        return counts
 
     def _validate_shortcut(self, shortcut: Shortcut) -> None:
         if not shortcut.name.strip():
@@ -726,13 +828,16 @@ class TerminalService:
             raise InvalidTerminalConfigError("Shortcut command is required")
 
     def _ensure_unique_shortcut_name(
-        self, shortcuts: Sequence[Shortcut], shortcut: Shortcut, *, ignored_shortcut_id: str | None = None
+        self,
+        state: ShortcutState,
+        host: ShortcutHost,
+        name: str,
+        *,
+        ignored_shortcut_id: str | None = None,
     ) -> None:
-        for existing in shortcuts:
-            if existing.id == ignored_shortcut_id:
-                continue
-            if existing.host == shortcut.host and existing.name == shortcut.name:
-                raise InvalidTerminalConfigError("Shortcut name already exists in this environment")
+        existing_definition = state.shortcuts[host].get(name)
+        if existing_definition is not None and existing_definition.id != ignored_shortcut_id:
+            raise InvalidTerminalConfigError("Shortcut name already exists in this environment")
 
     def _ensure_windows_cygwin_ready(self) -> str:
         settings = self.get_windows_cygwin_settings()

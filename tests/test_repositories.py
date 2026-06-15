@@ -2,9 +2,18 @@ from pathlib import Path
 
 import pytest
 
-from termbridge.exceptions import SessionNotFoundError, SessionRepositoryError
-from termbridge.models import SessionEntryRecord, SessionState, SessionStatus, TerminalState, WorkspaceRecord, utc_now
-from termbridge.repositories import FileSessionRepository, FileTerminalRepository
+from termbridge.exceptions import SessionNotFoundError, SessionRepositoryError, ShortcutRepositoryError
+from termbridge.models import (
+    SessionEntryRecord,
+    SessionState,
+    SessionStatus,
+    ShortcutDefinition,
+    ShortcutState,
+    TerminalState,
+    WorkspaceRecord,
+    utc_now,
+)
+from termbridge.repositories import FileSessionRepository, FileShortcutRepository, FileTerminalRepository
 
 
 def make_workspace(workspace_id: str = "ws_1") -> WorkspaceRecord:
@@ -97,3 +106,43 @@ def test_terminal_repository_creates_missing_parent_directory(tmp_path: Path) ->
     FileTerminalRepository(terminals_file).save_state(TerminalState())
 
     assert terminals_file.is_file()
+
+
+def test_shortcut_repository_missing_file_returns_default_state(tmp_path: Path) -> None:
+    state = FileShortcutRepository(tmp_path / "shortcuts.json").get_state()
+
+    assert state.shortcuts == {"windows_cygwin": {}, "windows_wsl": {}, "linux": {}}
+
+
+def test_shortcut_repository_creates_missing_parent_directory(tmp_path: Path) -> None:
+    shortcuts_file = tmp_path / "missing" / "state" / "shortcuts.json"
+    state = ShortcutState(
+        shortcuts={
+            "windows_cygwin": {
+                "bash": ShortcutDefinition(id="cygwin-bash", command="bash"),
+            },
+            "windows_wsl": {},
+            "linux": {},
+        }
+    )
+
+    FileShortcutRepository(shortcuts_file).save_state(state)
+
+    assert shortcuts_file.is_file()
+    assert FileShortcutRepository(shortcuts_file).get_state() == state
+
+
+def test_shortcut_repository_invalid_json_raises(tmp_path: Path) -> None:
+    shortcuts_file = tmp_path / "shortcuts.json"
+    shortcuts_file.write_text("not-json", encoding="utf-8")
+
+    with pytest.raises(ShortcutRepositoryError, match="invalid JSON"):
+        FileShortcutRepository(shortcuts_file).get_state()
+
+
+def test_shortcut_repository_invalid_schema_raises(tmp_path: Path) -> None:
+    shortcuts_file = tmp_path / "shortcuts.json"
+    shortcuts_file.write_text('{"shortcuts": {"windows_cygwin": {"bash": {"id": "x"}}}}', encoding="utf-8")
+
+    with pytest.raises(ShortcutRepositoryError, match="invalid shortcut data"):
+        FileShortcutRepository(shortcuts_file).get_state()

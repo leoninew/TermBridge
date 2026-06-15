@@ -156,6 +156,24 @@ class CloseAllSessionsResponse(BaseModel):
     tmux_session_count: int
 
 
+class ShortcutDefinition(BaseModel):
+    id: str
+    command: str
+    description: str | None = None
+
+
+def default_shortcut_map() -> dict[ShortcutHost, dict[str, ShortcutDefinition]]:
+    return {
+        "windows_cygwin": {},
+        "windows_wsl": {},
+        "linux": {},
+    }
+
+
+class ShortcutState(BaseModel):
+    shortcuts: dict[ShortcutHost, dict[str, ShortcutDefinition]] = Field(default_factory=default_shortcut_map)
+
+
 class Shortcut(BaseModel):
     id: str
     name: str
@@ -164,8 +182,18 @@ class Shortcut(BaseModel):
     description: str | None = None
 
 
+class ShortcutResponse(Shortcut):
+    used_session_count: int = 0
+
+
+class ShortcutEnvironmentResponse(BaseModel):
+    host: ShortcutHost
+    label: str
+    shortcuts: list[ShortcutResponse]
+
+
 class ShortcutListResponse(BaseModel):
-    shortcuts: list[Shortcut]
+    environments: list[ShortcutEnvironmentResponse]
 
 
 class CreateShortcutRequest(BaseModel):
@@ -222,7 +250,6 @@ class UpdateTerminalSettingsRequest(BaseModel):
 
 
 class TerminalState(BaseModel):
-    shortcuts: list[Shortcut] = Field(default_factory=list)
     settings: TerminalSettings = Field(default_factory=TerminalSettings)
     windows_cygwin_settings: WindowsCygwinSettings = Field(default_factory=WindowsCygwinSettings)
     windows_wsl_settings: WindowsWslSettings = Field(default_factory=WindowsWslSettings)

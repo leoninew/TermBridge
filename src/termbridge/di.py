@@ -5,7 +5,7 @@ from fastapi import Depends
 
 from termbridge.ports import PortAllocator
 from termbridge.process import ProcessAdapter, TtydProcessAdapter
-from termbridge.repositories import FileSessionRepository, FileTerminalRepository
+from termbridge.repositories import FileSessionRepository, FileShortcutRepository, FileTerminalRepository
 from termbridge.runtime import RuntimeRegistry
 from termbridge.services import SessionService, TerminalService, WorkspaceBrowserService
 from termbridge.settings import Settings, load_settings
@@ -31,11 +31,17 @@ def get_terminal_repository(settings: SettingsDep) -> FileTerminalRepository:
     return FileTerminalRepository(settings.terminals_file)
 
 
+def get_shortcut_repository(settings: SettingsDep) -> FileShortcutRepository:
+    return FileShortcutRepository(settings.shortcuts_file)
+
+
 def get_terminal_service(
     settings: SettingsDep,
     repository: Annotated[FileTerminalRepository, Depends(get_terminal_repository)],
+    shortcut_repository: Annotated[FileShortcutRepository, Depends(get_shortcut_repository)],
+    session_repository: Annotated[FileSessionRepository, Depends(get_session_repository)],
 ) -> TerminalService:
-    return TerminalService(repository, settings=settings)
+    return TerminalService(repository, shortcut_repository, session_repository, settings=settings)
 
 
 def get_port_allocator(settings: SettingsDep) -> PortAllocator:

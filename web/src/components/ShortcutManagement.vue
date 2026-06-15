@@ -3,7 +3,6 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ChevronDown, Loader2, Plus } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import {
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogOverlay,
@@ -39,8 +38,8 @@ import {
 import type {
   CreateShortcutPayload,
   EnvironmentSummary,
-  Session,
   Shortcut,
+  ShortcutEnvironment,
   ShortcutHost,
 } from '../types/sessions'
 
@@ -48,14 +47,11 @@ const { t } = useI18n()
 type FieldName = 'name' | 'command' | 'host'
 
 const toast = useToastStore()
-const props = defineProps<{
-  sessions: Session[]
-}>()
 const emit = defineEmits<{
   createSession: [context: { host: ShortcutHost; shortcutId: string }]
 }>()
 const hosts: ShortcutHost[] = ['windows_cygwin', 'windows_wsl', 'linux']
-const shortcuts = ref<Shortcut[]>([])
+const shortcutEnvironments = ref<ShortcutEnvironment[]>([])
 const environments = ref<EnvironmentSummary[]>([])
 const loading = ref(false)
 const saving = ref(false)
@@ -72,24 +68,8 @@ const deleteDialogOpen = computed({
     }
   },
 })
-const usedShortcutIds = computed(
-  () =>
-    new Set(
-      props.sessions
-        .map((session) => session.shortcut_id)
-        .filter((shortcutId): shortcutId is string => !!shortcutId),
-    ),
-)
 const environmentsByHost = computed(
   () => new Map(environments.value.map((environment) => [environment.host, environment])),
-)
-const shortcutGroups = computed(() =>
-  hosts
-    .map((host) => ({
-      host,
-      shortcuts: shortcuts.value.filter((shortcut) => shortcut.host === host),
-    }))
-    .filter((group) => group.shortcuts.length > 0),
 )
 
 const form = reactive<{
@@ -132,7 +112,7 @@ async function load() {
       listShortcuts(),
       listEnvironments(),
     ])
-    shortcuts.value = shortcutResponse.shortcuts
+    shortcutEnvironments.value = shortcutResponse.environments
     environments.value = environmentResponse.environments
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('shortcutManagement.errors.load')
@@ -207,7 +187,7 @@ function createSessionFromShortcut(shortcut: Shortcut) {
 }
 
 function askRemoveShortcut(shortcut: Shortcut) {
-  if (usedShortcutIds.value.has(shortcut.id)) {
+  if (shortcut.used_session_count > 0) {
     return
   }
   deletingShortcut.value = shortcut
@@ -237,9 +217,9 @@ function validate(): boolean {
 
 function hasDuplicateName(): boolean {
   const name = form.name.trim()
-  return shortcuts.value.some(
-    (shortcut) =>
-      shortcut.id !== editingId.value && shortcut.host === form.host && shortcut.name === name,
+  const environment = shortcutEnvironments.value.find((item) => item.host === form.host)
+  return !!environment?.shortcuts.some(
+    (shortcut) => shortcut.id !== editingId.value && shortcut.name === name,
   )
 }
 
@@ -311,7 +291,7 @@ function hostDisabledReason(host: ShortcutHost): string {
     </p>
 
     <div class="grid min-h-0 flex-1 content-start gap-4 overflow-auto pr-1">
-      <section v-for="group in shortcutGroups" :key="group.host" class="grid gap-2.5">
+      <section v-for="group in shortcutEnvironments" :key="group.host" class="grid gap-2.5">
         <div class="flex items-center gap-2 border-b border-slate-200 pb-2 dark:border-slate-800">
           <component :is="hostLogo(group.host)" class="shrink-0" />
           <h3 class="text-sm font-semibold text-slate-950 dark:text-slate-100">
@@ -352,10 +332,12 @@ function hostDisabledReason(host: ShortcutHost): string {
               </button>
               <button
                 class="rounded-md border border-red-200 px-2 py-1 text-sm text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
-                :disabled="usedShortcutIds.has(shortcut.id)"
+                :disabled="shortcut.used_session_count > 0"
                 :title="
-                  usedShortcutIds.has(shortcut.id)
-                    ? t('shortcutManagement.delete.inUse')
+                  shortcut.used_session_count > 0
+                    ? t('shortcutManagement.delete.inUse', {
+                        count: shortcut.used_session_count,
+                      })
                     : undefined
                 "
                 @click="askRemoveShortcut(shortcut)"
@@ -511,12 +493,13 @@ function hostDisabledReason(host: ShortcutHost): string {
             >
               {{ t('app.actions.cancel') }}
             </AlertDialogCancel>
-            <AlertDialogAction
+            <button
+              type="button"
               class="rounded-lg bg-red-600 px-4 py-2 text-white transition hover:bg-red-700"
               @click="confirmRemoveShortcut"
             >
               {{ t('app.actions.delete') }}
-            </AlertDialogAction>
+            </button>
           </div>
         </AlertDialogContent>
       </AlertDialogPortal>

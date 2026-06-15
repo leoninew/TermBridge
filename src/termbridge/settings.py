@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     def terminals_file(self) -> Path:
         return self.state_dir / "terminals.json"
 
+    @property
+    def shortcuts_file(self) -> Path:
+        return self.state_dir / "shortcuts.json"
+
 
 @lru_cache
 def load_settings() -> Settings:

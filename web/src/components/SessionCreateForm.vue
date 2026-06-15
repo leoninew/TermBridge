@@ -107,7 +107,7 @@ async function loadShortcuts() {
   loadingShortcuts.value = true
   try {
     const response = await listShortcuts()
-    shortcuts.value = response.shortcuts
+    shortcuts.value = response.environments.flatMap((environment) => environment.shortcuts)
     form.shortcut_id =
       props.initialShortcutId &&
       filteredShortcuts.value.some((shortcut) => shortcut.id === props.initialShortcutId)
@@ -262,8 +262,8 @@ function hostDisabledReason(host: ShortcutHost): string {
       </span>
     </label>
 
-    <label class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
-      {{ t('session.create.shortcut') }}
+    <div class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
+      <span>{{ t('session.create.shortcut') }}</span>
       <p v-if="loadingShortcuts" class="inline-flex items-center gap-2 text-sm text-slate-500">
         <Loader2 class="h-4 w-4 animate-spin" />
         {{ t('session.create.loadingShortcuts') }}
@@ -276,7 +276,6 @@ function hostDisabledReason(host: ShortcutHost): string {
         v-model="form.shortcut_id"
         v-model:open="shortcutComboboxOpen"
         open-on-click
-        open-on-focus
         reset-search-term-on-select
       >
         <ComboboxAnchor
@@ -325,7 +324,7 @@ function hostDisabledReason(host: ShortcutHost): string {
       >
         {{ fieldErrors.shortcut_id }}
       </span>
-    </label>
+    </div>
 
     <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
       <button

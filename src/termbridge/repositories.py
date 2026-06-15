@@ -11,7 +11,14 @@ from termbridge.exceptions import (
     SessionRepositoryError,
     ShortcutRepositoryError,
 )
-from termbridge.models import SessionEntryRecord, SessionState, ShortcutHost, TerminalState, WorkspaceRecord
+from termbridge.models import (
+    SessionEntryRecord,
+    SessionState,
+    ShortcutHost,
+    ShortcutState,
+    TerminalState,
+    WorkspaceRecord,
+)
 
 
 class FileSessionRepository:
@@ -183,6 +190,43 @@ class FileSessionRepository:
     def _workspace_key(self, host: ShortcutHost, path: Path) -> str:
         normalized = str(path).replace("\\", "/").rstrip("/")
         return normalized.lower() if host == "windows_cygwin" else normalized
+
+
+class FileShortcutRepository:
+    def __init__(self, shortcuts_file: Path) -> None:
+        self._shortcuts_file = shortcuts_file
+
+    def get_state(self) -> ShortcutState:
+        if not self._shortcuts_file.exists():
+            return ShortcutState()
+        try:
+            raw = json.loads(self._shortcuts_file.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict):
+                raise ShortcutRepositoryError("Shortcut registry must be a JSON object")
+            return ShortcutState.model_validate(raw)
+        except json.JSONDecodeError as exc:
+            raise ShortcutRepositoryError("Shortcut registry contains invalid JSON") from exc
+        except ValidationError as exc:
+            raise ShortcutRepositoryError("Shortcut registry contains invalid shortcut data") from exc
+
+    def save_state(self, state: ShortcutState) -> ShortcutState:
+        self._shortcuts_file.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp_name = tempfile.mkstemp(
+            prefix=f".{self._shortcuts_file.name}.",
+            suffix=".tmp",
+            dir=self._shortcuts_file.parent,
+            text=True,
+        )
+        temp_path = Path(temp_name)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as temp_file:
+                json.dump(state.model_dump(mode="json"), temp_file, ensure_ascii=False, indent=2)
+                temp_file.write("\n")
+            os.replace(temp_path, self._shortcuts_file)
+        except Exception:
+            temp_path.unlink(missing_ok=True)
+            raise
+        return state
 
 
 class FileTerminalRepository:

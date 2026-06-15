@@ -101,10 +101,17 @@ export interface Shortcut {
   command: string
   host: ShortcutHost
   description?: string | null
+  used_session_count: number
+}
+
+export interface ShortcutEnvironment {
+  host: ShortcutHost
+  label: string
+  shortcuts: Shortcut[]
 }
 
 export interface ShortcutListResponse {
-  shortcuts: Shortcut[]
+  environments: ShortcutEnvironment[]
 }
 
 export interface CreateShortcutPayload {
