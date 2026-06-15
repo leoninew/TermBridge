@@ -51,8 +51,8 @@ Review status: Accepted
 
 本阶段采用显式构建流程，不让 Python build 自动调用 Node/Yarn：
 
-1. `make build` 构建前端并同步到 `src/termbridge/static/`
-2. 同一个 `make build` 目标随后运行 `uv build`
+1. `just build` 构建前端并同步到 `src/termbridge/static/`
+2. 同一个 `just build` 目标随后运行 `uv build`
 
 ### 4. Docker 镜像构建
 

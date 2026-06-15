@@ -17,7 +17,7 @@ Review status: Accepted
 - 已选 workspace 再次展开目录树时，会自动展开并定位到该目录。
 - 后端关键步骤日志已添加。
 - 后端自定义异常已提取到 `src/cc_ttyd/exceptions.py`，避免异常定义和业务逻辑混在一起。
-- `make fastapi` 已改为 uvicorn reload 启动，开发时后端热更新生效。
+- `just dev-backend` 已改为 uvicorn reload 启动，开发时后端热更新生效。
 
 ## Acceptance
 

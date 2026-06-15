@@ -83,7 +83,9 @@ def test_session_repository_reads_environment_workspace_session_schema(tmp_path:
 def test_session_repository_reorders_workspaces_with_json_object_order(tmp_path: Path) -> None:
     sessions_file = tmp_path / "sessions.json"
     first = make_workspace(tmp_path).model_copy(update={"id": "ws_first", "path": tmp_path / "First", "name": "First"})
-    second = make_workspace(tmp_path).model_copy(update={"id": "ws_second", "path": tmp_path / "Second", "name": "Second"})
+    second = make_workspace(tmp_path).model_copy(
+        update={"id": "ws_second", "path": tmp_path / "Second", "name": "Second"}
+    )
     linux = make_workspace(tmp_path).model_copy(update={"id": "ws_linux", "host": "linux", "path": tmp_path / "Linux"})
     repository = FileSessionRepository(sessions_file)
     repository.save_state(SessionState(workspaces={first.id: first, second.id: second, linux.id: linux}))

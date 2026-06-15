@@ -41,7 +41,7 @@ Stage: Plan
 4. 接入 app 初始化
    - `src/cc_ttyd/api.py:create_app()` 读取 settings 并调用 `configure_logging(settings)`。
    - `src/cc_ttyd/api.py:create_app()` 安装 request logging middleware。
-   - 保证 `uvicorn cc_ttyd.main:app --reload` / `make fastapi` 这种 Uvicorn CLI 入口不会绕过 logging 初始化。
+   - 保证 `uvicorn cc_ttyd.main:app --reload` / `just dev-backend` 这种 Uvicorn CLI 入口不会绕过 logging 初始化。
 
 5. 接入 main 启动
    - `src/cc_ttyd/main.py` 移除 `logging.basicConfig(...)`。

@@ -110,8 +110,8 @@
 
 ### Other changed files
 
-- `Makefile`
-  - 当前 diff 中包含 Makefile 目标调整（`dev-backend` / `dev-frontend` / `check` / `clean` 等）。该文件不属于本快捷方式管理需求、Spec 或 Plan 的计划范围，应作为独立变更审视或拆分。
+- `justfile`
+  - 当前 diff 中包含 justfile recipe 调整（`dev-backend` / `dev-frontend` / `check` / `clean` 等）。该文件不属于本快捷方式管理需求、Spec 或 Plan 的计划范围，应作为独立变更审视或拆分。
 
 ## Planned vs actual changed files
 
@@ -137,7 +137,7 @@
 | `tests/test_shortcut_migration.py` | 已新增 |
 | `docs/verification/20260615-shortcut-management-improvements.md` | 已更新 |
 | `tests/test_services.py` | 非计划文件；用于确认撤回 ttyd 端口判断后的原 session service 行为 |
-| `Makefile` | 非计划文件；不属于本需求范围 |
+| `justfile` | 非计划文件；不属于本需求范围 |
 
 ## Acceptance criteria checklist
 
@@ -229,7 +229,7 @@ built successfully
 
 1. `web/src/components/ShortcutManagement.vue` 的删除确认按钮修复、`web/src/components/SessionCreateForm.vue` 的 combobox label 修复，虽不在原 Plan 的逐项文件改动细节中，但直接对应删除可用性和新建会话选择快捷方式体验，建议保留。
 2. ttyd 端口监听 / 启动等待相关改动已撤回，不再属于当前 diff。
-3. `Makefile` 变更不属于本快捷方式管理需求，建议独立审视或拆分，不应与本需求一起作为同一交付边界提交，除非用户确认它属于本次发布/开发工具改进。
+3. `justfile` 变更不属于本快捷方式管理需求，建议独立审视或拆分，不应与本需求一起作为同一交付边界提交，除非用户确认它属于本次发布/开发工具改进。
 
 ## Risks
 
@@ -237,7 +237,7 @@ built successfully
 2. 运行时不兼容旧 `terminals.json.shortcuts`；旧用户数据必须先执行迁移脚本生成 `shortcuts.json`。
 3. 未执行人工 UI 主题检查，视觉状态仍建议在最终验收时快速确认。
 4. 构建存在现有依赖 annotation 和 chunk size 警告，虽然不影响本次功能通过，但可作为后续构建优化项。
-5. 当前 diff 包含非本需求的 `Makefile` 变更，提交前建议拆分或明确纳入独立提交。
+5. 当前 diff 包含非本需求的 `justfile` 变更，提交前建议拆分或明确纳入独立提交。
 
 ## Incomplete items
 
@@ -246,8 +246,8 @@ built successfully
 未完成 / 待用户决策项：
 
 1. 可选人工验收：浅色 / 暗色主题下的视觉检查和真实页面交互检查。
-2. `Makefile` 变更是否保留在本次工作区，或拆成独立提交 / 单独处理。
+2. `justfile` 变更是否保留在本次工作区，或拆成独立提交 / 单独处理。
 
 ## Conclusion
 
-本次快捷方式管理改进已完成 strict 流程的 Verification 阶段复核。实现与已接受的 Requirement、Spec、Plan 基本对齐；自动化测试、lint、typecheck 和 build 均通过。此前临时加入的 ttyd 端口监听 / 启动等待改动已撤回，当前验证范围聚焦快捷方式管理、删除确认和新建会话快捷方式选择。主要剩余风险是未执行人工 UI 主题检查，以及当前 diff 中存在与本需求无关的 `Makefile` 变更，需要提交前单独处理。
+本次快捷方式管理改进已完成 strict 流程的 Verification 阶段复核。实现与已接受的 Requirement、Spec、Plan 基本对齐；自动化测试、lint、typecheck 和 build 均通过。此前临时加入的 ttyd 端口监听 / 启动等待改动已撤回，当前验证范围聚焦快捷方式管理、删除确认和新建会话快捷方式选择。主要剩余风险是未执行人工 UI 主题检查，以及当前 diff 中存在与本需求无关的 `justfile` 变更，需要提交前单独处理。

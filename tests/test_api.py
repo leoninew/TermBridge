@@ -123,7 +123,9 @@ class FakeSessionService:
         return self.list_tree()
 
     def reorder_sessions(self, workspace_id: str, request: ReorderSessionsRequest) -> SessionTreeResponse:
-        self.sessions = [next(session for session in self.sessions if session.id == session_id) for session_id in request.session_ids]
+        self.sessions = [
+            next(session for session in self.sessions if session.id == session_id) for session_id in request.session_ids
+        ]
         return self.list_tree()
 
     def delete(self, session_id: str) -> None:
@@ -378,7 +380,6 @@ def test_api_unhandled_exception_uses_structured_error() -> None:
 
     assert response.status_code == 500
     assert response.json() == {"code": "internal_error", "error": "Internal server error"}
-
 
 
 def test_terminal_http_proxy_adds_basic_auth_header() -> None:

@@ -123,14 +123,14 @@ def logging_config(level: str = "INFO") -> dict[str, Any]:
 
 为了让 reload 进程的早期日志也使用项目配置，开发启动应通过项目入口启动 Uvicorn：
 
-```makefile
-fastapi:
-	uv run python -m termbridge.main --host 127.0.0.1 --port 9008 --reload
+```just
+dev-backend:
+    uv run python -m termbridge.main --host 127.0.0.1 --port 9008 --reload
 ```
 
-不要在 `make fastapi` 中直接使用：
+不要在 `just dev-backend` 中直接使用：
 
-```makefile
+```bash
 uv run uvicorn termbridge.main:app --host 127.0.0.1 --port 9008 --reload
 ```
 
@@ -235,7 +235,7 @@ record.display_name = "uvicorn"
 - [ ] `uvicorn.access` 是否仍禁用。
 - [ ] request logging 是否仍包含 method、path、status、duration。
 - [ ] 4xx / 5xx / exception 日志等级是否符合约定。
-- [ ] `make fastapi` 是否通过 `python -m termbridge.main --reload` 启动。
+- [ ] `just dev-backend` 是否通过 `python -m termbridge.main --reload` 启动。
 
 建议运行：
 

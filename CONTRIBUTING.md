@@ -7,19 +7,25 @@ Thanks for your interest in TermBridge. This project is currently pre-release, s
 Install web and fastapi dependencies:
 
 ```bash
-make install
+just install
 ```
 
-Start the fastapi:
+Start both development servers:
 
 ```bash
-make fastapi
+just dev
 ```
 
-Start the web dev server in another terminal:
+To run them separately, start the fastapi:
 
 ```bash
-make web
+just dev-backend
+```
+
+Then start the web dev server in another terminal:
+
+```bash
+just dev-frontend
 ```
 
 The fastapi defaults to `127.0.0.1:9008`. The web defaults to `127.0.0.1:9007` and proxies API requests to the fastapi.
@@ -57,7 +63,7 @@ yarn --cwd web build
 If your change affects packaging, also run:
 
 ```bash
-make build
+just build
 ```
 
 ## Pull request guidelines

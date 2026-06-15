@@ -78,6 +78,7 @@ from termbridge.ttyd import ttyd_client_options
 
 logger = logging.getLogger(__name__)
 
+
 def _is_windows_host() -> bool:
     return os.name == "nt"
 
@@ -798,9 +799,7 @@ class TerminalService:
             "linux": "Linux",
         }
 
-    def _shortcut_from_definition(
-        self, host: ShortcutHost, name: str, definition: ShortcutDefinition
-    ) -> Shortcut:
+    def _shortcut_from_definition(self, host: ShortcutHost, name: str, definition: ShortcutDefinition) -> Shortcut:
         return Shortcut(
             id=definition.id,
             name=name,

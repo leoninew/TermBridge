@@ -44,7 +44,7 @@ Review status: Accepted
 
 计划新增：
 
-- `Makefile`
+- `justfile`
 - `web/package.json`
 - `web/yarn.lock`
 - `web/index.html`

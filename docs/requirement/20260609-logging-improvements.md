@@ -66,7 +66,7 @@ uvicorn.run("cc_ttyd.main:app", host="127.0.0.1", port=9008, reload=False)
 - `main.py` 不再直接调用 `logging.basicConfig(...)`。
 - `uvicorn.run(...)` 使用统一 `log_config`。
 - log config 定义 root logger、default formatter、console handler，并显式配置 `uvicorn` / `uvicorn.error` / `uvicorn.access`。
-- logging 初始化位于 app 初始化路径，确保 `uvicorn cc_ttyd.main:app --reload` / `make fastapi` 不绕过请求日志配置。
+- logging 初始化位于 app 初始化路径，确保 `uvicorn cc_ttyd.main:app --reload` / `just dev-backend` 不绕过请求日志配置。
 - `create_app()` 或应用初始化流程安装 request logging middleware。
 - `uvicorn.access` 被禁用或降噪，避免和自定义 request log 重复。
 - 请求日志包含 method、path、status、duration。
