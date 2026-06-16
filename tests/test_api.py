@@ -39,6 +39,7 @@ from termbridge.models import (
     WindowsWslSettings,
 )
 from termbridge.services import TerminalProxyTarget
+from termbridge.settings import Settings
 from termbridge.ttyd import TTYD_THEMES
 
 
@@ -242,13 +243,13 @@ class FakeTerminalService:
 
 
 def make_client(service: FakeSessionService) -> TestClient:
-    app = create_app()
+    app = create_app(Settings())
     app.dependency_overrides[get_session_service] = lambda: service
     return TestClient(app)
 
 
 def test_health() -> None:
-    client = TestClient(create_app())
+    client = TestClient(create_app(Settings()))
 
     response = client.get("/health")
 
@@ -264,7 +265,7 @@ def test_web_static_routes(tmp_path: Path) -> None:
     index_file.write_text("<html><body>TermBridge</body></html>", encoding="utf-8")
     asset_file = assets_dir / "app.js"
     asset_file.write_text("console.log('termbridge')", encoding="utf-8")
-    client = TestClient(create_app(web_dir=web_dir))
+    client = TestClient(create_app(Settings(), web_dir=web_dir))
 
     root = client.get("/")
     environment = client.get("/environment")
@@ -343,7 +344,7 @@ def test_session_api_routes(tmp_path: Path) -> None:
 def test_shortcut_api_routes() -> None:
     service = FakeTerminalService()
     session_service = FakeSessionService(with_session=False)
-    app = create_app()
+    app = create_app(Settings())
     app.dependency_overrides[get_terminal_service] = lambda: service
     app.dependency_overrides[get_session_service] = lambda: session_service
     client = TestClient(app)
@@ -392,7 +393,7 @@ def test_terminal_http_proxy_adds_basic_auth_header() -> None:
             200, content=b"terminal", headers={"content-type": "text/plain", "transfer-encoding": "chunked"}
         )
 
-    app = create_app(serve_web=False)
+    app = create_app(Settings(terminal_proxy_timeout_seconds=15.5), serve_web=False)
     app.dependency_overrides[get_session_service] = lambda: FakeSessionService()
     app.router.on_startup.clear()
     client = TestClient(app)
@@ -400,6 +401,7 @@ def test_terminal_http_proxy_adds_basic_auth_header() -> None:
 
     class MockAsyncClient(httpx.AsyncClient):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
+            captured["timeout"] = kwargs.get("timeout")
             kwargs["transport"] = transport
             super().__init__(*args, **kwargs)
 
@@ -414,6 +416,7 @@ def test_terminal_http_proxy_adds_basic_auth_header() -> None:
     assert response.text == "terminal"
     assert response.headers["content-type"] == "text/plain"
     assert "transfer-encoding" not in response.headers
+    assert captured["timeout"] == 15.5
     assert captured["authorization"] == "Basic dGVybWJyaWRnZTpzZWNyZXQ="
     upstream_url = urlsplit(str(captured["url"]))
     assert f"{upstream_url.scheme}://{upstream_url.netloc}{upstream_url.path}" == "http://127.0.0.1:19001/token"
@@ -446,7 +449,7 @@ def test_terminal_websocket_upstream_close_is_not_logged_as_proxy_failure(
         async def close(self) -> None:
             return None
 
-    app = create_app(serve_web=False)
+    app = create_app(Settings(), serve_web=False)
     app.dependency_overrides[get_session_service] = lambda: FakeSessionService()
     app.router.on_startup.clear()
     client = TestClient(app)
@@ -473,7 +476,7 @@ def test_terminal_websocket_upstream_close_is_not_logged_as_proxy_failure(
 
 
 def test_environment_api_routes() -> None:
-    app = create_app()
+    app = create_app(Settings())
     app.dependency_overrides[get_terminal_service] = lambda: FakeTerminalService()
     client = TestClient(app)
 

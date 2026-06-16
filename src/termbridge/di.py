@@ -13,9 +13,8 @@ from termbridge.settings import Settings, load_settings
 SettingsDep = Annotated[Settings, Depends(load_settings)]
 
 
-@lru_cache
-def get_process_adapter() -> ProcessAdapter:
-    return TtydProcessAdapter()
+def get_process_adapter(settings: SettingsDep) -> ProcessAdapter:
+    return TtydProcessAdapter(settings)
 
 
 @lru_cache

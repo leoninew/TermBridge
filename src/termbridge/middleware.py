@@ -5,10 +5,11 @@ from collections.abc import AsyncIterator
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from starlette.types import Message
+from starlette.types import ASGIApp, Message
+
+from termbridge.settings import Settings
 
 logger = logging.getLogger(__name__)
-BODY_LOG_LIMIT = 1024
 
 
 def _full_path(request: Request) -> str:
@@ -23,11 +24,15 @@ def _is_json_content_type(content_type: str) -> bool:
     return media_type == "application/json" or media_type.endswith("+json")
 
 
-def _truncate_body(body: str) -> str:
-    return body[:BODY_LOG_LIMIT]
+def _truncate_body(body: str, limit: int) -> str:
+    return body[:limit]
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app: ASGIApp, *, settings: Settings) -> None:
+        super().__init__(app)
+        self.settings = settings
+
     async def _try_get_request_body(self, request: Request) -> str | None:
         if request.method == "GET" or not _is_json_content_type(request.headers.get("content-type", "")):
             return None
@@ -73,7 +78,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         logger.info("Request begin method=%s path=%s", request.method, path)
         request_body = await self._try_get_request_body(request)
         if request_body:
-            logger.info("Request body=%s", _truncate_body(request_body))
+            logger.info("Request body=%s", _truncate_body(request_body, self.settings.body_log_limit))
 
         try:
             response = await call_next(request)
@@ -106,5 +111,5 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             duration_ms,
         )
         if response_body:
-            log("Response body=%s", _truncate_body(response_body))
+            log("Response body=%s", _truncate_body(response_body, self.settings.body_log_limit))
         return response

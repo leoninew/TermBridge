@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from websockets.typing import Origin, Subprotocol
 
-from termbridge.di import SessionServiceDep, TerminalServiceDep, WorkspaceBrowserServiceDep
+from termbridge.di import SessionServiceDep, SettingsDep, TerminalServiceDep, WorkspaceBrowserServiceDep
 from termbridge.exceptions import (
     InvalidTerminalCommandError,
     InvalidTerminalConfigError,
@@ -60,7 +60,7 @@ from termbridge.models import (
     WorkspaceRootsResponse,
     WorkspaceTreeResponse,
 )
-from termbridge.settings import load_settings
+from termbridge.settings import Settings, load_settings
 from termbridge.ttyd import normalize_ttyd_client_query
 
 router = APIRouter()
@@ -349,7 +349,9 @@ def redirect_terminal_root(session_id: str) -> RedirectResponse:
 
 
 @router.get("/terminal/{session_id}/{path:path}", include_in_schema=False)
-async def proxy_terminal_http(session_id: str, path: str, request: Request, service: SessionServiceDep) -> Response:
+async def proxy_terminal_http(
+    session_id: str, path: str, request: Request, service: SessionServiceDep, settings: SettingsDep
+) -> Response:
     target = service.terminal_proxy_target(session_id)
     target_path = path or ""
     target_url = f"{target.base_url.rstrip('/')}/{target_path}"
@@ -363,7 +365,7 @@ async def proxy_terminal_http(session_id: str, path: str, request: Request, serv
     if normalized_query:
         target_url = f"{target_url}?{normalized_query}"
     headers = _target_headers(target.credential)
-    async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
+    async with httpx.AsyncClient(timeout=settings.terminal_proxy_timeout_seconds, follow_redirects=False) as client:
         try:
             upstream = await client.request(request.method, target_url, headers=headers, content=await request.body())
         except httpx.HTTPError as exc:
@@ -524,17 +526,19 @@ def _resolve_web_dir(web_dir: Path | None) -> Path | None:
     return None
 
 
-def create_app(*, serve_web: bool = True, web_dir: Path | None = None) -> FastAPI:
-    settings = load_settings()
+def create_app(settings: Settings, *, serve_web: bool | None = None, web_dir: Path | None = None) -> FastAPI:
     configure_logging(settings)
+    serve_web = settings.serve_web if serve_web is None else serve_web
+    web_dir = settings.web_dir if web_dir is None else web_dir
 
     app = FastAPI(title="TermBridge")
+    app.dependency_overrides[load_settings] = lambda: settings
     for error_type, _mapping in DOMAIN_ERROR_MAPPINGS:
         app.add_exception_handler(error_type, domain_exception_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
-    app.add_middleware(RequestLoggingMiddleware)
+    app.add_middleware(RequestLoggingMiddleware, settings=settings)
     app.include_router(router)
 
     static_dir = _resolve_web_dir(web_dir) if serve_web else None

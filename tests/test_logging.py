@@ -20,6 +20,20 @@ def test_settings_default_logging_level() -> None:
     assert settings.logging_level == "INFO"
 
 
+def test_settings_default_body_log_limit() -> None:
+    settings = Settings()
+
+    assert settings.body_log_limit == 4096
+
+
+def test_settings_body_log_limit_uses_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TERMBRIDGE_BODY_LOG_LIMIT", "2048")
+
+    settings = Settings()
+
+    assert settings.body_log_limit == 2048
+
+
 def test_settings_default_session_port_range() -> None:
     settings = Settings()
 
@@ -50,7 +64,7 @@ def test_settings_logging_level_uses_environment(monkeypatch: pytest.MonkeyPatch
 
 
 def test_logging_config_uses_explicit_format_and_root_handler() -> None:
-    config = logging_config("DEBUG")
+    config = logging_config(Settings(logging_level="DEBUG"))
 
     assert LOG_FORMAT == "%(asctime)s [%(levelname).5s] %(name)s:%(lineno)d %(message)s"
     assert LOG_DATE_FORMAT == "%Y-%m-%d %H:%M:%S"
@@ -71,7 +85,7 @@ def test_create_app_configures_logging_for_uvicorn_cli_entry(monkeypatch: pytest
 
     monkeypatch.setattr(logging.config, "dictConfig", fake_dict_config)
 
-    create_app()
+    create_app(Settings())
 
     assert calls
     assert calls[0]["root"] == {"handlers": ["console"], "level": "INFO"}
@@ -90,7 +104,9 @@ def test_main_runs_uvicorn_with_project_log_config(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(sys, "argv", ["termbridge", "--host", "0.0.0.0", "--port", "9010", "--reload"])
     monkeypatch.setattr("termbridge.main.uvicorn.run", fake_run)
-    monkeypatch.setattr(main_module, "load_settings", lambda: Settings(logging_level="DEBUG"))
+    monkeypatch.setattr(
+        main_module, "load_settings", lambda: Settings(logging_level="DEBUG", api_host="localhost", api_port=9008)
+    )
 
     main_module.main()
 
@@ -102,14 +118,14 @@ def test_main_runs_uvicorn_with_project_log_config(monkeypatch: pytest.MonkeyPat
                 "port": 9010,
                 "reload": True,
                 "reload_dirs": ["src"],
-                "log_config": logging_config("DEBUG"),
+                "log_config": logging_config(Settings(logging_level="DEBUG", api_host="localhost", api_port=9008)),
             },
         )
     ]
 
 
 def test_logging_config_takes_over_uvicorn_loggers_and_disables_access() -> None:
-    config = logging_config("DEBUG")
+    config = logging_config(Settings(logging_level="DEBUG"))
 
     assert config["loggers"]["termbridge"]["level"] == "DEBUG"
     assert config["loggers"]["uvicorn"] == {
@@ -129,6 +145,16 @@ def test_logging_config_takes_over_uvicorn_loggers_and_disables_access() -> None
     }
 
 
+def test_logging_config_can_enable_uvicorn_access_log() -> None:
+    config = logging_config(Settings(logging_level="DEBUG", uvicorn_access_log=True))
+
+    assert config["loggers"]["uvicorn.access"] == {
+        "handlers": ["console"],
+        "level": "DEBUG",
+        "propagate": False,
+    }
+
+
 @pytest.fixture
 def middleware_logger_for_caplog() -> Iterator[None]:
     loggers = [logging.getLogger("termbridge"), logging.getLogger("termbridge.middleware")]
@@ -144,9 +170,9 @@ def middleware_logger_for_caplog() -> Iterator[None]:
             logger.propagate = propagate
 
 
-def make_logging_test_client() -> TestClient:
+def make_logging_test_client(*, settings: Settings) -> TestClient:
     app = FastAPI()
-    app.add_middleware(RequestLoggingMiddleware)
+    app.add_middleware(RequestLoggingMiddleware, settings=settings)
 
     @app.get("/ok")
     def ok() -> dict[str, str]:
@@ -170,7 +196,7 @@ def make_logging_test_client() -> TestClient:
 def test_request_logging_includes_query_string_and_duration(
     caplog: pytest.LogCaptureFixture, middleware_logger_for_caplog: None
 ) -> None:
-    client = make_logging_test_client()
+    client = make_logging_test_client(settings=Settings())
 
     with caplog.at_level(logging.INFO, logger="termbridge.middleware"):
         response = client.get("/ok", params={"q": "hello"})
@@ -197,7 +223,7 @@ def test_request_logging_includes_query_string_and_duration(
 def test_request_logging_includes_json_request_and_response_bodies(
     caplog: pytest.LogCaptureFixture, middleware_logger_for_caplog: None
 ) -> None:
-    client = make_logging_test_client()
+    client = make_logging_test_client(settings=Settings())
 
     with caplog.at_level(logging.INFO, logger="termbridge.middleware"):
         response = client.post("/echo", json={"name": "demo"})
@@ -213,10 +239,27 @@ def test_request_logging_includes_json_request_and_response_bodies(
     )
 
 
+def test_request_logging_uses_configured_body_log_limit(
+    caplog: pytest.LogCaptureFixture, middleware_logger_for_caplog: None
+) -> None:
+    client = make_logging_test_client(settings=Settings(body_log_limit=12))
+
+    with caplog.at_level(logging.INFO, logger="termbridge.middleware"):
+        response = client.post("/echo", json={"name": "demo"})
+
+    assert response.status_code == 200
+    assert any(
+        record.levelno == logging.INFO and 'Request body={"name":"de' in record.message for record in caplog.records
+    )
+    assert not any(
+        record.levelno == logging.INFO and 'Request body={"name":"demo"}' in record.message for record in caplog.records
+    )
+
+
 def test_request_logging_uses_warning_for_4xx(
     caplog: pytest.LogCaptureFixture, middleware_logger_for_caplog: None
 ) -> None:
-    client = make_logging_test_client()
+    client = make_logging_test_client(settings=Settings())
 
     with caplog.at_level(logging.WARNING, logger="termbridge.middleware"):
         response = client.get("/missing")
@@ -228,7 +271,7 @@ def test_request_logging_uses_warning_for_4xx(
 def test_request_logging_uses_error_for_unhandled_exception(
     caplog: pytest.LogCaptureFixture, middleware_logger_for_caplog: None
 ) -> None:
-    client = make_logging_test_client()
+    client = make_logging_test_client(settings=Settings())
 
     with caplog.at_level(logging.ERROR, logger="termbridge.middleware"):
         response = client.get("/broken")

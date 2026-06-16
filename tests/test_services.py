@@ -124,6 +124,7 @@ def make_service(
     ttyd_credential_username: str = "termbridge",
     ttyd_credential_password: str = "",
     public_base_url: str | None = None,
+    ttyd_writable: bool = True,
 ) -> SessionService:
     settings = Settings(
         ttyd_executable="ttyd",
@@ -137,6 +138,7 @@ def make_service(
         ttyd_credential_mode=ttyd_credential_mode,
         ttyd_credential_username=ttyd_credential_username,
         ttyd_credential_password=ttyd_credential_password,
+        ttyd_writable=ttyd_writable,
     )
     return SessionService(
         settings=settings,
@@ -206,6 +208,15 @@ def test_service_uses_ttyd_log_file_when_file_mode_is_enabled(tmp_path: Path) ->
 
     assert process.started[0][2] == tmp_path / "state" / "logs" / "ttyd" / f"{response.id}.log"
     assert process.started[0][3] is False
+
+
+def test_service_omits_ttyd_writable_flag_when_disabled(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    service = make_service(tmp_path, process, ttyd_writable=False)
+
+    service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+
+    assert "--writable" not in process.started[0][0]
 
 
 def test_service_omits_ttyd_credential_when_mode_is_none(tmp_path: Path) -> None:

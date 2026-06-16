@@ -165,12 +165,12 @@ class TerminalService:
         shortcut_repository: FileShortcutRepository,
         session_repository: FileSessionRepository,
         *,
-        settings: Settings | None = None,
+        settings: Settings,
     ) -> None:
         self._repository = repository
         self._shortcut_repository = shortcut_repository
         self._session_repository = session_repository
-        self._settings = settings or Settings()
+        self._settings = settings
 
     def list_shortcuts(self) -> ShortcutListResponse:
         state = self._ensure_default_shortcuts(self._shortcut_repository.get_state())
@@ -1497,7 +1497,6 @@ class SessionService:
     ) -> list[str]:
         command = [
             ttyd_executable,
-            "--writable",
             "--interface",
             self._settings.ttyd_interface,
             "--port",
@@ -1505,6 +1504,8 @@ class SessionService:
             "--cwd",
             str(workspace),
         ]
+        if self._settings.ttyd_writable:
+            command.insert(1, "--writable")
         if credential is not None:
             command.extend(["--credential", f"{credential.username}:{credential.password}"])
         for key, value in ttyd_client_options().items():

@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, Protocol
 
+from termbridge.settings import Settings
+
 
 @dataclass(frozen=True)
 class ProcessHandle:
@@ -27,9 +29,10 @@ class ProcessAdapter(Protocol):
 
 
 class TtydProcessAdapter:
-    def __init__(self) -> None:
+    def __init__(self, settings: Settings) -> None:
         self._processes: dict[int, subprocess.Popen[bytes]] = {}
         self._log_files: dict[int, BinaryIO] = {}
+        self._settings = settings
 
     def start(
         self,
@@ -66,10 +69,10 @@ class TtydProcessAdapter:
         if process.poll() is None:
             process.terminate()
             try:
-                process.wait(timeout=5)
+                process.wait(timeout=self._settings.process_shutdown_timeout_seconds)
             except subprocess.TimeoutExpired:
                 process.kill()
-                process.wait(timeout=5)
+                process.wait(timeout=self._settings.process_shutdown_timeout_seconds)
         self._processes.pop(handle.pid, None)
         self._close_log_file(handle.pid)
 

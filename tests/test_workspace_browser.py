@@ -8,6 +8,7 @@ from termbridge.di import get_workspace_browser_service
 from termbridge.exceptions import WorkspacePathNotDirectoryError, WorkspacePathNotFoundError
 from termbridge.models import WorkspaceRoot, WorkspaceRootsResponse, WorkspaceTreeNode, WorkspaceTreeResponse
 from termbridge.services import WorkspaceBrowserService
+from termbridge.settings import Settings
 
 
 def test_workspace_browser_lists_direct_child_directories(tmp_path: Path) -> None:
@@ -93,7 +94,7 @@ class FakeWorkspaceBrowserService:
 
 
 def make_client() -> TestClient:
-    app = create_app()
+    app = create_app(Settings())
     app.dependency_overrides[get_workspace_browser_service] = lambda: FakeWorkspaceBrowserService()
     return TestClient(app)
 

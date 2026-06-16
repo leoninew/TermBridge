@@ -28,6 +28,7 @@ from termbridge.settings import Settings
 
 
 def make_service(tmp_path: Path, *, settings: Settings | None = None) -> TerminalService:
+    settings = settings or Settings()
     return TerminalService(
         FileTerminalRepository(tmp_path / "terminals.json"),
         FileShortcutRepository(tmp_path / "shortcuts.json"),
