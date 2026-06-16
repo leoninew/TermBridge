@@ -34,6 +34,7 @@ import type {
   CreateSessionPayload,
   Session,
   SessionEnvironment,
+  SessionStatus,
   SessionWorkspace,
   ShortcutHost,
 } from '../types/sessions'
@@ -143,7 +144,7 @@ function reconcileOpenTerminalSessions() {
   }
 }
 
-function sessionWorkspaceStatus(entries: Session[]) {
+function sessionWorkspaceStatus(entries: Session[]): SessionStatus {
   if (entries.some((entry) => entry.status === 'running')) {
     return 'running'
   }
@@ -159,11 +160,56 @@ function sessionWorkspaceStatus(entries: Session[]) {
   return 'stopped'
 }
 
-function updateSessionInWorkspace(workspace: SessionWorkspace, session: Session): SessionWorkspace {
+function isShortcutHost(host: string | null | undefined): host is ShortcutHost {
+  return host === 'windows_cygwin' || host === 'windows_wsl' || host === 'linux'
+}
+
+function sessionHost(session: Session): ShortcutHost | undefined {
+  if (isShortcutHost(session.host)) {
+    return session.host
+  }
+  return isShortcutHost(session.runtime) ? session.runtime : undefined
+}
+
+function environmentLabel(host: ShortcutHost) {
+  return (
+    sessionTree.value.find((environment) => environment.host === host)?.label ||
+    environmentStore.environments.find((environment) => environment.host === host)?.label ||
+    {
+      windows_cygwin: 'Cygwin',
+      windows_wsl: 'WSL',
+      linux: 'Linux',
+    }[host]
+  )
+}
+
+function workspaceName(path: string) {
+  const normalized = path.replace(/\\/g, '/').replace(/\/$/, '')
+  return normalized.split('/').filter(Boolean).at(-1) || path
+}
+
+function upsertSessionEntry(entries: Session[], session: Session) {
+  return entries.some((entry) => entry.id === session.id)
+    ? entries.map((entry) => (entry.id === session.id ? session : entry))
+    : [...entries, session]
+}
+
+function workspaceFromSession(session: Session, host: ShortcutHost): SessionWorkspace {
+  return {
+    id: session.workspace_id,
+    host,
+    name: workspaceName(session.workspace),
+    path: session.workspace,
+    status: sessionWorkspaceStatus([session]),
+    entries: [session],
+  }
+}
+
+function upsertSessionInWorkspace(workspace: SessionWorkspace, session: Session): SessionWorkspace {
   if (workspace.id !== session.workspace_id) {
     return workspace
   }
-  const entries = workspace.entries.map((entry) => (entry.id === session.id ? session : entry))
+  const entries = upsertSessionEntry(workspace.entries, session)
   return {
     ...workspace,
     status: sessionWorkspaceStatus(entries),
@@ -171,12 +217,65 @@ function updateSessionInWorkspace(workspace: SessionWorkspace, session: Session)
   }
 }
 
+function upsertSessionInEnvironment(
+  environment: SessionEnvironment,
+  session: Session,
+  host: ShortcutHost,
+): SessionEnvironment {
+  if (environment.host !== host) {
+    return environment
+  }
+  const hasWorkspace = environment.workspaces.some((workspace) => workspace.id === session.workspace_id)
+  const workspaces = hasWorkspace
+    ? environment.workspaces.map((workspace) => upsertSessionInWorkspace(workspace, session))
+    : [...environment.workspaces, workspaceFromSession(session, host)]
+  return {
+    ...environment,
+    workspaces,
+  }
+}
+
 function updateSession(session: Session) {
-  sessions.value = sessions.value.map((entry) => (entry.id === session.id ? session : entry))
+  sessions.value = upsertSessionEntry(sessions.value, session)
+  const host = sessionHost(session)
+  if (!host) {
+    reconcileOpenTerminalSessions()
+    return
+  }
+
+  const hasEnvironment = sessionTree.value.some((environment) => environment.host === host)
+  const environments = hasEnvironment
+    ? sessionTree.value.map((environment) => upsertSessionInEnvironment(environment, session, host))
+    : [
+        ...sessionTree.value,
+        {
+          host,
+          label: environmentLabel(host),
+          workspaces: [workspaceFromSession(session, host)],
+        },
+      ]
+  sessionTree.value = environments
+  reconcileOpenTerminalSessions()
+}
+
+function removeSessionFromWorkspace(workspace: SessionWorkspace, session: Session): SessionWorkspace {
+  if (workspace.id !== session.workspace_id && !workspace.entries.some((entry) => entry.id === session.id)) {
+    return workspace
+  }
+  const entries = workspace.entries.filter((entry) => entry.id !== session.id)
+  return {
+    ...workspace,
+    status: sessionWorkspaceStatus(entries),
+    entries,
+  }
+}
+
+function removeSession(session: Session) {
+  sessions.value = sessions.value.filter((entry) => entry.id !== session.id)
   sessionTree.value = sessionTree.value.map((environment) => ({
     ...environment,
     workspaces: environment.workspaces.map((workspace) =>
-      updateSessionInWorkspace(workspace, session),
+      removeSessionFromWorkspace(workspace, session),
     ),
   }))
   reconcileOpenTerminalSessions()
@@ -218,7 +317,7 @@ async function handleCreate(payload: CreateSessionPayload) {
   creatingSession.value = true
   try {
     const session = await createSession(payload)
-    await loadSessions()
+    updateSession(session)
     openTerminalSession(session)
     showCreatePanel.value = false
     await router.push('/session')
@@ -239,15 +338,12 @@ async function confirmRemove() {
   }
 
   error.value = ''
-  const sessionId = deletingSession.value.id
+  const session = deletingSession.value
+  const sessionId = session.id
   deletingSessionId.value = sessionId
   try {
     await deleteSession(sessionId)
-    await loadSessions()
-    openTerminalSessionIds.value = openTerminalSessionIds.value.filter((id) => id !== sessionId)
-    if (activeSessionId.value === sessionId) {
-      activeSessionId.value = openTerminalSessionIds.value[0]
-    }
+    removeSession(session)
     deletingSession.value = undefined
     toast.show({ title: t('app.success.deleteSession'), variant: 'success' })
   } catch (err) {
