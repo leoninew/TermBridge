@@ -130,7 +130,9 @@ function environmentLogo(host: ShortcutHost | null | undefined) {
 </script>
 
 <template>
-  <section class="flex h-full min-h-0 flex-col bg-slate-950 opacity-90 dark:bg-slate-950">
+  <section
+    class="flex h-full min-h-0 flex-col bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+  >
     <TabsRoot
       :model-value="activeTab"
       class="flex min-h-0 flex-1 flex-col"
@@ -183,15 +185,15 @@ function environmentLogo(host: ShortcutHost | null | undefined) {
 
       <div
         v-if="!session"
-        class="flex min-h-0 flex-1 items-center justify-center bg-slate-950 text-slate-300"
+        class="flex min-h-0 flex-1 items-center justify-center bg-slate-100 text-slate-600 dark:bg-slate-950 dark:text-slate-300"
       >
         <div class="grid justify-items-center gap-3 text-sm">
-          <Monitor class="h-10 w-10" />
+          <Monitor class="h-10 w-10 text-slate-400 dark:text-slate-500" />
           <span>
             {{ t('session.terminal.emptyPrefix') }}
             <button
               type="button"
-              class="text-blue-300 transition hover:text-blue-200"
+              class="font-medium text-blue-700 transition hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
               @click="emit('create')"
             >
               {{ t('session.terminal.createLink') }}
@@ -209,7 +211,7 @@ function environmentLogo(host: ShortcutHost | null | undefined) {
       >
         <div
           v-if="item.status !== 'running'"
-          class="flex h-full min-h-0 items-center justify-center bg-slate-950 text-slate-300"
+          class="flex h-full min-h-0 items-center justify-center bg-slate-100 text-slate-600 dark:bg-slate-950 dark:text-slate-300"
         >
           <div class="grid justify-items-center gap-3">
             <span v-if="item.status === 'disconnected'">
@@ -236,7 +238,7 @@ function environmentLogo(host: ShortcutHost | null | undefined) {
         </div>
         <div
           v-else-if="!item.url"
-          class="flex h-full min-h-0 items-center justify-center bg-slate-950 text-slate-300"
+          class="flex h-full min-h-0 items-center justify-center bg-slate-100 text-slate-600 dark:bg-slate-950 dark:text-slate-300"
         >
           {{ t('session.terminal.missingUrl') }}
         </div>
