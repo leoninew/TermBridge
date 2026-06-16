@@ -5,6 +5,7 @@ install:
     uv sync --group dev
 
 dev:
+    rm -rf src/termbridge/static
     uv run python scripts/dev.py
 
 dev-backend:

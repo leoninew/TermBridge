@@ -111,6 +111,8 @@
       "noReadyEnvironment": "No runtime environment is ready. Open environment management to run checks or fill required paths.",
       "goToEnvironment": "Go to environment management",
       "searchPlaceholder": "Search directory paths",
+      "expandGroup": "Expand all directories in this environment",
+      "collapseGroup": "Collapse all directories in this environment",
       "collapse": "Collapse"
     },
     "card": {

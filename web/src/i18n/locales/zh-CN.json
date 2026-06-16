@@ -111,6 +111,8 @@
       "noReadyEnvironment": "当前没有就绪的运行环境。请先进入环境管理执行检测或填写必要路径。",
       "goToEnvironment": "去环境管理",
       "searchPlaceholder": "搜索目录路径",
+      "expandGroup": "展开此环境下的所有目录",
+      "collapseGroup": "收起此环境下的所有目录",
       "collapse": "收起"
     },
     "card": {

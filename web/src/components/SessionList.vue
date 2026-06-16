@@ -4,6 +4,8 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Folder,
   Languages,
   LaptopMinimal,
@@ -82,6 +84,7 @@ const query = ref('')
 const selectedTreeNodes = ref<SessionTreeNode[]>([])
 const expandedTreeKeys = ref<string[]>([])
 const displayTreeGroups = ref<SessionTreeGroup[]>([])
+const lastDefaultExpansionKey = ref('')
 
 const props = defineProps<{
   sessions: Session[]
@@ -136,10 +139,6 @@ const treeGroups = computed<SessionTreeGroup[]>(() =>
   })),
 )
 
-const treeNodes = computed<SessionTreeNode[]>(() =>
-  displayTreeGroups.value.flatMap((group) => group.nodes),
-)
-
 const hasWorkspaceNodes = computed(() =>
   props.sessionTree.some((environment) => environment.workspaces.length > 0),
 )
@@ -147,37 +146,43 @@ const shouldShowEmptySessions = computed(
   () => props.sessions.length === 0 && !hasWorkspaceNodes.value,
 )
 
-const defaultExpandedTreeKeys = computed(() => collectExpandableKeys(treeNodes.value))
-
 watch(
-  treeGroups,
-  (groups) => {
-    displayTreeGroups.value = groups.map((group) => ({
+  [treeGroups, () => props.activeSessionId, query],
+  ([groups, activeSessionId]) => {
+    const nextGroups = groups.map((group) => ({
       ...group,
       nodes: group.nodes.map((node) => ({
         ...node,
         children: node.children ? [...node.children] : [],
       })),
     }))
-  },
-  { immediate: true },
-)
+    const nextNodes = nextGroups.flatMap((group) => group.nodes)
+    const allWorkspaceKeys = collectExpandableKeys(nextNodes)
+    const defaultExpandedKeys = query.value ? allWorkspaceKeys : activeWorkspaceKeys(nextNodes)
+    const activeWorkspaceKey = defaultExpandedKeys.join('|')
+    const defaultExpansionKey = [query.value, activeWorkspaceKey, allWorkspaceKeys.join('|')].join(
+      '\n',
+    )
 
-watch(
-  defaultExpandedTreeKeys,
-  (keys) => {
-    expandedTreeKeys.value = keys
-  },
-  { immediate: true },
-)
+    displayTreeGroups.value = nextGroups
+    selectedTreeNodes.value = asSelectedList(
+      activeSessionId ? findTreeNode(nextNodes, `session:${activeSessionId}`) : undefined,
+    )
 
-watch(
-  [treeNodes, () => props.activeSessionId],
-  ([nodes, activeSessionId]) => {
-    const selectedNode = activeSessionId
-      ? findTreeNode(nodes, `session:${activeSessionId}`)
-      : undefined
-    selectedTreeNodes.value = asSelectedList(selectedNode)
+    if (query.value) {
+      expandedTreeKeys.value = defaultExpandedKeys
+      lastDefaultExpansionKey.value = defaultExpansionKey
+      return
+    }
+
+    const nextExpandedKeys = new Set(
+      expandedTreeKeys.value.filter((key) => allWorkspaceKeys.includes(key)),
+    )
+    if (defaultExpansionKey !== lastDefaultExpansionKey.value) {
+      defaultExpandedKeys.forEach((key) => nextExpandedKeys.add(key))
+      lastDefaultExpansionKey.value = defaultExpansionKey
+    }
+    expandedTreeKeys.value = [...nextExpandedKeys]
   },
   { immediate: true },
 )
@@ -209,6 +214,20 @@ function collectExpandableKeys(nodes: SessionTreeNode[]): string[] {
   ])
 }
 
+function isActiveStatus(session: Session): boolean {
+  return (
+    session.status === 'running' ||
+    session.status === 'starting' ||
+    session.status === 'disconnected'
+  )
+}
+
+function activeWorkspaceKeys(nodes: SessionTreeNode[]): string[] {
+  return nodes.flatMap((node) =>
+    node.children?.some((child) => child.session && isActiveStatus(child.session)) ? [node.id] : [],
+  )
+}
+
 function findTreeNode(nodes: SessionTreeNode[], id: string): SessionTreeNode | undefined {
   for (const node of nodes) {
     if (node.id === id) {
@@ -232,6 +251,36 @@ function isSelectedNode(node: SessionTreeNode): boolean {
 
 function isExpandedNode(node: SessionTreeNode): boolean {
   return expandedTreeKeys.value.includes(node.id)
+}
+
+function groupWorkspaceKeys(group: SessionTreeGroup): string[] {
+  return collectExpandableKeys(group.nodes)
+}
+
+function isExpandedGroup(group: SessionTreeGroup): boolean {
+  const workspaceKeys = groupWorkspaceKeys(group)
+  return (
+    workspaceKeys.length > 0 && workspaceKeys.every((key) => expandedTreeKeys.value.includes(key))
+  )
+}
+
+function hasVisibleGroupNodes(group: SessionTreeGroup): boolean {
+  return group.nodes.length > 0
+}
+
+function toggleGroupExpanded(event: globalThis.MouseEvent, group: SessionTreeGroup) {
+  event.preventDefault()
+  event.stopPropagation()
+
+  const workspaceKeys = groupWorkspaceKeys(group)
+  if (isExpandedGroup(group)) {
+    expandedTreeKeys.value = expandedTreeKeys.value.filter((key) => !workspaceKeys.includes(key))
+    return
+  }
+
+  const nextTreeKeys = new Set(expandedTreeKeys.value)
+  workspaceKeys.forEach((key) => nextTreeKeys.add(key))
+  expandedTreeKeys.value = [...nextTreeKeys]
 }
 
 function toggleExpanded(event: globalThis.MouseEvent, node: SessionTreeNode) {
@@ -323,7 +372,9 @@ function isStoppingSession(session: Session): boolean {
 }
 
 function startSessionLabel(session: Session): string {
-  return t(session.status === 'disconnected' ? 'session.card.reconnectLabel' : 'session.card.startLabel')
+  return t(
+    session.status === 'disconnected' ? 'session.card.reconnectLabel' : 'session.card.startLabel',
+  )
 }
 
 function sessionStatusTextClass(session: Session): string {
@@ -494,9 +545,29 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                 class="flex min-w-0 items-center gap-2 px-1.5 py-1 text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-400"
               >
                 <component :is="environmentLogo(group.host)" class="shrink-0" />
-                <span class="truncate">{{ group.label }}</span>
+                <span class="min-w-0 flex-1 truncate">{{ group.label }}</span>
+                <button
+                  type="button"
+                  class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-400 transition hover:bg-white/45 hover:text-slate-700 focus:outline-none disabled:cursor-default disabled:opacity-40 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  :disabled="!hasVisibleGroupNodes(group)"
+                  :aria-label="
+                    isExpandedGroup(group)
+                      ? t('session.list.collapseGroup')
+                      : t('session.list.expandGroup')
+                  "
+                  :title="
+                    isExpandedGroup(group)
+                      ? t('session.list.collapseGroup')
+                      : t('session.list.expandGroup')
+                  "
+                  @click="toggleGroupExpanded($event, group)"
+                >
+                  <ChevronsDownUp v-if="isExpandedGroup(group)" class="h-4 w-4" />
+                  <ChevronsUpDown v-else class="h-4 w-4" />
+                </button>
               </div>
               <VueDraggable
+                v-if="hasVisibleGroupNodes(group)"
                 v-model="group.nodes"
                 :group="{ name: `workspaces:${group.host}`, pull: false, put: false }"
                 ghost-class="session-list-ghost"
