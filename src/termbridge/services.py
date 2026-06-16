@@ -9,8 +9,9 @@ import re
 import secrets
 import shlex
 import shutil
+import socket
 import subprocess
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -1066,6 +1067,7 @@ class SessionService:
         self._port_allocator = port_allocator
         self._process_adapter = process_adapter
         self._terminal_service = terminal_service
+        self._ttyd_port_checker: Callable[[int], bool] = self._default_ttyd_port_checker
 
     def create(self, request: CreateSessionRequest) -> SessionResponse:
         logger.info(
@@ -1142,7 +1144,7 @@ class SessionService:
     def terminal_proxy_target(self, session_id: str) -> TerminalProxyTarget:
         workspace, entry = self._repository.get_entry(session_id)
         entry = self._refresh_entry(workspace, entry)
-        if entry.status != SessionStatus.RUNNING or entry.pid is None:
+        if entry.status != SessionStatus.RUNNING or entry.port <= 0:
             raise SessionTerminalUnavailableError("Session terminal is not running")
         return TerminalProxyTarget(base_url=self._build_ttyd_base_url(entry.port), credential=entry.ttyd_credential)
 
@@ -1359,34 +1361,50 @@ class SessionService:
             workspace.path,
             tmux_window_id=entry.tmux_window_id,
         )
-        process_running = entry.pid is not None and self._process_adapter.is_running(ProcessHandle(pid=entry.pid))
+        ttyd_available = entry.port > 0 and self._ttyd_port_checker(entry.port)
 
-        if entry.status == SessionStatus.RUNNING and process_running and tmux_window_exists:
+        if tmux_window_exists and ttyd_available:
+            status = SessionStatus.RUNNING
+        elif tmux_window_exists:
+            status = SessionStatus.DISCONNECTED
+        else:
+            status = SessionStatus.STOPPED
+
+        next_pid = entry.pid if status == SessionStatus.RUNNING else None
+        next_url = self._build_url(entry.id) if status == SessionStatus.RUNNING else ""
+        next_tmux_window_id = entry.tmux_window_id if tmux_window_exists else None
+        if (
+            entry.status == status
+            and entry.pid == next_pid
+            and entry.url == next_url
+            and entry.tmux_window_id == next_tmux_window_id
+        ):
             return entry
 
-        if entry.status == SessionStatus.DISCONNECTED and tmux_window_exists:
-            return entry
-
-        if entry.status == SessionStatus.STOPPED and not entry.tmux_window_id:
-            return entry
-
-        status = SessionStatus.DISCONNECTED if tmux_window_exists else SessionStatus.STOPPED
         updated = entry.model_copy(
             update={
                 "status": status,
-                "pid": None,
-                "url": "",
-                "tmux_window_id": entry.tmux_window_id if tmux_window_exists else None,
+                "pid": next_pid,
+                "url": next_url,
+                "tmux_window_id": next_tmux_window_id,
                 "updated_at": utc_now(),
             }
         )
-        if updated == entry:
-            return entry
         try:
             self._repository.update_entry(updated)
         except SessionNotFoundError:
             logger.warning("Session entry disappeared while refreshing status entry_id=%s", entry.id)
         return updated
+
+    def _default_ttyd_port_checker(self, port: int) -> bool:
+        host = self._settings.ttyd_interface
+        if host in {"0.0.0.0", "::"}:
+            host = "127.0.0.1"
+        try:
+            with socket.create_connection((host, port), timeout=0.2):
+                return True
+        except OSError:
+            return False
 
     def _workspace_response(self, workspace: WorkspaceRecord) -> SessionWorkspaceResponse:
         entries = [SessionResponse.from_entry(workspace, entry) for entry in workspace.entries]

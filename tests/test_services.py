@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Literal, cast
 
@@ -125,6 +125,7 @@ def make_service(
     ttyd_credential_password: str = "",
     public_base_url: str | None = None,
     ttyd_writable: bool = True,
+    ttyd_port_open: bool | Callable[[int], bool] = True,
 ) -> SessionService:
     settings = Settings(
         ttyd_executable="ttyd",
@@ -140,7 +141,7 @@ def make_service(
         ttyd_credential_password=ttyd_credential_password,
         ttyd_writable=ttyd_writable,
     )
-    return SessionService(
+    service = SessionService(
         settings=settings,
         repository=FileSessionRepository(settings.sessions_file),
         runtime_registry=RuntimeRegistry(),
@@ -148,6 +149,8 @@ def make_service(
         process_adapter=process or FakeProcessAdapter(),
         terminal_service=cast(TerminalService, shortcut_service or FakeShortcutService()),
     )
+    service._ttyd_port_checker = ttyd_port_open if callable(ttyd_port_open) else lambda _port: ttyd_port_open
+    return service
 
 
 def assert_ttyd_client_options(command: list[str]) -> None:
@@ -493,12 +496,11 @@ def test_service_delete_workspace_removes_entries_and_workspace_session(tmp_path
     assert cygwin.workspaces == []
 
 
-def test_service_refresh_disconnects_entry_when_ttyd_process_stops(tmp_path: Path) -> None:
+def test_service_refresh_disconnects_entry_when_ttyd_port_closes(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
     shortcuts = FakeShortcutService()
-    service = make_service(tmp_path, process, shortcut_service=shortcuts)
+    service = make_service(tmp_path, process, shortcut_service=shortcuts, ttyd_port_open=False)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
-    process.running = False
 
     refreshed = service.get(response.id)
     entry = service._repository.get_entry(response.id)[1]
@@ -507,6 +509,20 @@ def test_service_refresh_disconnects_entry_when_ttyd_process_stops(tmp_path: Pat
     assert refreshed.url == ""
     assert entry.pid is None
     assert entry.tmux_window_id == "@1"
+
+
+def test_service_refresh_keeps_running_when_ttyd_port_is_open_without_process_cache(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    service = make_service(tmp_path, process)
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    _, entry = service._repository.get_entry(response.id)
+    service = make_service(tmp_path, FakeProcessAdapter())
+    service._repository.update_entry(entry.model_copy(update={"status": SessionStatus.DISCONNECTED, "pid": None, "url": ""}))
+
+    refreshed = service.get(response.id)
+
+    assert refreshed.status == SessionStatus.RUNNING
+    assert refreshed.url == f"/terminal/{response.id}/"
 
 
 def test_service_refresh_stops_entry_when_tmux_window_disappears(tmp_path: Path) -> None:
@@ -527,7 +543,7 @@ def test_service_refresh_stops_entry_when_tmux_window_disappears(tmp_path: Path)
 
 
 def test_service_refresh_promotes_stopped_entry_with_existing_window_to_disconnected(tmp_path: Path) -> None:
-    service = make_service(tmp_path)
+    service = make_service(tmp_path, ttyd_port_open=False)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
     _, entry = service._repository.get_entry(response.id)
     service._repository.update_entry(entry.model_copy(update={"status": SessionStatus.STOPPED, "pid": None, "url": ""}))
@@ -556,9 +572,8 @@ def test_service_refresh_stops_disconnected_entry_when_tmux_window_disappears(tm
 
 def test_service_rejects_terminal_proxy_for_disconnected_entry(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
-    service = make_service(tmp_path, process)
+    service = make_service(tmp_path, process, ttyd_port_open=False)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
-    process.running = False
     disconnected = service.get(response.id)
 
     with pytest.raises(SessionTerminalUnavailableError):
@@ -570,7 +585,7 @@ def test_service_starts_disconnected_entry_with_existing_window(tmp_path: Path) 
     shortcuts = FakeShortcutService()
     service = make_service(tmp_path, process, shortcut_service=shortcuts)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
-    process.running = False
+    service._ttyd_port_checker = lambda _port: False
     stopped = service.get(response.id)
 
     started = service.start(stopped.id)
@@ -586,7 +601,7 @@ def test_service_starts_stopped_entry_with_named_window_when_recorded_window_is_
     shortcuts = FakeShortcutService()
     service = make_service(tmp_path, process, shortcut_service=shortcuts)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
-    process.running = False
+    service._ttyd_port_checker = lambda _port: False
     stopped = service.get(response.id)
     shortcuts.window_exists = False
     shortcuts.window_by_name = "@7"
@@ -604,7 +619,7 @@ def test_service_starts_stopped_entry_with_new_window_when_existing_window_is_mi
     shortcuts = FakeShortcutService()
     service = make_service(tmp_path, process, shortcut_service=shortcuts)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
-    process.running = False
+    service._ttyd_port_checker = lambda _port: False
     stopped = service.get(response.id)
     shortcuts.window_exists = False
 
@@ -659,9 +674,8 @@ def test_service_lists_tree_grouped_by_environment_and_workspace(tmp_path: Path)
 
 def test_service_list_tree_reports_disconnected_workspace_status(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
-    service = make_service(tmp_path, process)
+    service = make_service(tmp_path, process, ttyd_port_open=False)
     service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
-    process.running = False
 
     tree = service.list_tree()
 

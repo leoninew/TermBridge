@@ -34,6 +34,7 @@ import type {
   CreateSessionPayload,
   Session,
   SessionEnvironment,
+  SessionWorkspace,
   ShortcutHost,
 } from '../types/sessions'
 
@@ -129,6 +130,10 @@ function applySessionTree(tree: SessionEnvironment[]) {
   sessions.value = tree.flatMap((environment) =>
     environment.workspaces.flatMap((workspace) => workspace.entries),
   )
+  reconcileOpenTerminalSessions()
+}
+
+function reconcileOpenTerminalSessions() {
   const sessionIds = new Set(sessions.value.map((session) => session.id))
   openTerminalSessionIds.value = openTerminalSessionIds.value.filter((sessionId) =>
     sessionIds.has(sessionId),
@@ -136,6 +141,45 @@ function applySessionTree(tree: SessionEnvironment[]) {
   if (activeSessionId.value && !sessionIds.has(activeSessionId.value)) {
     activeSessionId.value = openTerminalSessionIds.value[0]
   }
+}
+
+function sessionWorkspaceStatus(entries: Session[]) {
+  if (entries.some((entry) => entry.status === 'running')) {
+    return 'running'
+  }
+  if (entries.some((entry) => entry.status === 'disconnected')) {
+    return 'disconnected'
+  }
+  if (entries.some((entry) => entry.status === 'starting')) {
+    return 'starting'
+  }
+  if (entries.some((entry) => entry.status === 'failed')) {
+    return 'failed'
+  }
+  return 'stopped'
+}
+
+function updateSessionInWorkspace(workspace: SessionWorkspace, session: Session): SessionWorkspace {
+  if (workspace.id !== session.workspace_id) {
+    return workspace
+  }
+  const entries = workspace.entries.map((entry) => (entry.id === session.id ? session : entry))
+  return {
+    ...workspace,
+    status: sessionWorkspaceStatus(entries),
+    entries,
+  }
+}
+
+function updateSession(session: Session) {
+  sessions.value = sessions.value.map((entry) => (entry.id === session.id ? session : entry))
+  sessionTree.value = sessionTree.value.map((environment) => ({
+    ...environment,
+    workspaces: environment.workspaces.map((workspace) =>
+      updateSessionInWorkspace(workspace, session),
+    ),
+  }))
+  reconcileOpenTerminalSessions()
 }
 
 function openTerminalSession(session: Session) {
@@ -255,7 +299,7 @@ async function handleStart(session: Session) {
   startingSessionId.value = session.id
   try {
     const started = await startSession(session.id)
-    await loadSessions()
+    updateSession(started)
     openTerminalSession(started)
     toast.show({ title: t('app.success.startSession'), variant: 'success' })
     await router.push('/session')
@@ -275,7 +319,7 @@ async function handleStop(session: Session) {
   stoppingSessionId.value = session.id
   try {
     const stopped = await stopSession(session.id)
-    await loadSessions()
+    updateSession(stopped)
     openTerminalSession(stopped)
     toast.show({ title: t('app.success.stopSession'), variant: 'success' })
     await router.push('/session')
