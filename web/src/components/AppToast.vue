@@ -5,6 +5,7 @@ import { ToastProvider, ToastRoot, ToastTitle, ToastViewport } from 'reka-ui'
 import { useToastStore, type ToastVariant } from '../stores/toast'
 
 const toast = useToastStore()
+const toastProviderDuration = Number.POSITIVE_INFINITY
 
 const toastClasses = computed<Record<ToastVariant, { root: string; close: string }>>(() => ({
   success: {
@@ -21,7 +22,7 @@ const toastClasses = computed<Record<ToastVariant, { root: string; close: string
 </script>
 
 <template>
-  <ToastProvider :duration="3000" swipe-direction="right">
+  <ToastProvider :duration="toastProviderDuration" swipe-direction="right">
     <ToastRoot
       v-for="item in toast.items"
       :key="item.id"
