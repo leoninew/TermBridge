@@ -3,6 +3,7 @@ from __future__ import annotations
 import ctypes
 import hashlib
 import logging
+import ntpath
 import os
 import platform
 import re
@@ -1081,9 +1082,9 @@ class TerminalService:
 
     def _cygwin_process_env(self, bash_path: str) -> Mapping[str, str]:
         env = os.environ.copy()
-        cygwin_bin = str(Path(bash_path).parent)
+        cygwin_bin = ntpath.dirname(bash_path)
         current_path = env.get("PATH", "")
-        env["PATH"] = f"{cygwin_bin}{os.pathsep}{current_path}" if current_path else cygwin_bin
+        env["PATH"] = f"{cygwin_bin};{current_path}" if current_path else cygwin_bin
         return env
 
     def _resolve_executable(self, name: str, *, windows_names: tuple[str, ...] | None = None) -> str | None:

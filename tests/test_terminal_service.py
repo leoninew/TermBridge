@@ -1,3 +1,4 @@
+import ntpath
 import os
 import subprocess
 from pathlib import Path
@@ -404,25 +405,28 @@ def test_terminal_service_uses_configured_tmux_command_timeout(tmp_path: Path) -
 def test_terminal_service_uses_cygwin_env_for_tmux_commands(tmp_path: Path) -> None:
     repository = FileTerminalRepository(tmp_path / "terminals.json")
     state = repository.get_state()
+    cygwin_bin = "D:/ProgramFiles/Cygwin/bin"
+    cygwin_workspace = "/d/workspace"
     state.windows_cygwin_settings = WindowsCygwinSettings(
         readiness="ready",
-        bash_path="D:/ProgramFiles/Cygwin/bin/bash.exe",
-        tmux_path="D:/ProgramFiles/Cygwin/bin/tmux.exe",
+        bash_path=f"{cygwin_bin}/bash.exe",
+        tmux_path=f"{cygwin_bin}/tmux.exe",
     )
     repository.save_state(state)
     service = make_service(tmp_path)
     shortcut = service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="windows_cygwin"))
-    converted = subprocess.CompletedProcess(args=[], returncode=0, stdout="/d/workspace\n", stderr="")
+    converted = subprocess.CompletedProcess(args=[], returncode=0, stdout=f"{cygwin_workspace}\n", stderr="")
     created = subprocess.CompletedProcess(args=[], returncode=0, stdout="@3\n", stderr="")
-    current_path = subprocess.CompletedProcess(args=[], returncode=0, stdout="/d/workspace\n", stderr="")
+    current_path = subprocess.CompletedProcess(args=[], returncode=0, stdout=f"{cygwin_workspace}\n", stderr="")
 
     with patch("termbridge.services.subprocess.run", side_effect=[converted, created, current_path]) as run:
         service.create_tmux_window(shortcut, tmp_path, tmux_session_name="tb_cyg_workspace", window_name="Agent")
 
     env = run.call_args_list[1].kwargs["env"]
     assert env is not None
-    assert Path(env["PATH"].split(os.pathsep)[0]) == Path("D:/ProgramFiles/Cygwin/bin")
-    assert "-c /d/workspace" in run.call_args_list[1].args[0][2]
+    first_path_entry = env["PATH"].split(";")[0]
+    assert ntpath.normcase(first_path_entry) == ntpath.normcase(cygwin_bin)
+    assert f"-c {cygwin_workspace}" in run.call_args_list[1].args[0][2]
 
 
 def test_shortcut_service_resolves_linux_command_when_ready(tmp_path: Path) -> None:
