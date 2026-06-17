@@ -99,6 +99,13 @@ const openTerminalSessions = computed(() =>
     .filter((session): session is Session => !!session),
 )
 const workspaceLabels = computed(() => workspaceDisplayLabelsById(sessionTree.value))
+const createSessionFormKey = computed(() =>
+  [
+    createSessionContext.value.host || '',
+    createSessionContext.value.workspace || '',
+    createSessionContext.value.shortcutId || '',
+  ].join('\n'),
+)
 
 function errorTitle(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback
@@ -517,11 +524,8 @@ async function showCreate(context?: {
   workspace?: string
   shortcutId?: string
 }) {
-  if (context) {
-    createSessionContext.value = {
-      ...createSessionContext.value,
-      ...context,
-    }
+  if (context !== undefined) {
+    createSessionContext.value = context
   }
   showCreatePanel.value = true
   await router.push('/session')
@@ -604,6 +608,7 @@ onMounted(() => {
                 class="m-auto w-full max-w-3xl border border-slate-200 bg-white/35 p-5 dark:border-slate-800 dark:bg-slate-950"
               >
                 <SessionCreateForm
+                  :key="createSessionFormKey"
                   :environments="environmentStore.environments"
                   :submitting="creatingSession"
                   :initial-host="createSessionContext.host"
@@ -622,7 +627,7 @@ onMounted(() => {
               :starting-session-id="startingSessionId"
               :workspace-labels="workspaceLabels"
               @close="closeTerminalSession"
-              @create="showCreate"
+              @create="showCreate({})"
               @select="selectSession"
               @start="handleStart"
               @reorder-tabs="handleReorderTabs"

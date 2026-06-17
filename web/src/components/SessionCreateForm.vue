@@ -58,6 +58,7 @@ const form = reactive<CreateSessionPayload>({
 const loadingShortcuts = ref(false)
 const showWorkspaceBrowser = ref(false)
 const shortcutComboboxOpen = ref(false)
+const isHostLocked = computed(() => !!props.initialHost)
 const environmentsByHost = computed(
   () => new Map(props.environments.map((environment) => [environment.host, environment])),
 )
@@ -89,7 +90,9 @@ const fieldErrors = computed<Record<FieldName, string>>(() => {
 })
 
 watch([availableHosts, filteredShortcuts], () => {
-  if (!availableHosts.value.includes(selectedHost.value)) {
+  if (props.initialHost) {
+    selectedHost.value = props.initialHost
+  } else if (!availableHosts.value.includes(selectedHost.value)) {
     selectedHost.value = availableHosts.value[0] || 'windows_cygwin'
   }
   if (!filteredShortcuts.value.some((shortcut) => shortcut.id === form.shortcut_id)) {
@@ -224,7 +227,10 @@ function hostDisabledReason(host: ShortcutHost): string {
       </span>
     </label>
 
-    <label class="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
+    <label
+      v-if="!isHostLocked"
+      class="grid gap-2 text-sm text-slate-700 dark:text-slate-300"
+    >
       {{ t('session.create.host') }}
       <SelectRoot v-model="selectedHost">
         <SelectTrigger
