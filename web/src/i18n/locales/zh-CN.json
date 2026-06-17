@@ -141,16 +141,17 @@
       "missingUrl": "当前会话没有可用终端 URL。",
       "statusUnavailable": "当前状态为 {status}，终端暂不可用。",
       "disconnected": "终端连接已断开，底层会话仍在，可重连。",
+      "refreshingStatus": "正在检查会话状态...",
       "start": "启动会话",
       "reconnect": "重连会话",
       "iframeTitle": "{name} terminal"
     },
     "status": {
       "running": "运行中",
-      "starting": "启动中",
       "disconnected": "连接断开",
       "stopped": "已停止",
-      "failed": "失败"
+      "failed": "失败",
+      "unverified": "状态检查中"
     }
   },
   "workspace": {

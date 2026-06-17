@@ -49,6 +49,8 @@ const activeSessionId = ref<string>()
 const openTerminalSessionIds = ref<string[]>([])
 const initialSessionTreeLoading = ref(false)
 const sessionStatusRefreshing = ref(false)
+const sessionRuntimeStateVerified = ref(false)
+const freshTerminalSessionIds = ref<string[]>([])
 const error = ref('')
 const showCreatePanel = ref(false)
 const creatingSession = ref(false)
@@ -84,8 +86,23 @@ const deleteWorkspaceDialogOpen = computed({
     }
   },
 })
-const activeSession = computed(() =>
-  sessions.value.find((session) => session.id === activeSessionId.value),
+const terminalRuntimeAvailableSessionIds = computed(() =>
+  sessionRuntimeStateVerified.value
+    ? openTerminalSessionIds.value
+    : openTerminalSessionIds.value.filter((sessionId) =>
+        freshTerminalSessionIds.value.includes(sessionId),
+      ),
+)
+const terminalRuntimeAvailableSessionIdSet = computed(
+  () => new Set(terminalRuntimeAvailableSessionIds.value),
+)
+const terminalActiveSessionId = computed(() =>
+  activeSessionId.value && terminalRuntimeAvailableSessionIdSet.value.has(activeSessionId.value)
+    ? activeSessionId.value
+    : terminalRuntimeAvailableSessionIds.value[0],
+)
+const terminalActiveSession = computed(() =>
+  sessions.value.find((session) => session.id === terminalActiveSessionId.value),
 )
 const deletingWorkspaceSessionCount = computed(() =>
   deletingWorkspace.value
@@ -94,7 +111,7 @@ const deletingWorkspaceSessionCount = computed(() =>
     : 0,
 )
 const openTerminalSessions = computed(() =>
-  openTerminalSessionIds.value
+  terminalRuntimeAvailableSessionIds.value
     .map((sessionId) => sessions.value.find((session) => session.id === sessionId))
     .filter((session): session is Session => !!session),
 )
@@ -113,6 +130,8 @@ function errorTitle(err: unknown, fallback: string) {
 
 async function refresh() {
   error.value = ''
+  sessionRuntimeStateVerified.value = false
+  freshTerminalSessionIds.value = []
   const storedLoaded = await loadStoredSessions()
   void environmentStore.ensureLoaded()
   if (!storedLoaded) {
@@ -126,6 +145,7 @@ async function loadStoredSessions() {
   initialSessionTreeLoading.value = true
   try {
     applySessionTree((await listSessionTree({ refresh: false })).environments)
+    sessionRuntimeStateVerified.value = false
     return true
   } catch (err) {
     const title = errorTitle(err, t('app.errors.loadSessions'))
@@ -148,6 +168,7 @@ async function refreshLiveSessions() {
   sessionStatusRefreshing.value = true
   try {
     applySessionTree((await listSessionTree()).environments)
+    sessionRuntimeStateVerified.value = true
   } catch (err) {
     const title = errorTitle(err, t('app.errors.loadSessions'))
     if (sessionTree.value.length > 0 || sessions.value.length > 0) {
@@ -173,6 +194,9 @@ function reconcileOpenTerminalSessions() {
   openTerminalSessionIds.value = openTerminalSessionIds.value.filter((sessionId) =>
     sessionIds.has(sessionId),
   )
+  freshTerminalSessionIds.value = freshTerminalSessionIds.value.filter((sessionId) =>
+    sessionIds.has(sessionId),
+  )
   if (activeSessionId.value && !sessionIds.has(activeSessionId.value)) {
     activeSessionId.value = openTerminalSessionIds.value[0]
   }
@@ -184,9 +208,6 @@ function sessionWorkspaceStatus(entries: Session[]): SessionStatus {
   }
   if (entries.some((entry) => entry.status === 'disconnected')) {
     return 'disconnected'
-  }
-  if (entries.some((entry) => entry.status === 'starting')) {
-    return 'starting'
   }
   if (entries.some((entry) => entry.status === 'failed')) {
     return 'failed'
@@ -315,11 +336,18 @@ function removeSession(session: Session) {
   reconcileOpenTerminalSessions()
 }
 
-function openTerminalSession(session: Session) {
+function openTerminalSession(session: Session, options?: { fresh?: boolean }) {
+  if (!sessionRuntimeStateVerified.value && !options?.fresh) {
+    return false
+  }
+  if (options?.fresh && !freshTerminalSessionIds.value.includes(session.id)) {
+    freshTerminalSessionIds.value = [...freshTerminalSessionIds.value, session.id]
+  }
   if (!openTerminalSessionIds.value.includes(session.id)) {
     openTerminalSessionIds.value = [...openTerminalSessionIds.value, session.id]
   }
   activeSessionId.value = session.id
+  return true
 }
 
 function updateCreateSessionContext(context: {
@@ -352,7 +380,7 @@ async function handleCreate(payload: CreateSessionPayload) {
   try {
     const session = await createSession(payload)
     updateSession(session)
-    openTerminalSession(session)
+    openTerminalSession(session, { fresh: true })
     showCreatePanel.value = false
     await router.push('/session')
   } catch (err) {
@@ -421,7 +449,7 @@ async function confirmRemoveWorkspace() {
 }
 
 async function handleStart(session: Session) {
-  if (startingSessionId.value) {
+  if (startingSessionId.value || !sessionRuntimeStateVerified.value) {
     return
   }
 
@@ -430,7 +458,7 @@ async function handleStart(session: Session) {
   try {
     const started = await startSession(session.id)
     updateSession(started)
-    openTerminalSession(started)
+    openTerminalSession(started, { fresh: true })
     toast.show({ title: t('app.success.startSession'), variant: 'success' })
     await router.push('/session')
   } catch (err) {
@@ -441,7 +469,7 @@ async function handleStart(session: Session) {
 }
 
 async function handleStop(session: Session) {
-  if (stoppingSessionId.value) {
+  if (stoppingSessionId.value || !sessionRuntimeStateVerified.value) {
     return
   }
 
@@ -514,7 +542,9 @@ async function confirmCloseAllSessions() {
 }
 
 async function selectSession(session: Session) {
-  openTerminalSession(session)
+  if (!openTerminalSession(session)) {
+    return
+  }
   showCreatePanel.value = false
   await router.push('/session')
 }
@@ -562,6 +592,7 @@ onMounted(() => {
           :session-tree="sessionTree"
           :active-session-id="activeSessionId"
           :status-refreshing="sessionStatusRefreshing"
+          :runtime-state-verified="sessionRuntimeStateVerified"
           :environments-loading="environmentStore.loading"
           :environments-loaded="environmentStore.loaded"
           :environments-error="environmentStore.error"
@@ -597,7 +628,7 @@ onMounted(() => {
       </SplitterResizeHandle>
 
       <SplitterPanel id="main-workspace" :min-size="320" size-unit="px" class="h-full min-h-0">
-        <RouterView v-slot="{ Component }">
+        <RouterView v-slot="{ Component, route }">
           <Transition name="main-panel" mode="out-in">
             <section
               v-if="showCreatePanel"
@@ -619,11 +650,26 @@ onMounted(() => {
                 />
               </div>
             </section>
+            <section
+              v-else-if="
+                route.path === '/session' &&
+                !sessionRuntimeStateVerified &&
+                sessions.length > 0 &&
+                openTerminalSessions.length === 0
+              "
+              key="runtime-unverified"
+              class="flex h-full min-h-0 items-center justify-center bg-slate-100 text-slate-600 dark:bg-slate-950 dark:text-slate-300"
+            >
+              <div class="grid justify-items-center gap-3 text-sm">
+                <Loader2 class="h-10 w-10 animate-spin text-slate-400 dark:text-slate-500" />
+                <span>{{ t('session.terminal.refreshingStatus') }}</span>
+              </div>
+            </section>
             <component
               :is="Component"
               v-else
               :sessions="openTerminalSessions"
-              :session="activeSession"
+              :session="terminalActiveSession"
               :starting-session-id="startingSessionId"
               :workspace-labels="workspaceLabels"
               @close="closeTerminalSession"

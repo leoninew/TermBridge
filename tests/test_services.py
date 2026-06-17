@@ -187,7 +187,6 @@ def record_ttyd_checks(ports: list[int], result: bool) -> Callable[[int], bool]:
     return check
 
 
-
 def assert_ttyd_client_options(command: list[str]) -> None:
     options = [command[index + 1] for index, item in enumerate(command) if item == "--client-option"]
 
@@ -204,6 +203,7 @@ def test_service_creates_entry_with_workspace_tmux_session(tmp_path: Path) -> No
 
     assert response.name == "Test"
     assert response.runtime == "windows_cygwin"
+    assert response.status == SessionStatus.RUNNING
     assert response.shortcut_id == "claude-code"
     assert response.shortcut_name == "Claude Code"
     assert response.tmux_session_name is not None
@@ -245,7 +245,9 @@ def test_service_uses_ttyd_log_file_when_file_mode_is_enabled(tmp_path: Path) ->
 
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
     project_root = editable_project_root()
-    expected_log_dir = project_root / "logs" / "ttyd" if project_root is not None else tmp_path / "state" / "logs" / "ttyd"
+    expected_log_dir = (
+        project_root / "logs" / "ttyd" if project_root is not None else tmp_path / "state" / "logs" / "ttyd"
+    )
 
     assert process.started[0][2] == expected_log_dir / f"{response.id}.log"
     assert process.started[0][3] is False
@@ -348,7 +350,7 @@ def test_service_rejects_terminal_proxy_target_for_stopped_session(tmp_path: Pat
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
     stopped = service.stop(response.id)
 
-    with pytest.raises(InvalidTerminalConfigError, match="not running"):
+    with pytest.raises(SessionTerminalUnavailableError):
         service.terminal_proxy_target(stopped.id)
 
 
@@ -461,6 +463,34 @@ def test_service_stop_keeps_record_and_removes_managed_window(tmp_path: Path) ->
     assert service.get(response.id).tmux_session_name == response.tmux_session_name
 
 
+def test_service_start_ignores_stopped_entry_recorded_window(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    shortcuts = FakeShortcutService()
+    service = make_service(tmp_path, process, shortcut_service=shortcuts)
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    _, entry = service._repository.get_entry(response.id)
+    service._repository.update_entry(entry.model_copy(update={"status": SessionStatus.STOPPED}))
+    shortcuts.window_by_name = "@7"
+
+    started = service.start(response.id)
+
+    assert started.status == SessionStatus.RUNNING
+    assert started.port == 9201
+    assert shortcuts.window_exists_calls == []
+    assert process.started[-1][0][-1] == f"tmux select-window -t @7 && exec tmux attach -t {response.tmux_session_name}"
+
+
+def test_service_start_skips_stopped_entry_port_reservation(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    service = make_service(tmp_path, process)
+    response = service.create(CreateSessionRequest(name="First", workspace=tmp_path, shortcut_id="claude-code"))
+    service.stop(response.id)
+
+    second = service.create(CreateSessionRequest(name="Second", workspace=tmp_path, shortcut_id="claude-code"))
+
+    assert second.port == 9201
+
+
 def test_service_close_all_keeps_records_and_removes_windows_and_sessions(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
     shortcuts = FakeShortcutService()
@@ -556,7 +586,9 @@ def test_service_refresh_keeps_running_when_ttyd_port_is_open_without_process_ca
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
     _, entry = service._repository.get_entry(response.id)
     service = make_service(tmp_path, FakeProcessAdapter())
-    service._repository.update_entry(entry.model_copy(update={"status": SessionStatus.DISCONNECTED, "pid": None, "url": ""}))
+    service._repository.update_entry(
+        entry.model_copy(update={"status": SessionStatus.DISCONNECTED, "pid": None, "url": ""})
+    )
 
     refreshed = service.get(response.id)
 
@@ -581,16 +613,18 @@ def test_service_refresh_stops_entry_when_tmux_window_disappears(tmp_path: Path)
     assert service.get(response.id).status == SessionStatus.STOPPED
 
 
-def test_service_refresh_promotes_stopped_entry_with_existing_window_to_disconnected(tmp_path: Path) -> None:
-    service = make_service(tmp_path, ttyd_port_open=False)
+def test_service_refresh_keeps_stopped_entry_unverified_even_with_existing_window(tmp_path: Path) -> None:
+    ttyd_checked_ports: list[int] = []
+    service = make_service(tmp_path, ttyd_port_open=record_ttyd_checks(ttyd_checked_ports, False))
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
     _, entry = service._repository.get_entry(response.id)
     service._repository.update_entry(entry.model_copy(update={"status": SessionStatus.STOPPED, "pid": None, "url": ""}))
 
     refreshed = service.get(response.id)
 
-    assert refreshed.status == SessionStatus.DISCONNECTED
+    assert refreshed.status == SessionStatus.STOPPED
     assert service._repository.get_entry(response.id)[1].tmux_window_id == "@1"
+    assert ttyd_checked_ports == []
 
 
 def test_service_refresh_stops_disconnected_entry_when_tmux_window_disappears(tmp_path: Path) -> None:
@@ -734,7 +768,6 @@ def test_parse_tmux_window_line_cleans_default_output() -> None:
     assert parse_tmux_window_line("not-a-tmux-window-line") is None
 
 
-
 def test_service_list_tree_refresh_false_skips_status_checks(tmp_path: Path) -> None:
     shortcuts = FakeShortcutService()
     ttyd_checked_ports: list[int] = []
@@ -745,7 +778,9 @@ def test_service_list_tree_refresh_false_skips_status_checks(tmp_path: Path) -> 
     )
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
     _, entry = service._repository.get_entry(response.id)
-    service._repository.update_entry(entry.model_copy(update={"status": SessionStatus.DISCONNECTED, "pid": None, "url": ""}))
+    service._repository.update_entry(
+        entry.model_copy(update={"status": SessionStatus.DISCONNECTED, "pid": None, "url": ""})
+    )
 
     tree = service.list_tree(refresh=False)
 
@@ -754,7 +789,6 @@ def test_service_list_tree_refresh_false_skips_status_checks(tmp_path: Path) -> 
     assert shortcuts.listed_tmux_window_hosts == []
     assert shortcuts.window_exists_calls == []
     assert ttyd_checked_ports == []
-
 
 
 def test_service_list_tree_uses_one_tmux_listing_per_host(tmp_path: Path) -> None:
@@ -769,7 +803,6 @@ def test_service_list_tree_uses_one_tmux_listing_per_host(tmp_path: Path) -> Non
     assert [entry.status for entry in cygwin.workspaces[0].entries] == [SessionStatus.RUNNING, SessionStatus.RUNNING]
     assert shortcuts.listed_tmux_window_hosts == ["windows_cygwin"]
     assert shortcuts.window_exists_calls == []
-
 
 
 def test_service_list_tree_stops_missing_tmux_window_without_ttyd_check(tmp_path: Path) -> None:
@@ -792,7 +825,6 @@ def test_service_list_tree_stops_missing_tmux_window_without_ttyd_check(tmp_path
     assert ttyd_checked_ports == []
 
 
-
 def test_service_list_tree_marks_existing_window_without_ttyd_as_disconnected(tmp_path: Path) -> None:
     service = make_service(tmp_path, ttyd_port_open=False)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
@@ -803,6 +835,27 @@ def test_service_list_tree_marks_existing_window_without_ttyd_as_disconnected(tm
     assert cygwin.workspaces[0].entries[0].status == SessionStatus.DISCONNECTED
     assert service._repository.get_entry(response.id)[1].tmux_window_id == "@1"
 
+
+def test_service_list_tree_keeps_stopped_entry_unverified(tmp_path: Path) -> None:
+    shortcuts = FakeShortcutService()
+    ttyd_checked_ports: list[int] = []
+    service = make_service(
+        tmp_path,
+        shortcut_service=shortcuts,
+        ttyd_port_open=record_ttyd_checks(ttyd_checked_ports, False),
+    )
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    _, entry = service._repository.get_entry(response.id)
+    service._repository.update_entry(entry.model_copy(update={"status": SessionStatus.STOPPED, "pid": None, "url": ""}))
+
+    tree = service.list_tree()
+
+    cygwin = next(environment for environment in tree.environments if environment.host == "windows_cygwin")
+    assert cygwin.workspaces[0].entries[0].status == SessionStatus.STOPPED
+    assert service._repository.get_entry(response.id)[1].tmux_window_id == "@1"
+    assert shortcuts.listed_tmux_window_hosts == ["windows_cygwin"]
+    assert shortcuts.window_exists_calls == []
+    assert ttyd_checked_ports == []
 
 
 def test_service_list_tree_keeps_status_when_tmux_listing_fails(tmp_path: Path) -> None:
@@ -823,7 +876,6 @@ def test_service_list_tree_keeps_status_when_tmux_listing_fails(tmp_path: Path) 
     assert cygwin.workspaces[0].entries[0].status == SessionStatus.RUNNING
     assert entry.tmux_window_id == "@1"
     assert ttyd_checked_ports == []
-
 
 
 def test_service_reorders_workspaces_in_environment(tmp_path: Path) -> None:

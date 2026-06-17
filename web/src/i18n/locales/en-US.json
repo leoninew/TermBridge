@@ -141,16 +141,17 @@
       "missingUrl": "The current session has no available terminal URL.",
       "statusUnavailable": "Current status is {status}; the terminal is unavailable.",
       "disconnected": "The terminal connection is disconnected; the underlying session still exists and can be reconnected.",
+      "refreshingStatus": "Checking session status...",
       "start": "Start session",
       "reconnect": "Reconnect session",
       "iframeTitle": "{name} terminal"
     },
     "status": {
       "running": "Running",
-      "starting": "Starting",
       "disconnected": "Disconnected",
       "stopped": "Stopped",
-      "failed": "Failed"
+      "failed": "Failed",
+      "unverified": "Checking status"
     }
   },
   "workspace": {

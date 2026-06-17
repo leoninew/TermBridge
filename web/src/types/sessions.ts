@@ -1,4 +1,4 @@
-export type SessionStatus = 'starting' | 'running' | 'disconnected' | 'stopped' | 'failed'
+export type SessionStatus = 'running' | 'disconnected' | 'stopped' | 'failed'
 export type SessionPersistence = 'none' | 'tmux'
 export type TtydMode = 'auto' | 'explicit'
 export type ShortcutHost = 'windows_cygwin' | 'windows_wsl' | 'linux'

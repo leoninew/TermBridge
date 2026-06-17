@@ -91,6 +91,7 @@ const props = defineProps<{
   sessionTree: SessionEnvironment[]
   activeSessionId?: string
   statusRefreshing: boolean
+  runtimeStateVerified: boolean
   environmentsLoading: boolean
   environmentsLoaded: boolean
   environmentsError: string
@@ -227,11 +228,7 @@ function collectExpandableKeys(nodes: SessionTreeNode[]): string[] {
 }
 
 function isActiveStatus(session: Session): boolean {
-  return (
-    session.status === 'running' ||
-    session.status === 'starting' ||
-    session.status === 'disconnected'
-  )
+  return props.runtimeStateVerified && (session.status === 'running' || session.status === 'disconnected')
 }
 
 function activeWorkspaceKeys(nodes: SessionTreeNode[]): string[] {
@@ -390,14 +387,14 @@ function startSessionLabel(session: Session): string {
 }
 
 function sessionStatusTextClass(session: Session): string {
+  if (!props.runtimeStateVerified) {
+    return 'text-slate-500 dark:text-slate-400'
+  }
   if (session.status === 'running') {
     return 'text-emerald-700 dark:text-emerald-300'
   }
   if (session.status === 'failed') {
     return 'text-red-700 dark:text-red-300'
-  }
-  if (session.status === 'starting') {
-    return 'text-blue-700 dark:text-blue-300'
   }
   if (session.status === 'disconnected') {
     return 'text-amber-700 dark:text-amber-300'
@@ -406,14 +403,14 @@ function sessionStatusTextClass(session: Session): string {
 }
 
 function sessionStatusIconClass(session: Session): string {
+  if (!props.runtimeStateVerified) {
+    return 'text-slate-400 dark:text-slate-400'
+  }
   if (session.status === 'running') {
     return 'text-emerald-600 dark:text-emerald-400'
   }
   if (session.status === 'failed') {
     return 'text-red-600 dark:text-red-400'
-  }
-  if (session.status === 'starting') {
-    return 'text-blue-600 dark:text-blue-400'
   }
   if (session.status === 'disconnected') {
     return 'text-amber-600 dark:text-amber-300'
@@ -422,10 +419,19 @@ function sessionStatusIconClass(session: Session): string {
 }
 
 function sessionStatusIcon(session: Session) {
+  if (!props.runtimeStateVerified) {
+    return Loader2
+  }
   if (session.status === 'disconnected') {
     return Unplug
   }
   return SquareTerminal
+}
+
+function sessionStatusLabel(session: Session): string {
+  return props.runtimeStateVerified
+    ? t(`session.status.${session.status}`)
+    : t('session.status.unverified')
 }
 
 function environmentLogo(host: ShortcutHost) {
@@ -446,7 +452,7 @@ function handleCreate() {
 
 function handleTreeSelect(node: SessionTreeNode) {
   selectedTreeNodes.value = [node]
-  if (node.session) {
+  if (node.session && props.runtimeStateVerified) {
     emit('select', node.session)
   }
 }
@@ -454,18 +460,27 @@ function handleTreeSelect(node: SessionTreeNode) {
 function startSession(event: globalThis.MouseEvent, session: Session) {
   event.preventDefault()
   event.stopPropagation()
+  if (!props.runtimeStateVerified) {
+    return
+  }
   emit('start', session)
 }
 
 function stopSession(event: globalThis.MouseEvent, session: Session) {
   event.preventDefault()
   event.stopPropagation()
+  if (!props.runtimeStateVerified) {
+    return
+  }
   emit('stop', session)
 }
 
 function removeSession(event: globalThis.MouseEvent, session: Session) {
   event.preventDefault()
   event.stopPropagation()
+  if (!props.runtimeStateVerified) {
+    return
+  }
   emit('remove', session)
 }
 
@@ -683,23 +698,27 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                             : SquareTerminal
                         "
                         class="h-4 w-4 shrink-0"
-                        :class="
+                        :class="[
                           sessionNode.session
                             ? sessionStatusIconClass(sessionNode.session)
-                            : 'text-slate-400 dark:text-slate-400'
-                        "
+                            : 'text-slate-400 dark:text-slate-400',
+                          sessionNode.session && !runtimeStateVerified ? 'animate-spin' : '',
+                        ]"
                       />
                       <span
                         class="min-w-0 flex-1 truncate"
                         :class="
                           sessionNode.session ? sessionStatusTextClass(sessionNode.session) : ''
                         "
+                        :title="
+                          sessionNode.session ? sessionStatusLabel(sessionNode.session) : sessionNode.label
+                        "
                         @click="handleTreeSelect(sessionNode)"
                       >
                         {{ sessionNode.label }}
                       </span>
                       <span
-                        v-if="sessionNode.session"
+                        v-if="sessionNode.session && runtimeStateVerified"
                         class="inline-flex shrink-0 items-center gap-1"
                       >
                         <button
@@ -913,7 +932,7 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
         </DropdownMenuPortal>
       </DropdownMenuRoot>
       <span
-        v-if="statusRefreshing"
+        v-if="statusRefreshing || !runtimeStateVerified"
         class="inline-flex min-w-0 items-center gap-1 truncate text-slate-400 dark:text-slate-500"
       >
         <Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />

@@ -355,7 +355,6 @@ def test_terminal_service_lists_tmux_windows_from_home_and_parses_default_output
     assert run.call_args.kwargs["env"] is not None
 
 
-
 def test_terminal_service_treats_tmux_no_server_as_empty_window_list(tmp_path: Path) -> None:
     service = make_service(tmp_path)
     service.update_windows_wsl_settings(
@@ -372,7 +371,6 @@ def test_terminal_service_treats_tmux_no_server_as_empty_window_list(tmp_path: P
         listings = service.list_tmux_windows("windows_wsl")
 
     assert listings == []
-
 
 
 def test_terminal_service_treats_tmux_window_timeout_as_missing_window(tmp_path: Path) -> None:

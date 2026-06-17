@@ -1174,7 +1174,7 @@ class SessionService:
             runtime=shortcut.host,
             command=[],
             port=0,
-            status=SessionStatus.STARTING,
+            status=SessionStatus.STOPPED,
             pid=None,
             created_at=now,
             updated_at=now,
@@ -1229,7 +1229,10 @@ class SessionService:
         shortcut = terminal_service.resolve_shortcut(entry.shortcut_id)
         if shortcut.host != workspace.host:
             raise InvalidTerminalConfigError("Shortcut host does not match session workspace")
-        if not terminal_service.tmux_window_exists(workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id):
+        recorded_window_exists = entry.status != SessionStatus.STOPPED and terminal_service.tmux_window_exists(
+            workspace.host, workspace.path, tmux_window_id=entry.tmux_window_id
+        )
+        if not recorded_window_exists:
             tmux_window_id = terminal_service.find_tmux_window_by_name(
                 workspace.host,
                 workspace.path,
@@ -1366,7 +1369,11 @@ class SessionService:
 
     def _start_entry(self, entry: SessionEntryRecord, workspace: WorkspaceRecord) -> SessionEntryRecord:
         terminal_service = self._require_terminal_service()
-        used_ports = [item.port for _, item in self._repository.list_entries() if item.id != entry.id and item.port]
+        used_ports = [
+            item.port
+            for _, item in self._repository.list_entries()
+            if item.id != entry.id and item.status != SessionStatus.STOPPED and item.port
+        ]
         port = self._port_allocator.allocate(used_ports)
         runtime_command = terminal_service.build_tmux_attach_command(
             workspace.host,
@@ -1485,7 +1492,7 @@ class SessionService:
         return workspace.model_copy(update={"entries": entries})
 
     def _refresh_entry(self, workspace: WorkspaceRecord, entry: SessionEntryRecord) -> SessionEntryRecord:
-        if entry.status in {SessionStatus.STARTING, SessionStatus.FAILED}:
+        if entry.status in {SessionStatus.FAILED, SessionStatus.STOPPED}:
             return entry
 
         terminal_service = self._require_terminal_service()
@@ -1504,9 +1511,11 @@ class SessionService:
         window_names_by_session: Mapping[str, set[str]] | None,
         tmux_listing_unknown: bool,
     ) -> SessionEntryRecord:
-        if entry.status in {SessionStatus.STARTING, SessionStatus.FAILED} or tmux_listing_unknown:
+        if entry.status in {SessionStatus.FAILED, SessionStatus.STOPPED} or tmux_listing_unknown:
             return entry
-        window_names = window_names_by_session.get(workspace.tmux_session_name, set()) if window_names_by_session else set()
+        window_names = (
+            window_names_by_session.get(workspace.tmux_session_name, set()) if window_names_by_session else set()
+        )
         return self._refresh_entry_with_window_state(entry, tmux_window_exists=entry.name in window_names)
 
     def _refresh_entry_with_window_state(
@@ -1524,7 +1533,7 @@ class SessionService:
         if entry.status == status:
             return entry
 
-        updated = entry.model_copy(update={"status": status})
+        updated = entry.model_copy(update={"status": status, "updated_at": utc_now()})
         try:
             self._repository.update_entry(updated)
         except SessionNotFoundError:
@@ -1548,8 +1557,6 @@ class SessionService:
             status = SessionStatus.RUNNING
         elif SessionStatus.DISCONNECTED in statuses:
             status = SessionStatus.DISCONNECTED
-        elif SessionStatus.STARTING in statuses:
-            status = SessionStatus.STARTING
         elif SessionStatus.FAILED in statuses:
             status = SessionStatus.FAILED
         else:
