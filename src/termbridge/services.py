@@ -727,10 +727,13 @@ class TerminalService:
 
     def _cygwin_workspace_path(self, workspace: Path) -> str:
         bash_path = self._ensure_windows_cygwin_ready()
+        cygpath_path = self._cygpath_executable_path(bash_path)
+        if not Path(cygpath_path).is_file():
+            raise InvalidTerminalConfigError(f"Cygwin cygpath executable was not found: {cygpath_path}")
         workspace_text = str(workspace)
         try:
             result = subprocess.run(
-                [bash_path, "-lc", f"cygpath -u {shlex.quote(workspace_text)}"],
+                [cygpath_path, "-u", workspace_text],
                 capture_output=True,
                 text=True,
                 timeout=self._settings.tmux_command_timeout_seconds,
@@ -748,6 +751,10 @@ class TerminalService:
         path = converted[-1]
         logger.info("Converted Cygwin workspace path workspace=%s cygwin_path=%s", workspace, path)
         return path
+
+    def _cygpath_executable_path(self, bash_path: str) -> str:
+        cygwin_bin = ntpath.dirname(bash_path)
+        return ntpath.join(cygwin_bin, "cygpath.exe") if cygwin_bin else "cygpath.exe"
 
     def _find_shortcut(self, shortcut_id: str) -> Shortcut:
         state = self._ensure_default_shortcuts(self._shortcut_repository.get_state())

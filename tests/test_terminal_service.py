@@ -401,15 +401,20 @@ def test_terminal_service_uses_configured_tmux_command_timeout(tmp_path: Path) -
     assert run.call_args.kwargs["timeout"] == 12.5
 
 
-def test_terminal_service_uses_cygwin_env_for_tmux_commands(tmp_path: Path) -> None:
+def test_terminal_service_uses_direct_cygpath_and_cygwin_env_for_tmux_commands(tmp_path: Path) -> None:
     repository = FileTerminalRepository(tmp_path / "terminals.json")
     state = repository.get_state()
-    cygwin_bin = "D:/ProgramFiles/Cygwin/bin"
+    cygwin_bin = tmp_path / "cygwin" / "bin"
+    cygwin_bin.mkdir(parents=True)
+    bash_path = cygwin_bin / "bash.exe"
+    cygpath_path = cygwin_bin / "cygpath.exe"
+    bash_path.write_text("")
+    cygpath_path.write_text("")
     cygwin_workspace = "/d/workspace"
     state.windows_cygwin_settings = WindowsCygwinSettings(
         readiness="ready",
-        bash_path=f"{cygwin_bin}/bash.exe",
-        tmux_path=f"{cygwin_bin}/tmux.exe",
+        bash_path=str(bash_path),
+        tmux_path=str(cygwin_bin / "tmux.exe"),
     )
     repository.save_state(state)
     service = make_service(tmp_path)
@@ -421,11 +426,58 @@ def test_terminal_service_uses_cygwin_env_for_tmux_commands(tmp_path: Path) -> N
     with patch("termbridge.services.subprocess.run", side_effect=[converted, created, current_path]) as run:
         service.create_tmux_window(shortcut, tmp_path, tmux_session_name="tb_cyg_workspace", window_name="Agent")
 
+    assert run.call_args_list[0].args[0] == [str(cygpath_path), "-u", str(tmp_path)]
     env = run.call_args_list[1].kwargs["env"]
     assert env is not None
     first_path_entry = env["PATH"].split(";")[0]
-    assert ntpath.normcase(first_path_entry) == ntpath.normcase(cygwin_bin)
+    assert ntpath.normcase(first_path_entry) == ntpath.normcase(str(cygwin_bin))
     assert f"-c {cygwin_workspace}" in run.call_args_list[1].args[0][2]
+
+
+def test_terminal_service_reports_cygwin_workspace_conversion_timeout(tmp_path: Path) -> None:
+    repository = FileTerminalRepository(tmp_path / "terminals.json")
+    state = repository.get_state()
+    cygwin_bin = tmp_path / "cygwin" / "bin"
+    cygwin_bin.mkdir(parents=True)
+    bash_path = cygwin_bin / "bash.exe"
+    cygpath_path = cygwin_bin / "cygpath.exe"
+    bash_path.write_text("")
+    cygpath_path.write_text("")
+    state.windows_cygwin_settings = WindowsCygwinSettings(
+        readiness="ready",
+        bash_path=str(bash_path),
+        tmux_path=str(cygwin_bin / "tmux.exe"),
+    )
+    repository.save_state(state)
+    service = make_service(tmp_path)
+    shortcut = service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="windows_cygwin"))
+
+    with patch(
+        "termbridge.services.subprocess.run",
+        side_effect=subprocess.TimeoutExpired([str(cygpath_path), "-u", str(tmp_path)], 10),
+    ):
+        with pytest.raises(InvalidTerminalConfigError, match="Cygwin workspace path conversion timed out"):
+            service.create_tmux_window(shortcut, tmp_path, tmux_session_name="tb_cyg_workspace", window_name="Agent")
+
+
+def test_terminal_service_reports_missing_cygpath_executable(tmp_path: Path) -> None:
+    repository = FileTerminalRepository(tmp_path / "terminals.json")
+    state = repository.get_state()
+    cygwin_bin = tmp_path / "cygwin" / "bin"
+    cygwin_bin.mkdir(parents=True)
+    bash_path = cygwin_bin / "bash.exe"
+    bash_path.write_text("")
+    state.windows_cygwin_settings = WindowsCygwinSettings(
+        readiness="ready",
+        bash_path=str(bash_path),
+        tmux_path=str(cygwin_bin / "tmux.exe"),
+    )
+    repository.save_state(state)
+    service = make_service(tmp_path)
+    shortcut = service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="windows_cygwin"))
+
+    with pytest.raises(InvalidTerminalConfigError, match="Cygwin cygpath executable was not found"):
+        service.create_tmux_window(shortcut, tmp_path, tmux_session_name="tb_cyg_workspace", window_name="Agent")
 
 
 def test_shortcut_service_resolves_linux_command_when_ready(tmp_path: Path) -> None:
