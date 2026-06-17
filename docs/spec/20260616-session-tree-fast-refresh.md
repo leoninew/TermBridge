@@ -18,6 +18,7 @@
 4. 快速记录返回前，加载遮挡层覆盖完整页面，避免用户新建会话或触发其他会话写操作。
 5. 真实状态刷新使用 `tmux list-windows -a` 批量判断 tmux window 是否存在。
 6. 只有 tmux window 存在的 session 才继续检查 ttyd 状态。
+7. 真实状态刷新只更新 `status`；不得在刷新路径清理或重建 `pid`、`url`、`tmux_window_id`。这些字段由显式 start / stop / close-all / delete 等生命周期写操作维护。
 
 ## Overview
 
@@ -168,11 +169,12 @@ host 粒度：
    - 如果 tmux window 不存在：
      - 不调用 `_ttyd_port_checker()`。
      - 状态设为 `stopped`。
-     - `pid=None`，`url=""`，`tmux_window_id=None`。
+     - 只更新 `status`，不修改 `pid`、`url`、`tmux_window_id`。
    - 如果 tmux window 存在：
      - 调用 `_ttyd_port_checker(entry.port)`。
-     - ttyd 可用 => `running`，保留/重建 url。
-     - ttyd 不可用 => `disconnected`，`pid=None`，`url=""`，保留 `tmux_window_id`。
+     - ttyd 可用 => `running`。
+     - ttyd 不可用 => `disconnected`。
+     - 只更新 `status`，不修改 `pid`、`url`、`tmux_window_id`。
 5. 对有变化的 entry 更新 repository。
 
 可通过新增 helper 降低变更面，例如：
@@ -333,7 +335,7 @@ URL 生成规则：
 
 ## Technical questions
 
-暂无阻塞问题。用户已确认：状态刷新后继续逐 entry 更新 repository，不做 workspace 级批量保存。
+暂无阻塞问题。用户已确认：状态刷新后继续逐 entry 更新 repository，不做 workspace 级批量保存；刷新写回仅限 `status` 字段，不修改其他 entry 字段。
 
 ## Risks
 

@@ -7,6 +7,7 @@ Review status: Draft
 - 后端会话刷新不再依赖 `ProcessAdapter.is_running()` / `self._processes` 判断真实状态。
 - 后端基于 ttyd 端口可连接性判断 ttyd 会话是否可用，基于 tmux window 检查判断终端窗口是否存在。
 - 后端状态降级规则：ttyd 端口可用且 tmux window 存在为 `running`；ttyd 不可用但 tmux window 存在为 `disconnected`；tmux window 不存在为 `stopped`。
+- 修正：状态刷新只应持久化 `status` 变化，不应在刷新路径清理或重建 `pid`、`url`、`tmux_window_id`。这些字段由显式 start / stop / close-all / delete 等生命周期写操作维护。
 - `terminal_proxy_target` 不再要求记录中存在 pid；只要刷新后的状态为 `running` 且端口有效即可代理。
 - 前端启动、停止、重连会话后，使用对应 POST 响应中的 session 局部更新 `sessions` 和 `sessionTree`，不再为这些动作重新请求 `GET /api/session-tree`。
 - 前端新建会话后，使用 create 响应中的 session 局部 upsert 到 `sessions` 和 `sessionTree`，并在缺少父 workspace/environment 时基于响应字段创建局部节点，不再为创建动作重新请求 `GET /api/session-tree`。
@@ -24,6 +25,7 @@ Review status: Draft
 - [x] `sessions.json` 中的记录不作为真实运行状态权威来源；接口返回前通过 ttyd 端口和 tmux window 重新判断。
 - [x] ttyd 不可用但 tmux window 存在时返回 `disconnected`。
 - [x] tmux window 不存在时返回 `stopped`。
+- [x] 状态刷新降级或升级时只更新 `status`，不清理或重建 `pid`、`url`、`tmux_window_id`。
 - [x] 新服务实例 / 无进程缓存但 ttyd 端口可用时返回 `running`。
 
 ## Commands
@@ -42,5 +44,6 @@ Review status: Draft
 ## Remaining risk
 
 - 端口检查只能确认目标端口可连接，不能单独证明该端口一定属于本会话的 ttyd；当前方案按用户要求以 ttyd 端口可用性作为 ttyd 会话可用判断。
+- 已发现并修正旧文档缺口：此前只验状态降级，未明确验证刷新不得修改 `pid`、`url`、`tmux_window_id`。
 - 新建会话局部插入的父节点使用 create 响应字段与前端已有 environment label 构造；如果未来 session-tree 的 workspace/environment 展示规则继续扩展，需要同步更新局部构造逻辑。
 - 删除 workspace、close-all、排序等会改变更大树结构的动作仍保留完整 session-tree 刷新或接口返回整棵树，不属于本次“新建和删除单个会话”的局部更新范围。

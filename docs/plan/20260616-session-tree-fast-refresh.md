@@ -22,7 +22,7 @@
 7. 用输出第一个冒号前字段匹配 `workspace.tmux_session_name`，再匹配 window / entry 名称。
 8. tmux list 命令真正失败时保守保留旧状态，不误降级为 `stopped`。
 9. `tmux list-windows -a` 返回 `no server running ...` 且退出码为 1 时，视为“当前没有 tmux windows”的正常空列表，不视为未知失败。
-10. 状态变化继续逐 entry 更新 repository。
+10. 状态变化继续逐 entry 更新 repository，但刷新路径只写回 `status` 字段，不修改 `pid`、`url`、`tmux_window_id`。
 
 ## Implementation steps
 
@@ -162,13 +162,15 @@
    - host unknown：直接返回原 entry，不检查 ttyd，不更新 repository。
    - host known：
      - `tmux_window_exists = entry.name in window_names_by_session.get(workspace.tmux_session_name, set())`
-     - window 不存在：状态变为 `stopped`，`pid=None`，`url=""`，`tmux_window_id=None`，跳过 ttyd。
+     - window 不存在：状态变为 `stopped`，跳过 ttyd；不修改 `pid`、`url`、`tmux_window_id`。
      - window 存在：仅此时检查 `_ttyd_port_checker(entry.port)`。
-       - true => `running`，`url=self._build_url(entry.id)`。
-       - false => `disconnected`，`pid=None`，`url=""`，保留 `tmux_window_id`。
+       - true => `running`。
+       - false => `disconnected`。
+       - 两种情况下都只修改 `status`，不修改 `pid`、`url`、`tmux_window_id`。
 
 4. 逐 entry 更新 repository：
    - 沿用当前 `_refresh_entry()` 内部 `self._repository.update_entry(updated)` 的方式。
+   - `updated` 只包含 `status` 变化；刷新路径不清理或重建 `pid`、`url`、`tmux_window_id`。
    - 不做 workspace 级批量保存。
 
 5. 注意 start/get 路径：
@@ -265,9 +267,9 @@
 2. 增加测试：
    - `list_tree(refresh=False)` 不调用 tmux list、不调用 ttyd checker、不更新状态。
    - `list_tree()` 对多个 session 只调用一次 tmux list（按 host）。
-   - tmux list 显示 window 不存在时跳过 ttyd checker，并将 entry 更新为 `stopped`。
-   - tmux list 显示 window 存在且 ttyd 可用 => `running`。
-   - tmux list 显示 window 存在但 ttyd 不可用 => `disconnected`。
+   - tmux list 显示 window 不存在时跳过 ttyd checker，并将 entry status 更新为 `stopped`，同时保留 `pid`、`url`、`tmux_window_id`。
+   - tmux list 显示 window 存在且 ttyd 可用 => status 更新为 `running`，同时保留其他字段。
+   - tmux list 显示 window 存在但 ttyd 不可用 => status 更新为 `disconnected`，同时保留其他字段。
    - tmux list 真正失败时保留旧状态、不检查 ttyd、不清空 `tmux_window_id`。
    - tmux list 输出 `no server running ...` 且退出码为 1 时按空列表处理，已有 entry 应刷新为 `stopped` 且跳过 ttyd。
    - parser 能解析用户提供的输出格式，并清洗 `*` marker 和 pane/layout 描述。

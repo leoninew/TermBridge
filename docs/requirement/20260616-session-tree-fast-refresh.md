@@ -27,6 +27,7 @@
 6. tmux 批量检查使用 `tmux list-windows -a` 一次性获取所有运行中的 tmux window；该输出会包含目录和会话相关窗口，足以判断保存的 window 是否仍存在。
 7. 只对 tmux window 仍存在的会话继续检查 ttyd 状态；tmux window 已不存在的会话无需检查 ttyd，可直接判定为停止类状态。
 8. 最终 UI 应在状态刷新完成后更新 session tree，使 `running` / `disconnected` / `stopped` 状态反映真实结果。
+9. 真实状态刷新只应改变会话 `status`；不得因为刷新判断而清理或重建 `pid`、`url`、`tmux_window_id` 等字段。
 
 ## Non-goals
 
@@ -59,11 +60,12 @@
 9. 批量 tmux 查询结果至少能判断保存的 `tmux_window_id` 是否仍存在。
 10. 对 tmux window 不存在的 session，不执行 ttyd port 检查。
 11. 对 tmux window 存在的 session，继续检查 ttyd 状态，并按现有语义区分 `running` 与 `disconnected`。
-12. 状态刷新完成后，前端应展示真实状态，不应长期停留在快速记录中的旧状态。
-13. 如果真实状态刷新失败但快速记录已加载，页面应保留快速记录视图，并以 toast 或非阻塞错误提示告知用户状态刷新失败。
-14. 增加或更新后端测试覆盖：`refresh=false` 不执行真实检查、批量 tmux 结果映射、tmux window 不存在时跳过 ttyd 检查。
-15. 增加或更新前端测试或通过项目现有检查覆盖：初始遮挡、快速加载后触发状态刷新、状态刷新失败不清空已加载记录。
-16. Spec 阶段应列出现有无 query 调用 `/api/session-tree` 的位置，并明确哪些保持无 query、哪些改为显式 `refresh=false`。
+12. 真实状态刷新只更新 `status`，不修改 `pid`、`url`、`tmux_window_id`；这些字段只由显式生命周期写操作维护。
+13. 状态刷新完成后，前端应展示真实状态，不应长期停留在快速记录中的旧状态。
+14. 如果真实状态刷新失败但快速记录已加载，页面应保留快速记录视图，并以 toast 或非阻塞错误提示告知用户状态刷新失败。
+15. 增加或更新后端测试覆盖：`refresh=false` 不执行真实检查、批量 tmux 结果映射、tmux window 不存在时跳过 ttyd 检查、刷新只更新 `status` 且保留其他字段。
+16. 增加或更新前端测试或通过项目现有检查覆盖：初始遮挡、快速加载后触发状态刷新、状态刷新失败不清空已加载记录。
+17. Spec 阶段应列出现有无 query 调用 `/api/session-tree` 的位置，并明确哪些保持无 query、哪些改为显式 `refresh=false`。
 
 ## Open questions
 
@@ -90,7 +92,8 @@
 2. 快速返回旧状态后再异步刷新真实状态，可能出现短时间内 UI 状态跳变；需要通过文案或 loading 表达降低困惑。
 3. 批量 tmux 查询在不同 host（Cygwin、WSL、Linux）下的可用性和性能可能不同，需要在 Spec / Plan 阶段确认命令封装边界。
 4. 如果 `tmux list-windows -a` 本身超时或失败，应避免导致快速记录视图被清空。
-5. 覆盖完整页面的遮挡层会短暂阻止所有操作；需要确保它只持续到快速记录返回或失败，而不是持续到真实状态刷新完成。
+5. 如果 `tmux list-windows -a` 成功但解析或匹配结果出现误判，刷新也不应破坏 `pid`、`url`、`tmux_window_id` 等持久化字段。
+6. 覆盖完整页面的遮挡层会短暂阻止所有操作；需要确保它只持续到快速记录返回或失败，而不是持续到真实状态刷新完成。
 
 ## User review notes
 

@@ -1513,26 +1513,10 @@ class SessionService:
         else:
             status = SessionStatus.STOPPED
 
-        next_pid = entry.pid if status == SessionStatus.RUNNING else None
-        next_url = self._build_url(entry.id) if status == SessionStatus.RUNNING else ""
-        next_tmux_window_id = entry.tmux_window_id if tmux_window_exists else None
-        if (
-            entry.status == status
-            and entry.pid == next_pid
-            and entry.url == next_url
-            and entry.tmux_window_id == next_tmux_window_id
-        ):
+        if entry.status == status:
             return entry
 
-        updated = entry.model_copy(
-            update={
-                "status": status,
-                "pid": next_pid,
-                "url": next_url,
-                "tmux_window_id": next_tmux_window_id,
-                "updated_at": utc_now(),
-            }
-        )
+        updated = entry.model_copy(update={"status": status})
         try:
             self._repository.update_entry(updated)
         except SessionNotFoundError:

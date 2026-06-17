@@ -19,6 +19,7 @@ Review status: Accepted
 5. `sessions.json` 仅作为会话列表和持久化元数据，不作为真实运行状态的缓存来源。
 6. 会话真实状态应通过实际运行环境检查得到，例如 ttyd 端口/进程可达性、tmux window 是否存在等，而不是依赖 `self._processes` 这类单个后端对象实例中的内存缓存。
 7. 重连已存在 tmux window 且 ttyd 实际可用的会话时，UI 应显示可连接状态，并保留可访问的 terminal URL。
+8. 状态刷新只应更新会话 `status`；不得因为一次真实状态检查结果而修改 `pid`、`url`、`tmux_window_id` 等持久化/连接字段。
 
 ## Non-goal
 
@@ -33,7 +34,7 @@ Review status: Accepted
 1. 用户点击 disconnected 会话的“重连”。后端启动 ttyd 并返回该会话为 `running`，前端立即打开 terminal，不再因为随后刷新整棵树而回退到 disconnected。
 2. 后端服务中的 `ProcessAdapter` 实例变化、请求结束或服务重启后，只要 ttyd/tmux 真实存在，状态检查仍能判断会话可用。
 3. 如果 ttyd 不可达但 tmux window 还在，会话可以显示为 disconnected，提示用户可再次重连。
-4. 如果 tmux window 不存在，会话应显示为 stopped，并清理不可用的运行态字段。
+4. 如果 tmux window 不存在，会话应显示为 stopped；状态刷新本身不得清理 `pid`、`url`、`tmux_window_id` 等字段。字段清理只应发生在显式 stop、close-all、delete 等生命周期写操作中。
 5. 用户在已有 workspace 下新建会话。前端把创建接口返回的 session 插入现有 workspace，并打开 terminal，不再完整刷新 session tree。
 6. 用户删除单个会话。前端从当前列表和树中移除该 session，关闭对应 terminal tab，并在必要时切换 active terminal，不再完整刷新 session tree。
 7. 如果新建会话落在当前树中尚未存在的 workspace 或 environment 下，前端应能基于接口返回数据创建必要的父节点，或后端返回足够的局部树片段用于插入。
@@ -50,6 +51,7 @@ Review status: Accepted
 8. 覆盖回归测试：模拟“已有会话记录 + 新的服务/进程适配器实例 + 实际 ttyd/tmux 可用”时，接口应返回 running，而不是 disconnected。
 9. 覆盖前端行为：启动、重连、新建、删除单个会话成功后不要求全量刷新 session-tree，且对应会话状态、URL、terminal tab 和 workspace 状态被正确更新。
 10. 对不可用场景仍正确降级：ttyd 不可达但 tmux 存在为 disconnected；tmux 不存在为 stopped。
+11. 状态刷新降级或升级时只持久化 `status` 变化，不清理或重建 `pid`、`url`、`tmux_window_id`；这些字段由显式启动/停止/删除等写操作维护。
 
 ## Open questions
 
@@ -66,6 +68,7 @@ Review status: Accepted
 5. `src/termbridge/process.py` 中此前未经确认的修改已由用户自行撤销，后续实现不改该文件。
 6. 用户新增要求：新建会话和删除单个会话也要达到不调用 `GET /api/session-tree` 完整刷新的能力。
 7. 用户允许为达成局部更新修改接口响应数据。
+8. 用户明确要求：刷新状态只应改变状态，不应该修改其他字段。
 
 ## Risk
 

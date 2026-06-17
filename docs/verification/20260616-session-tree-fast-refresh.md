@@ -17,10 +17,11 @@
 5. 快速记录请求期间新增全页面遮挡层，绑定 `initialSessionTreeLoading`。
 6. 快速记录返回后继续调用无 query `listSessionTree()` 真实刷新。
 7. 真实刷新改为按 host 调用 `tmux list-windows -a`，不再在 list-tree 路径对每个 session 执行单条 tmux window 检查。
-8. 只有批量 listing 判断 window 存在时才检查 ttyd；window 不存在时直接刷新为 `stopped`。
-9. 真实刷新失败场景中，前端保留已有快速记录视图并显示 toast；后端 tmux list 失败时保守保留旧状态。
+8. 只有批量 listing 判断 window 存在时才检查 ttyd；window 不存在时只将 `status` 刷新为 `stopped`。
+9. 真实状态刷新只持久化 `status` 变化，不清理或重建 `pid`、`url`、`tmux_window_id`。
+10. 真实刷新失败场景中，前端保留已有快速记录视图并显示 toast；后端 tmux list 失败时保守保留旧状态。
 
-结论：需求目标已覆盖，未发现与 Requirement 冲突的实现。
+结论：需求目标已覆盖。旧版验证曾漏掉“刷新不得修改非 status 字段”的断言，本次文档更正已补上该要求。
 
 ## Spec alignment
 
@@ -34,9 +35,10 @@
 6. 按 host 粒度批量刷新已实现：`_tmux_window_names_by_host()` 只对有 entries 的 host 调用 `list_tmux_windows()`。
 7. tmux list 失败保守处理已实现：捕获异常后将 host 标记为 unknown，刷新该 host 下 entry 时保留原状态，不检查 ttyd，不更新 repository。
 8. `no server running` + return code 1 已按空 window 列表处理。
-9. 前端双阶段加载已实现，并对 `SessionList` 复用 `loading` prop 表示真实状态刷新中。
+9. 状态刷新写回限制为 `status` 字段，避免一次 tmux listing/匹配误判破坏 `pid`、`url`、`tmux_window_id`。
+10. 前端双阶段加载已实现，并对 `SessionList` 复用 `loading` prop 表示真实状态刷新中。
 
-结论：规格中的主要接口、算法、失败处理和 UI 状态设计均已实现。
+结论：规格中的主要接口、算法、失败处理、字段保留规则和 UI 状态设计均已实现。
 
 ## Plan alignment
 
@@ -56,8 +58,8 @@
 3. 后端测试覆盖已包含：
    - `refresh=false` 不执行真实检查。
    - 每 host 一次批量 tmux list。
-   - window 不存在时跳过 ttyd 并置为 `stopped`。
-   - window 存在且 ttyd 不可用时置为 `disconnected`。
+   - window 不存在时跳过 ttyd 并只将 status 置为 `stopped`，保留 `pid`、`url`、`tmux_window_id`。
+   - window 存在且 ttyd 不可用时只将 status 置为 `disconnected`，保留其他字段。
    - tmux list 失败时保留旧状态。
    - `no server running` 按空列表处理。
    - parser 清洗默认输出中的 `*` marker 和 pane/layout 描述。
@@ -129,11 +131,12 @@
 9. [x] 批量 tmux 查询结果通过 `tmux_session_name -> window_name` index 判断保存窗口是否存在。
 10. [x] tmux window 不存在时不执行 ttyd port 检查。
 11. [x] tmux window 存在时继续检查 ttyd，区分 `running` 与 `disconnected`。
-12. [x] 状态刷新成功后前端展示真实状态。
-13. [x] 真实状态刷新失败时前端保留快速记录视图并 toast；后端 tmux list 失败时保守保留旧状态。
-14. [x] 后端测试覆盖快速路径、批量映射、window 不存在跳过 ttyd、失败保守处理。
-15. [x] 前端通过 lint/typecheck/build 覆盖静态正确性；当前项目未发现前端单元测试配置。
-16. [x] Spec 已列出现有无 query `/api/session-tree` 调用位置，并在实现中按规格处理。
+12. [x] 状态刷新只更新 `status`，不修改 `pid`、`url`、`tmux_window_id`。
+13. [x] 状态刷新成功后前端展示真实状态。
+14. [x] 真实状态刷新失败时前端保留快速记录视图并 toast；后端 tmux list 失败时保守保留旧状态。
+15. [x] 后端测试覆盖快速路径、批量映射、window 不存在跳过 ttyd、字段保留、失败保守处理。
+16. [x] 前端通过 lint/typecheck/build 覆盖静态正确性；当前项目未发现前端单元测试配置。
+17. [x] Spec 已列出现有无 query `/api/session-tree` 调用位置，并在实现中按规格处理。
 
 ## Test results
 

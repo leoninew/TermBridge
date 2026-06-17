@@ -541,8 +541,8 @@ def test_service_refresh_disconnects_entry_when_ttyd_port_closes(tmp_path: Path)
     entry = service._repository.get_entry(response.id)[1]
 
     assert refreshed.status == SessionStatus.DISCONNECTED
-    assert refreshed.url == ""
-    assert entry.pid is None
+    assert refreshed.url == f"/terminal/{response.id}/"
+    assert entry.pid == 100
     assert entry.tmux_window_id == "@1"
 
 
@@ -557,7 +557,7 @@ def test_service_refresh_keeps_running_when_ttyd_port_is_open_without_process_ca
     refreshed = service.get(response.id)
 
     assert refreshed.status == SessionStatus.RUNNING
-    assert refreshed.url == f"/terminal/{response.id}/"
+    assert refreshed.url == ""
 
 
 def test_service_refresh_stops_entry_when_tmux_window_disappears(tmp_path: Path) -> None:
@@ -571,9 +571,9 @@ def test_service_refresh_stops_entry_when_tmux_window_disappears(tmp_path: Path)
     entry = service._repository.get_entry(response.id)[1]
 
     assert refreshed.status == SessionStatus.STOPPED
-    assert refreshed.url == ""
-    assert entry.pid is None
-    assert entry.tmux_window_id is None
+    assert refreshed.url == f"/terminal/{response.id}/"
+    assert entry.pid == 100
+    assert entry.tmux_window_id == "@1"
     assert service.get(response.id).status == SessionStatus.STOPPED
 
 
@@ -602,7 +602,7 @@ def test_service_refresh_stops_disconnected_entry_when_tmux_window_disappears(tm
     refreshed = service.get(response.id)
 
     assert refreshed.status == SessionStatus.STOPPED
-    assert service._repository.get_entry(response.id)[1].tmux_window_id is None
+    assert service._repository.get_entry(response.id)[1].tmux_window_id == "@1"
 
 
 def test_service_rejects_terminal_proxy_for_disconnected_entry(tmp_path: Path) -> None:
@@ -784,7 +784,7 @@ def test_service_list_tree_stops_missing_tmux_window_without_ttyd_check(tmp_path
 
     cygwin = next(environment for environment in tree.environments if environment.host == "windows_cygwin")
     assert cygwin.workspaces[0].entries[0].status == SessionStatus.STOPPED
-    assert entry.tmux_window_id is None
+    assert entry.tmux_window_id == "@1"
     assert ttyd_checked_ports == []
 
 
