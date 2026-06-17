@@ -32,7 +32,7 @@ release VERSION:
     if [ -z "{{VERSION}}" ]; then echo "VERSION is required"; exit 1; fi
     if [ ! -f "dist/termbridge-{{VERSION}}.tar.gz" ]; then echo "Missing tar.gz"; exit 1; fi
     if [ ! -f "dist/termbridge-{{VERSION}}-py3-none-any.whl" ]; then echo "Missing whl"; exit 1; fi
-    uvx twine upload "dist/termbridge-{{VERSION}}.tar.gz" "dist/termbridge-{{VERSION}}-py3-none-any.whl"
+    uvx --env-file .env twine upload --non-interactive "dist/termbridge-{{VERSION}}.tar.gz" "dist/termbridge-{{VERSION}}-py3-none-any.whl"
 
 clean:
     find . -type d -name "__pycache__" -not -path "./.git/*" -exec rm -rf {} +
