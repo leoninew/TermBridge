@@ -46,7 +46,11 @@ jobs:
         run: yarn --cwd web install --frozen-lockfile
 
       - name: Build distributions
-        run: make build
+        run: |
+          yarn --cwd web build
+          rm -rf src/termbridge/static
+          cp -R web/dist src/termbridge/static
+          uv build
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
