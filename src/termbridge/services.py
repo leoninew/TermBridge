@@ -1606,7 +1606,7 @@ class SessionService:
 
     def _ttyd_log_options(self, session_id: str) -> tuple[Path | None, bool]:
         if self._settings.ttyd_log_mode == "file":
-            return self._settings.state_dir / "logs" / "ttyd" / f"{session_id}.log", False
+            return self._settings.ttyd_logs_dir / f"{session_id}.log", False
         if self._settings.ttyd_log_mode == "none":
             return None, True
         return None, False

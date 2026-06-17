@@ -1,4 +1,5 @@
 # ttyd 日志处理范围说明
+最后修改时间: 2026-06-17 10:12:47
 
 Review status: Accepted
 
@@ -20,7 +21,8 @@ Review status: Accepted
 - 新增 `TERMBRIDGE_TTYD_LOG_MODE` 配置项，支持 `none`、`console`、`file`。
 - 默认值为 `none`，启动 session 时丢弃 `ttyd` stdout/stderr。
 - 当 `TERMBRIDGE_TTYD_LOG_MODE=console` 时，`ttyd` stdout/stderr 继承父进程输出。
-- 当 `TERMBRIDGE_TTYD_LOG_MODE=file` 时，启动 session 时 `ttyd` stdout/stderr 写入 `.termbridge/logs/ttyd/<session-id>.log`，不再直接写入 TermBridge 主控制台。
+- 当 `TERMBRIDGE_TTYD_LOG_MODE=file` 时，启动 session 时 `ttyd` stdout/stderr 写入日志文件，不再直接写入 TermBridge 主控制台；源码 checkout / `pip install -e .` editable 模式默认写入项目目录 `logs/ttyd/<session-id>.log`，wheel / 普通安装后运行默认写入用户目录 `.termbridge/logs/ttyd/<session-id>.log`。
+- file 模式日志文件应由 TermBridge 写入启动诊断 header，避免 ttyd 自身暂无输出时产生 0 字节空文件。
 - `.env.sample` 说明相关配置。
 - 相关单元测试通过。
 

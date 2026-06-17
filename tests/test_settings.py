@@ -1,10 +1,22 @@
 from pathlib import Path
 
-from termbridge.settings import Settings, default_state_dir
+from pytest import MonkeyPatch
+
+from termbridge.settings import Settings, default_state_dir, editable_project_root
 
 
 def test_default_state_dir_uses_project_directory_for_source_checkout() -> None:
     assert default_state_dir() == Path(".termbridge")
+
+
+def test_ttyd_logs_dir_uses_project_logs_for_source_checkout() -> None:
+    project_root = editable_project_root()
+    settings = Settings(state_dir=Path("custom-state"))
+
+    if project_root is not None:
+        assert settings.ttyd_logs_dir == project_root / "logs" / "ttyd"
+    else:
+        assert settings.ttyd_logs_dir == Path("custom-state") / "logs" / "ttyd"
 
 
 def test_coarse_grained_settings_defaults() -> None:
@@ -19,7 +31,7 @@ def test_coarse_grained_settings_defaults() -> None:
     assert settings.process_shutdown_timeout_seconds == 5
 
 
-def test_coarse_grained_settings_use_environment(monkeypatch) -> None:
+def test_coarse_grained_settings_use_environment(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv("TERMBRIDGE_API_HOST", "0.0.0.0")
     monkeypatch.setenv("TERMBRIDGE_API_PORT", "9011")
     monkeypatch.setenv("TERMBRIDGE_SERVE_WEB", "false")
@@ -39,7 +51,7 @@ def test_coarse_grained_settings_use_environment(monkeypatch) -> None:
     assert settings.process_shutdown_timeout_seconds == 2.5
 
 
-def test_empty_web_dir_is_none(monkeypatch) -> None:
+def test_empty_web_dir_is_none(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv("TERMBRIDGE_WEB_DIR", "")
 
     settings = Settings()

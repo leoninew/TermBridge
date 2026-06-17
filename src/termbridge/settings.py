@@ -6,9 +6,15 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def default_state_dir() -> Path:
+def editable_project_root() -> Path | None:
     project_root = Path(__file__).resolve().parents[2]
     if (project_root / "pyproject.toml").is_file():
+        return project_root
+    return None
+
+
+def default_state_dir() -> Path:
+    if editable_project_root() is not None:
         return Path(".termbridge")
     return Path.home() / ".termbridge"
 
@@ -47,6 +53,13 @@ class Settings(BaseSettings):
         if value == "":
             return None
         return value
+
+    @property
+    def ttyd_logs_dir(self) -> Path:
+        project_root = editable_project_root()
+        if project_root is not None:
+            return project_root / "logs" / "ttyd"
+        return self.state_dir / "logs" / "ttyd"
 
     @property
     def sessions_file(self) -> Path:

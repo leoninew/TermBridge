@@ -23,7 +23,7 @@ from termbridge.services import (
     TmuxWindowListing,
     parse_tmux_window_line,
 )
-from termbridge.settings import Settings
+from termbridge.settings import Settings, editable_project_root
 from termbridge.ttyd import ttyd_client_options
 
 
@@ -229,6 +229,7 @@ def test_service_creates_entry_with_workspace_tmux_session(tmp_path: Path) -> No
         "--credential",
         f"termbridge:{entry.ttyd_credential.password}",
     ]
+    assert "--debug" not in command
     assert_ttyd_client_options(command)
     assert command[-3:] == [
         "bash.exe",
@@ -243,9 +244,12 @@ def test_service_uses_ttyd_log_file_when_file_mode_is_enabled(tmp_path: Path) ->
     service = make_service(tmp_path, process, ttyd_log_mode="file")
 
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    project_root = editable_project_root()
+    expected_log_dir = project_root / "logs" / "ttyd" if project_root is not None else tmp_path / "state" / "logs" / "ttyd"
 
-    assert process.started[0][2] == tmp_path / "state" / "logs" / "ttyd" / f"{response.id}.log"
+    assert process.started[0][2] == expected_log_dir / f"{response.id}.log"
     assert process.started[0][3] is False
+    assert "--debug" not in process.started[0][0]
 
 
 def test_service_omits_ttyd_writable_flag_when_disabled(tmp_path: Path) -> None:
