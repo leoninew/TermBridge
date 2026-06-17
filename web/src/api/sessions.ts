@@ -83,8 +83,9 @@ export function listSessions(): Promise<Session[]> {
   return request<Session[]>('/api/sessions')
 }
 
-export function listSessionTree(): Promise<SessionTreeResponse> {
-  return request<SessionTreeResponse>('/api/session-tree')
+export function listSessionTree(options?: { refresh?: boolean }): Promise<SessionTreeResponse> {
+  const query = options?.refresh === false ? '?refresh=false' : ''
+  return request<SessionTreeResponse>(`/api/session-tree${query}`)
 }
 
 export function reorderEnvironmentWorkspaces(

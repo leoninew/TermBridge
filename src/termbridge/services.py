@@ -94,6 +94,35 @@ class TerminalProxyTarget:
     credential: TtydCredential | None
 
 
+@dataclass(frozen=True)
+class TmuxWindowListing:
+    tmux_session_name: str
+    window_index: str
+    window_name: str
+
+
+class TmuxListWindowsError(Exception):
+    pass
+
+
+def parse_tmux_window_line(line: str) -> TmuxWindowListing | None:
+    session_name, first_separator, remainder = line.partition(":")
+    window_index, second_separator, window_text = remainder.partition(":")
+    if not session_name or not first_separator or not window_index or not second_separator:
+        return None
+
+    window_name = window_text.strip()
+    window_name = re.sub(r"\s+\(\d+\s+panes?\)\s+\[[^\]]+\](?:\s+\[[^\]]+\])?\s*$", "", window_name)
+    window_name = window_name.rstrip("*-").strip()
+    if not window_name:
+        return None
+    return TmuxWindowListing(
+        tmux_session_name=session_name.strip(),
+        window_index=window_index.strip(),
+        window_name=window_name,
+    )
+
+
 class WorkspaceBrowserService:
     def list_roots(self) -> WorkspaceRootsResponse:
         roots = []
@@ -517,6 +546,27 @@ class TerminalService:
         )
         return result.returncode == 0 and result.stdout.strip() == tmux_window_id
 
+    def list_tmux_windows(self, host: ShortcutHost) -> list[TmuxWindowListing]:
+        result = self._run_tmux_command_in_home(host, "tmux list-windows -a")
+        output = "\n".join([result.stdout, result.stderr]).lower()
+        if result.returncode != 0:
+            if result.returncode == 1 and "no server running" in output:
+                return []
+            raise TmuxListWindowsError(result.stderr.strip() or result.stdout.strip() or "tmux list-windows failed")
+
+        listings = []
+        for line in result.stdout.splitlines():
+            if not line.strip():
+                continue
+            listing = parse_tmux_window_line(line)
+            if listing is None:
+                logger.warning("Ignoring unparsable tmux list-windows line host=%s line=%s", host, line)
+                continue
+            listings.append(listing)
+        if result.stdout.strip() and not listings:
+            raise TmuxListWindowsError("failed to parse tmux list-windows output")
+        return listings
+
     def find_tmux_window_by_name(
         self, host: ShortcutHost, workspace: Path, *, tmux_session_name: str, window_name: str
     ) -> str | None:
@@ -598,7 +648,19 @@ class TerminalService:
         )
 
     def _run_tmux_command(self, host: ShortcutHost, workspace: Path, command: str) -> subprocess.CompletedProcess[str]:
-        args = self._runtime_shell_command(host, workspace, command)
+        return self._run_tmux_command_args(
+            host,
+            self._runtime_shell_command(host, workspace, command),
+            command,
+            workspace=workspace,
+        )
+
+    def _run_tmux_command_in_home(self, host: ShortcutHost, command: str) -> subprocess.CompletedProcess[str]:
+        return self._run_tmux_command_args(host, self._runtime_home_shell_command(host, command), command)
+
+    def _run_tmux_command_args(
+        self, host: ShortcutHost, args: list[str], command: str, *, workspace: Path | None = None
+    ) -> subprocess.CompletedProcess[str]:
         env = self.runtime_process_env(host)
         try:
             return subprocess.run(
@@ -642,6 +704,16 @@ class TerminalService:
         if host == "windows_wsl":
             self._ensure_windows_wsl_ready()
             return ["wsl", "--cd", str(workspace), "sh", "-lc", command]
+        shell_path = self._ensure_linux_ready()
+        return [shell_path, "-lc", command]
+
+    def _runtime_home_shell_command(self, host: ShortcutHost, command: str) -> list[str]:
+        if host == "windows_cygwin":
+            bash_path = self._ensure_windows_cygwin_ready()
+            return [bash_path, "-lc", command]
+        if host == "windows_wsl":
+            self._ensure_windows_wsl_ready()
+            return ["wsl", "sh", "-lc", command]
         shell_path = self._ensure_linux_ready()
         return [shell_path, "-lc", command]
 
@@ -1121,20 +1193,11 @@ class SessionService:
         workspaces = self._refresh_workspaces(self._repository.list_workspaces())
         return [SessionResponse.from_entry(workspace, entry) for workspace in workspaces for entry in workspace.entries]
 
-    def list_tree(self) -> SessionTreeResponse:
-        workspaces = self._refresh_workspaces(self._repository.list_workspaces())
-        labels = self._environment_labels()
-        environments = []
-        for host in ("windows_cygwin", "windows_wsl", "linux"):
-            host_workspaces = [workspace for workspace in workspaces if workspace.host == host]
-            environments.append(
-                SessionEnvironmentResponse(
-                    host=host,
-                    label=labels[host],
-                    workspaces=[self._workspace_response(workspace) for workspace in host_workspaces],
-                )
-            )
-        return SessionTreeResponse(environments=environments)
+    def list_tree(self, *, refresh: bool = True) -> SessionTreeResponse:
+        workspaces = self._repository.list_workspaces()
+        if refresh:
+            workspaces = self._refresh_workspaces(workspaces)
+        return self._tree_response(workspaces)
 
     def get(self, session_id: str) -> SessionResponse:
         workspace, entry = self._repository.get_entry(session_id)
@@ -1343,10 +1406,72 @@ class SessionService:
         )
 
     def _refresh_workspaces(self, workspaces: list[WorkspaceRecord]) -> list[WorkspaceRecord]:
-        return [self._refresh_workspace(workspace) for workspace in workspaces]
+        window_names_by_host, unknown_hosts = self._tmux_window_names_by_host(workspaces)
+        return [
+            self._refresh_workspace(
+                workspace,
+                window_names_by_session=window_names_by_host.get(workspace.host),
+                tmux_listing_unknown=workspace.host in unknown_hosts,
+            )
+            for workspace in workspaces
+        ]
 
-    def _refresh_workspace(self, workspace: WorkspaceRecord) -> WorkspaceRecord:
-        entries = [self._refresh_entry(workspace, entry) for entry in workspace.entries]
+    def _tree_response(self, workspaces: list[WorkspaceRecord]) -> SessionTreeResponse:
+        labels = self._environment_labels()
+        environments = []
+        for host in ("windows_cygwin", "windows_wsl", "linux"):
+            host_workspaces = [workspace for workspace in workspaces if workspace.host == host]
+            environments.append(
+                SessionEnvironmentResponse(
+                    host=host,
+                    label=labels[host],
+                    workspaces=[self._workspace_response(workspace) for workspace in host_workspaces],
+                )
+            )
+        return SessionTreeResponse(environments=environments)
+
+    def _tmux_window_names_by_host(
+        self, workspaces: list[WorkspaceRecord]
+    ) -> tuple[dict[ShortcutHost, dict[str, set[str]]], set[ShortcutHost]]:
+        hosts = {workspace.host for workspace in workspaces if workspace.entries}
+        if not hosts:
+            return {}, set()
+
+        terminal_service = self._require_terminal_service()
+        window_names_by_host: dict[ShortcutHost, dict[str, set[str]]] = {}
+        unknown_hosts: set[ShortcutHost] = set()
+        for host in hosts:
+            try:
+                listings = terminal_service.list_tmux_windows(host)
+            except Exception as exc:
+                logger.warning("Failed to list tmux windows host=%s error=%s", host, exc)
+                unknown_hosts.add(host)
+                continue
+
+            window_names_by_session: dict[str, set[str]] = {}
+            for listing in listings:
+                window_names_by_session.setdefault(listing.tmux_session_name, set()).add(listing.window_name)
+            window_names_by_host[host] = window_names_by_session
+        return window_names_by_host, unknown_hosts
+
+    def _refresh_workspace(
+        self,
+        workspace: WorkspaceRecord,
+        *,
+        window_names_by_session: Mapping[str, set[str]] | None = None,
+        tmux_listing_unknown: bool = False,
+    ) -> WorkspaceRecord:
+        entries = [
+            self._refresh_entry_from_tmux_listing(
+                workspace,
+                entry,
+                window_names_by_session=window_names_by_session,
+                tmux_listing_unknown=tmux_listing_unknown,
+            )
+            if window_names_by_session is not None or tmux_listing_unknown
+            else self._refresh_entry(workspace, entry)
+            for entry in workspace.entries
+        ]
         if entries == workspace.entries:
             return workspace
         return workspace.model_copy(update={"entries": entries})
@@ -1361,7 +1486,25 @@ class SessionService:
             workspace.path,
             tmux_window_id=entry.tmux_window_id,
         )
-        ttyd_available = entry.port > 0 and self._ttyd_port_checker(entry.port)
+        return self._refresh_entry_with_window_state(entry, tmux_window_exists=tmux_window_exists)
+
+    def _refresh_entry_from_tmux_listing(
+        self,
+        workspace: WorkspaceRecord,
+        entry: SessionEntryRecord,
+        *,
+        window_names_by_session: Mapping[str, set[str]] | None,
+        tmux_listing_unknown: bool,
+    ) -> SessionEntryRecord:
+        if entry.status in {SessionStatus.STARTING, SessionStatus.FAILED} or tmux_listing_unknown:
+            return entry
+        window_names = window_names_by_session.get(workspace.tmux_session_name, set()) if window_names_by_session else set()
+        return self._refresh_entry_with_window_state(entry, tmux_window_exists=entry.name in window_names)
+
+    def _refresh_entry_with_window_state(
+        self, entry: SessionEntryRecord, *, tmux_window_exists: bool
+    ) -> SessionEntryRecord:
+        ttyd_available = tmux_window_exists and entry.port > 0 and self._ttyd_port_checker(entry.port)
 
         if tmux_window_exists and ttyd_available:
             status = SessionStatus.RUNNING

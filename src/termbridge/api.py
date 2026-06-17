@@ -293,8 +293,8 @@ def list_sessions(service: SessionServiceDep) -> list[SessionResponse]:
 
 
 @router.get("/api/session-tree", response_model=SessionTreeResponse)
-def list_session_tree(service: SessionServiceDep) -> SessionTreeResponse:
-    return service.list_tree()
+def list_session_tree(service: SessionServiceDep, refresh: bool = True) -> SessionTreeResponse:
+    return service.list_tree(refresh=refresh)
 
 
 @router.put("/api/session-tree/environments/{host}/workspaces/order", response_model=SessionTreeResponse)

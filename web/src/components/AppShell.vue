@@ -47,7 +47,8 @@ const sessions = ref<Session[]>([])
 const sessionTree = ref<SessionEnvironment[]>([])
 const activeSessionId = ref<string>()
 const openTerminalSessionIds = ref<string[]>([])
-const loading = ref(false)
+const initialSessionTreeLoading = ref(false)
+const sessionStatusRefreshing = ref(false)
 const error = ref('')
 const showCreatePanel = ref(false)
 const creatingSession = ref(false)
@@ -104,16 +105,40 @@ function errorTitle(err: unknown, fallback: string) {
 }
 
 async function refresh() {
-  loading.value = true
   error.value = ''
+  const storedLoaded = await loadStoredSessions()
+  void environmentStore.ensureLoaded()
+  if (!storedLoaded) {
+    return
+  }
+
+  await refreshLiveSessions()
+}
+
+async function loadStoredSessions() {
+  initialSessionTreeLoading.value = true
   try {
-    await Promise.all([loadSessions(), environmentStore.ensureLoaded()])
+    applySessionTree((await listSessionTree({ refresh: false })).environments)
+    return true
+  } catch (err) {
+    const title = errorTitle(err, t('app.errors.loadSessions'))
+    if (sessionTree.value.length > 0 || sessions.value.length > 0) {
+      toast.show({ title, variant: 'error' })
+    } else {
+      error.value = title
+    }
+    return false
   } finally {
-    loading.value = false
+    initialSessionTreeLoading.value = false
   }
 }
 
 async function loadSessions() {
+  await refreshLiveSessions()
+}
+
+async function refreshLiveSessions() {
+  sessionStatusRefreshing.value = true
   try {
     applySessionTree((await listSessionTree()).environments)
   } catch (err) {
@@ -123,6 +148,8 @@ async function loadSessions() {
       return
     }
     error.value = title
+  } finally {
+    sessionStatusRefreshing.value = false
   }
 }
 
@@ -530,8 +557,10 @@ onMounted(() => {
           :sessions="sessions"
           :session-tree="sessionTree"
           :active-session-id="activeSessionId"
-          :loading="loading"
+          :status-refreshing="sessionStatusRefreshing"
           :environments-loading="environmentStore.loading"
+          :environments-loaded="environmentStore.loaded"
+          :environments-error="environmentStore.error"
           :error="error"
           :compact="compactSidebar"
           :environments="environmentStore.environments"
@@ -604,6 +633,18 @@ onMounted(() => {
         </RouterView>
       </SplitterPanel>
     </SplitterGroup>
+
+    <div
+      v-if="initialSessionTreeLoading"
+      class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-100/90 backdrop-blur-sm dark:bg-slate-950/90"
+    >
+      <div
+        class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-slate-700 shadow-xl shadow-blue-900/10 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:shadow-none"
+      >
+        <Loader2 class="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400" />
+        <span class="font-medium">{{ t('app.loading.restoreSessions') }}</span>
+      </div>
+    </div>
 
     <button
       v-if="sidebarCollapsed"

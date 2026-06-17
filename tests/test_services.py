@@ -16,7 +16,13 @@ from termbridge.ports import PortAllocator
 from termbridge.process import ProcessHandle
 from termbridge.repositories import FileSessionRepository
 from termbridge.runtime import RuntimeRegistry
-from termbridge.services import SessionService, TerminalService
+from termbridge.services import (
+    SessionService,
+    TerminalService,
+    TmuxListWindowsError,
+    TmuxWindowListing,
+    parse_tmux_window_line,
+)
 from termbridge.settings import Settings
 from termbridge.ttyd import ttyd_client_options
 
@@ -70,6 +76,11 @@ class FakeShortcutService:
         self.killed_windows: list[tuple[str, Path, str | None]] = []
         self.killed_sessions: list[tuple[str, Path, str]] = []
         self.window_exists = True
+        self.window_exists_calls: list[tuple[str, Path, str | None]] = []
+        self.listed_tmux_window_hosts: list[str] = []
+        self.tmux_windows: dict[str, list[TmuxWindowListing]] = {}
+        self.tmux_window_by_id: dict[str, TmuxWindowListing] = {}
+        self.tmux_list_error: Exception | None = None
         self.window_by_name: str | None = None
         self.shortcut = Shortcut(
             id="claude-code",
@@ -85,7 +96,11 @@ class FakeShortcutService:
         self, shortcut: Shortcut, workspace: Path, *, tmux_session_name: str, window_name: str
     ) -> str:
         self.created_windows.append((shortcut, workspace, tmux_session_name, window_name))
-        return f"@{len(self.created_windows)}"
+        tmux_window_id = f"@{len(self.created_windows)}"
+        listing = TmuxWindowListing(tmux_session_name=tmux_session_name, window_index="0", window_name=window_name)
+        self.tmux_windows.setdefault(shortcut.host, []).append(listing)
+        self.tmux_window_by_id[tmux_window_id] = listing
+        return tmux_window_id
 
     def build_tmux_attach_command(
         self, host: str, workspace: Path, *, tmux_session_name: str, tmux_window_id: str | None
@@ -94,12 +109,23 @@ class FakeShortcutService:
 
     def kill_tmux_window(self, host: str, workspace: Path, *, tmux_window_id: str | None) -> None:
         self.killed_windows.append((host, workspace, tmux_window_id))
+        if tmux_window_id is not None:
+            killed = self.tmux_window_by_id.pop(tmux_window_id, None)
+            if killed is not None:
+                self.tmux_windows[host] = [listing for listing in self.tmux_windows.get(host, []) if listing != killed]
 
     def kill_tmux_session(self, host: str, workspace: Path, *, tmux_session_name: str) -> None:
         self.killed_sessions.append((host, workspace, tmux_session_name))
 
     def tmux_window_exists(self, host: str, workspace: Path, *, tmux_window_id: str | None) -> bool:
+        self.window_exists_calls.append((host, workspace, tmux_window_id))
         return self.window_exists
+
+    def list_tmux_windows(self, host: str) -> list[TmuxWindowListing]:
+        self.listed_tmux_window_hosts.append(host)
+        if self.tmux_list_error is not None:
+            raise self.tmux_list_error
+        return self.tmux_windows.get(host, [])
 
     def find_tmux_window_by_name(
         self, host: str, workspace: Path, *, tmux_session_name: str, window_name: str
@@ -151,6 +177,15 @@ def make_service(
     )
     service._ttyd_port_checker = ttyd_port_open if callable(ttyd_port_open) else lambda _port: ttyd_port_open
     return service
+
+
+def record_ttyd_checks(ports: list[int], result: bool) -> Callable[[int], bool]:
+    def check(port: int) -> bool:
+        ports.append(port)
+        return result
+
+    return check
+
 
 
 def assert_ttyd_client_options(command: list[str]) -> None:
@@ -682,6 +717,109 @@ def test_service_list_tree_reports_disconnected_workspace_status(tmp_path: Path)
     cygwin = next(environment for environment in tree.environments if environment.host == "windows_cygwin")
     assert cygwin.workspaces[0].status == SessionStatus.DISCONNECTED
     assert cygwin.workspaces[0].entries[0].status == SessionStatus.DISCONNECTED
+
+
+def test_parse_tmux_window_line_cleans_default_output() -> None:
+    listing = parse_tmux_window_line("tb_cyg_3d134fa1d1d50ef3:0: 特性开发* (1 panes) [230x54]")
+
+    assert listing == TmuxWindowListing(
+        tmux_session_name="tb_cyg_3d134fa1d1d50ef3",
+        window_index="0",
+        window_name="特性开发",
+    )
+    assert parse_tmux_window_line("not-a-tmux-window-line") is None
+
+
+
+def test_service_list_tree_refresh_false_skips_status_checks(tmp_path: Path) -> None:
+    shortcuts = FakeShortcutService()
+    ttyd_checked_ports: list[int] = []
+    service = make_service(
+        tmp_path,
+        shortcut_service=shortcuts,
+        ttyd_port_open=record_ttyd_checks(ttyd_checked_ports, False),
+    )
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    _, entry = service._repository.get_entry(response.id)
+    service._repository.update_entry(entry.model_copy(update={"status": SessionStatus.DISCONNECTED, "pid": None, "url": ""}))
+
+    tree = service.list_tree(refresh=False)
+
+    cygwin = next(environment for environment in tree.environments if environment.host == "windows_cygwin")
+    assert cygwin.workspaces[0].entries[0].status == SessionStatus.DISCONNECTED
+    assert shortcuts.listed_tmux_window_hosts == []
+    assert shortcuts.window_exists_calls == []
+    assert ttyd_checked_ports == []
+
+
+
+def test_service_list_tree_uses_one_tmux_listing_per_host(tmp_path: Path) -> None:
+    shortcuts = FakeShortcutService()
+    service = make_service(tmp_path, shortcut_service=shortcuts)
+    service.create(CreateSessionRequest(name="One", workspace=tmp_path, shortcut_id="claude-code"))
+    service.create(CreateSessionRequest(name="Two", workspace=tmp_path, shortcut_id="claude-code"))
+
+    tree = service.list_tree()
+
+    cygwin = next(environment for environment in tree.environments if environment.host == "windows_cygwin")
+    assert [entry.status for entry in cygwin.workspaces[0].entries] == [SessionStatus.RUNNING, SessionStatus.RUNNING]
+    assert shortcuts.listed_tmux_window_hosts == ["windows_cygwin"]
+    assert shortcuts.window_exists_calls == []
+
+
+
+def test_service_list_tree_stops_missing_tmux_window_without_ttyd_check(tmp_path: Path) -> None:
+    shortcuts = FakeShortcutService()
+    ttyd_checked_ports: list[int] = []
+    service = make_service(
+        tmp_path,
+        shortcut_service=shortcuts,
+        ttyd_port_open=record_ttyd_checks(ttyd_checked_ports, True),
+    )
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    shortcuts.tmux_windows["windows_cygwin"] = []
+
+    tree = service.list_tree()
+    entry = service._repository.get_entry(response.id)[1]
+
+    cygwin = next(environment for environment in tree.environments if environment.host == "windows_cygwin")
+    assert cygwin.workspaces[0].entries[0].status == SessionStatus.STOPPED
+    assert entry.tmux_window_id is None
+    assert ttyd_checked_ports == []
+
+
+
+def test_service_list_tree_marks_existing_window_without_ttyd_as_disconnected(tmp_path: Path) -> None:
+    service = make_service(tmp_path, ttyd_port_open=False)
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+
+    tree = service.list_tree()
+
+    cygwin = next(environment for environment in tree.environments if environment.host == "windows_cygwin")
+    assert cygwin.workspaces[0].entries[0].status == SessionStatus.DISCONNECTED
+    assert service._repository.get_entry(response.id)[1].tmux_window_id == "@1"
+
+
+
+def test_service_list_tree_keeps_status_when_tmux_listing_fails(tmp_path: Path) -> None:
+    shortcuts = FakeShortcutService()
+    ttyd_checked_ports: list[int] = []
+    service = make_service(
+        tmp_path,
+        shortcut_service=shortcuts,
+        ttyd_port_open=record_ttyd_checks(ttyd_checked_ports, False),
+    )
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    shortcuts.tmux_list_error = TmuxListWindowsError("tmux failed")
+
+    tree = service.list_tree()
+    entry = service._repository.get_entry(response.id)[1]
+
+    cygwin = next(environment for environment in tree.environments if environment.host == "windows_cygwin")
+    assert cygwin.workspaces[0].entries[0].status == SessionStatus.RUNNING
+    assert entry.tmux_window_id == "@1"
+    assert ttyd_checked_ports == []
+
 
 
 def test_service_reorders_workspaces_in_environment(tmp_path: Path) -> None:

@@ -1,9 +1,9 @@
 # session-tree 快速刷新与批量状态检查计划
-最后修改时间: 2026-06-16 22:48:19
+最后修改时间: 2026-06-17 08:12:08
 
 - Flow mode: strict
 - Stage: Plan
-- Review status: Draft
+- Review status: Accepted
 - Date: 2026-06-16
 
 ## Requirement / Spec basis

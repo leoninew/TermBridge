@@ -39,6 +39,9 @@
       "deleteWorkspace": "目录已删除。",
       "closeAllSessions": "已关闭 {count} 个会话。"
     },
+    "loading": {
+      "restoreSessions": "正在恢复会话..."
+    },
     "actions": {
       "cancel": "取消",
       "delete": "删除",
@@ -105,6 +108,8 @@
       "title": "会话管理",
       "createLabel": "新建会话",
       "loading": "正在加载会话...",
+      "refreshingStatus": "正在更新状态...",
+      "loadingEnvironments": "正在加载环境...",
       "emptyPrefix": "暂无会话，先",
       "emptyCreateLink": "新建",
       "emptySuffix": "一个。",

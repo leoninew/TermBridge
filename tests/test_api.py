@@ -68,6 +68,7 @@ class FakeSessionService:
         self.deleted: list[str] = []
         self.deleted_workspaces: list[str] = []
         self.close_all_called = False
+        self.list_tree_refreshes: list[bool] = []
 
     def create(self, request: CreateSessionRequest) -> SessionResponse:
         return self.session.model_copy(
@@ -98,7 +99,8 @@ class FakeSessionService:
         self.close_all_called = True
         return CloseAllSessionsResponse(stopped_count=len(self.sessions), tmux_session_count=1 if self.sessions else 0)
 
-    def list_tree(self) -> SessionTreeResponse:
+    def list_tree(self, *, refresh: bool = True) -> SessionTreeResponse:
+        self.list_tree_refreshes.append(refresh)
         return SessionTreeResponse(
             environments=[
                 SessionEnvironmentResponse(
@@ -298,6 +300,7 @@ def test_session_api_routes(tmp_path: Path) -> None:
     listed = client.get("/api/sessions")
     detail = client.get("/api/sessions/sess_2")
     tree = client.get("/api/session-tree")
+    quick_tree = client.get("/api/session-tree?refresh=false")
     started = client.post("/api/sessions/sess_2/start")
     stopped = client.post("/api/sessions/sess_2/stop")
     close_all = client.post("/api/sessions/close-all")
@@ -323,6 +326,8 @@ def test_session_api_routes(tmp_path: Path) -> None:
     assert detail.json()["session_persistence"] == "tmux"
     assert tree.status_code == 200
     assert tree.json()["environments"][0]["workspaces"][0]["entries"][0]["id"] == "sess_1"
+    assert quick_tree.status_code == 200
+    assert service.list_tree_refreshes[:2] == [True, False]
     assert reordered_workspaces.status_code == 200
     assert reordered_workspaces.json()["environments"][0]["workspaces"][0]["id"] == "ws_1"
     assert reordered_sessions.status_code == 200

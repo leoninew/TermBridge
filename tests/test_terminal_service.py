@@ -23,7 +23,7 @@ from termbridge.models import (
     utc_now,
 )
 from termbridge.repositories import FileSessionRepository, FileShortcutRepository, FileTerminalRepository
-from termbridge.services import TerminalService
+from termbridge.services import TerminalService, TmuxWindowListing
 from termbridge.settings import Settings
 
 
@@ -322,6 +322,57 @@ def test_terminal_service_finds_tmux_window_by_name(tmp_path: Path) -> None:
     assert window_id == "@7"
     command = run.call_args.args[0]
     assert "tmux list-windows -t tb_wsl_workspace -F '#{window_id}\t#{window_name}'" in command[5]
+
+
+def test_terminal_service_lists_tmux_windows_from_home_and_parses_default_output(tmp_path: Path) -> None:
+    repository = FileTerminalRepository(tmp_path / "terminals.json")
+    state = repository.get_state()
+    state.windows_cygwin_settings = WindowsCygwinSettings(
+        readiness="ready",
+        bash_path="D:/ProgramFiles/Cygwin/bin/bash.exe",
+        tmux_path="D:/ProgramFiles/Cygwin/bin/tmux.exe",
+    )
+    repository.save_state(state)
+    service = make_service(tmp_path)
+    completed = subprocess.CompletedProcess(
+        args=[],
+        returncode=0,
+        stdout="tb_cyg_3d134fa1d1d50ef3:0: 特性开发* (1 panes) [230x54]\n",
+        stderr="",
+    )
+
+    with patch("termbridge.services.subprocess.run", return_value=completed) as run:
+        listings = service.list_tmux_windows("windows_cygwin")
+
+    assert listings == [
+        TmuxWindowListing(
+            tmux_session_name="tb_cyg_3d134fa1d1d50ef3",
+            window_index="0",
+            window_name="特性开发",
+        )
+    ]
+    assert run.call_args.args[0] == ["D:/ProgramFiles/Cygwin/bin/bash.exe", "-lc", "tmux list-windows -a"]
+    assert run.call_args.kwargs["env"] is not None
+
+
+
+def test_terminal_service_treats_tmux_no_server_as_empty_window_list(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.update_windows_wsl_settings(
+        WindowsWslSettings(readiness="ready", wsl_path="wsl", tmux_path="/usr/bin/tmux")
+    )
+    completed = subprocess.CompletedProcess(
+        args=[],
+        returncode=1,
+        stdout="",
+        stderr="no server running on /tmp/tmux-1000/default",
+    )
+
+    with patch("termbridge.services.subprocess.run", return_value=completed):
+        listings = service.list_tmux_windows("windows_wsl")
+
+    assert listings == []
+
 
 
 def test_terminal_service_treats_tmux_window_timeout_as_missing_window(tmp_path: Path) -> None:

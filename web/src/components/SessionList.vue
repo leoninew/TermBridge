@@ -90,8 +90,10 @@ const props = defineProps<{
   sessions: Session[]
   sessionTree: SessionEnvironment[]
   activeSessionId?: string
-  loading: boolean
+  statusRefreshing: boolean
   environmentsLoading: boolean
+  environmentsLoaded: boolean
+  environmentsError: string
   error: string
   compact?: boolean
   environments: EnvironmentSummary[]
@@ -141,6 +143,16 @@ const treeGroups = computed<SessionTreeGroup[]>(() =>
 
 const hasWorkspaceNodes = computed(() =>
   props.sessionTree.some((environment) => environment.workspaces.length > 0),
+)
+const hasSessionContent = computed(() => props.sessions.length > 0 || hasWorkspaceNodes.value)
+const shouldShowEnvironmentLoading = computed(
+  () => props.environmentsLoading && !props.environmentsLoaded && !hasSessionContent.value,
+)
+const shouldShowEnvironmentError = computed(
+  () => !!props.environmentsError && !props.environmentsLoading && !props.environmentsLoaded && !hasSessionContent.value,
+)
+const shouldShowNoReadyEnvironment = computed(
+  () => props.environmentsLoaded && props.sessions.length === 0 && !props.hasReadyEnvironment,
 )
 const shouldShowEmptySessions = computed(
   () => props.sessions.length === 0 && !hasWorkspaceNodes.value,
@@ -478,19 +490,32 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
     class="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-200/70 bg-slate-100 text-slate-700 opacity-90 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 lg:border-r-0"
   >
     <div class="flex min-h-0 flex-1 flex-col gap-2.5 px-2 pb-0">
-      <p
-        v-if="loading || environmentsLoading"
-        class="inline-flex items-center gap-2 text-sm text-slate-500"
-      >
-        <Loader2 class="h-4 w-4 animate-spin" />
-        {{ t('session.list.loading') }}
-      </p>
-      <p v-else-if="error" class="inline-flex items-center gap-2 text-sm text-red-600">
+      <p v-if="error" class="inline-flex items-center gap-2 text-sm text-red-600">
         <AlertCircle class="h-4 w-4" />
         {{ error }}
       </p>
+      <p
+        v-else-if="shouldShowEnvironmentLoading"
+        class="inline-flex items-center gap-2 text-sm text-slate-500"
+      >
+        <Loader2 class="h-4 w-4 animate-spin" />
+        {{ t('session.list.loadingEnvironments') }}
+      </p>
       <div
-        v-else-if="sessions.length === 0 && !hasReadyEnvironment"
+        v-else-if="shouldShowEnvironmentError"
+        class="grid gap-3 border-l border-red-300 bg-red-50/70 p-3 text-sm text-red-900 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200"
+      >
+        <p>{{ environmentsError }}</p>
+        <button
+          type="button"
+          class="justify-self-start rounded-lg bg-red-600 px-3 py-2 text-white transition hover:bg-red-700"
+          @click="emit('navigate', '/environment')"
+        >
+          {{ t('session.list.goToEnvironment') }}
+        </button>
+      </div>
+      <div
+        v-else-if="shouldShowNoReadyEnvironment"
         class="grid gap-3 border-l border-amber-300 bg-amber-50/70 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200"
       >
         <p>{{ t('session.list.noReadyEnvironment') }}</p>
@@ -887,6 +912,20 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
           </DropdownMenuContent>
         </DropdownMenuPortal>
       </DropdownMenuRoot>
+      <span
+        v-if="statusRefreshing"
+        class="inline-flex min-w-0 items-center gap-1 truncate text-slate-400 dark:text-slate-500"
+      >
+        <Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />
+        <span class="truncate">{{ t('session.list.refreshingStatus') }}</span>
+      </span>
+      <span
+        v-else-if="environmentsLoading"
+        class="inline-flex min-w-0 items-center gap-1 truncate text-slate-400 dark:text-slate-500"
+      >
+        <Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />
+        <span class="truncate">{{ t('session.list.loadingEnvironments') }}</span>
+      </span>
       <button
         type="button"
         class="ml-auto inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-500 transition hover:bg-slate-900 hover:text-slate-200"
