@@ -615,6 +615,24 @@ class TerminalService:
         result = self._run_tmux_command(host, workspace, f"tmux has-session -t {shlex.quote(tmux_session_name)}")
         return result.returncode == 0
 
+    def rename_tmux_window(
+        self,
+        host: ShortcutHost,
+        workspace: Path,
+        *,
+        tmux_window_id: str | None,
+        new_name: str,
+    ) -> None:
+        if not tmux_window_id:
+            return
+        if not self.tmux_window_exists(host, workspace, tmux_window_id=tmux_window_id):
+            return
+        self._run_tmux_command(
+            host,
+            workspace,
+            f"tmux rename-window -t {shlex.quote(tmux_window_id)} {shlex.quote(new_name)}",
+        )
+
     def kill_tmux_window(self, host: ShortcutHost, workspace: Path, *, tmux_window_id: str | None) -> None:
         if not tmux_window_id:
             return
@@ -1248,6 +1266,13 @@ class SessionService:
             raise InvalidTerminalConfigError("Session name already exists in this workspace")
         updated = entry.model_copy(update={"name": name, "updated_at": utc_now()})
         self._repository.update_entry(updated)
+        terminal_service = self._require_terminal_service()
+        terminal_service.rename_tmux_window(
+            workspace.host,
+            workspace.path,
+            tmux_window_id=updated.tmux_window_id,
+            new_name=name,
+        )
         return SessionResponse.from_entry(workspace, updated)
 
     def terminal_proxy_target(self, session_id: str) -> TerminalProxyTarget:

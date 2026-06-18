@@ -1,4 +1,5 @@
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Literal, cast
 
@@ -107,6 +108,25 @@ class FakeShortcutService:
         self, host: str, workspace: Path, *, tmux_session_name: str, tmux_window_id: str | None
     ) -> list[str]:
         return ["bash.exe", "-lc", f"tmux select-window -t {tmux_window_id} && exec tmux attach -t {tmux_session_name}"]
+
+    def rename_tmux_window(
+        self,
+        host: str,
+        workspace: Path,
+        *,
+        tmux_window_id: str | None,
+        new_name: str,
+    ) -> None:
+        if tmux_window_id is None:
+            return
+        listing = self.tmux_window_by_id.get(tmux_window_id)
+        if listing is None:
+            return
+        renamed = replace(listing, window_name=new_name)
+        self.tmux_window_by_id[tmux_window_id] = renamed
+        self.tmux_windows[host] = [
+            renamed if item is listing else item for item in self.tmux_windows.get(host, [])
+        ]
 
     def kill_tmux_window(self, host: str, workspace: Path, *, tmux_window_id: str | None) -> None:
         self.killed_windows.append((host, workspace, tmux_window_id))
@@ -420,15 +440,37 @@ def test_service_rejects_duplicate_session_name_in_workspace(tmp_path: Path) -> 
 
 
 def test_service_updates_session_name(tmp_path: Path) -> None:
-    service = make_service(tmp_path)
+    shortcuts = FakeShortcutService()
+    service = make_service(tmp_path, shortcut_service=shortcuts)
     response = service.create(CreateSessionRequest(name="Old", workspace=tmp_path, shortcut_id="claude-code"))
+    entry = service._repository.get_entry(response.id)[1]
+    tmux_window_id = entry.tmux_window_id
+    assert tmux_window_id is not None
 
     updated = service.update(response.id, UpdateSessionRequest(name="New"))
-    entry = service._repository.get_entry(response.id)[1]
+    renamed_entry = service._repository.get_entry(response.id)[1]
 
     assert updated.name == "New"
-    assert entry.name == "New"
-    assert entry.updated_at > response.updated_at
+    assert renamed_entry.name == "New"
+    assert renamed_entry.updated_at > response.updated_at
+    listing = shortcuts.tmux_window_by_id[tmux_window_id]
+    assert listing.window_name == "New"
+
+
+def test_service_updates_session_name_without_tmux_window(tmp_path: Path) -> None:
+    shortcuts = FakeShortcutService()
+    service = make_service(tmp_path, shortcut_service=shortcuts)
+    response = service.create(CreateSessionRequest(name="Old", workspace=tmp_path, shortcut_id="claude-code"))
+    old_tmux_window_id = service._repository.get_entry(response.id)[1].tmux_window_id
+    shortcuts.window_exists = False
+    entry = service._repository.get_entry(response.id)[1]
+    service._repository.update_entry(entry.model_copy(update={"tmux_window_id": None}))
+
+    updated = service.update(response.id, UpdateSessionRequest(name="New"))
+    listing = shortcuts.tmux_window_by_id.get(old_tmux_window_id) if old_tmux_window_id else None
+
+    assert updated.name == "New"
+    assert listing is None or listing.window_name == "Old"
 
 
 def test_service_rejects_duplicate_session_name_update(tmp_path: Path) -> None:
