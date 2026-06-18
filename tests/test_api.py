@@ -20,6 +20,7 @@ from termbridge.models import (
     EnvironmentSummary,
     LinuxCheckResponse,
     ReorderSessionsRequest,
+    ReorderShortcutsRequest,
     ReorderWorkspacesRequest,
     RuntimeCheckResponse,
     SessionEnvironmentResponse,
@@ -173,6 +174,10 @@ class FakeTerminalService:
         shortcut = self.shortcuts[0].model_copy(update=request.model_dump(exclude_unset=True))
         self.shortcuts[0] = shortcut
         return shortcut
+
+    def reorder_shortcuts(self, host: str, request: ReorderShortcutsRequest) -> ShortcutListResponse:
+        self.shortcuts = list(reversed(self.shortcuts))
+        return self.list_shortcuts()
 
     def delete_shortcut(self, shortcut_id: str) -> None:
         self.deleted.append(shortcut_id)
@@ -356,6 +361,10 @@ def test_shortcut_api_routes() -> None:
 
     listed = client.get("/api/shortcuts")
     created = client.post("/api/shortcuts", json={"name": "Codex", "command": "codex", "host": "windows_cygwin"})
+    reordered = client.put(
+        "/api/shortcuts/environments/windows_cygwin/order",
+        json={"shortcut_ids": ["shortcut_new", "claude-code"]},
+    )
     updated = client.put("/api/shortcuts/claude-code", json={"command": "claude"})
     deleted = client.delete("/api/shortcuts/claude-code")
 
@@ -364,6 +373,8 @@ def test_shortcut_api_routes() -> None:
     assert listed.json()["environments"][0]["shortcuts"][0]["used_session_count"] == 1
     assert created.status_code == 201
     assert created.json()["id"] == "shortcut_new"
+    assert reordered.status_code == 200
+    assert reordered.json()["environments"][0]["shortcuts"][0]["id"] == "shortcut_new"
     assert updated.status_code == 200
     assert updated.json()["command"] == "claude"
     assert deleted.status_code == 204

@@ -41,6 +41,7 @@ from termbridge.models import (
     EnvironmentListResponse,
     LinuxCheckResponse,
     ReorderSessionsRequest,
+    ReorderShortcutsRequest,
     ReorderWorkspacesRequest,
     RuntimeCheckRequest,
     RuntimeCheckResponse,
@@ -217,6 +218,13 @@ def create_shortcut(request: CreateShortcutRequest, service: TerminalServiceDep)
 @router.put("/api/shortcuts/{shortcut_id}", response_model=ShortcutResponse)
 def update_shortcut(shortcut_id: str, request: UpdateShortcutRequest, service: TerminalServiceDep) -> ShortcutResponse:
     return service.update_shortcut(shortcut_id, request)
+
+
+@router.put("/api/shortcuts/environments/{host}/order", response_model=ShortcutListResponse)
+def reorder_shortcuts(
+    host: ShortcutHost, request: ReorderShortcutsRequest, service: TerminalServiceDep
+) -> ShortcutListResponse:
+    return service.reorder_shortcuts(host, request)
 
 
 @router.delete("/api/shortcuts/{shortcut_id}", status_code=status.HTTP_204_NO_CONTENT)

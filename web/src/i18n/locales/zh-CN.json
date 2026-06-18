@@ -260,6 +260,7 @@
       "load": "加载快捷方式失败",
       "save": "保存快捷方式失败",
       "delete": "删除快捷方式失败",
+      "reorder": "保存快捷方式顺序失败",
       "hostRequired": "请选择运行环境"
     },
     "validation": {
@@ -274,6 +275,7 @@
     "fields": {
       "name": "名称",
       "command": "命令",
+      "commandLocked": "该快捷方式正在被会话使用，不能修改命令",
       "host": "运行环境",
       "selectHost": "请选择运行环境",
       "description": "说明"

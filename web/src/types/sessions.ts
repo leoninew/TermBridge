@@ -110,6 +110,10 @@ export interface ShortcutEnvironment {
   shortcuts: Shortcut[]
 }
 
+export interface ReorderShortcutsPayload {
+  shortcut_ids: string[]
+}
+
 export interface ShortcutListResponse {
   environments: ShortcutEnvironment[]
 }

@@ -260,6 +260,7 @@
       "load": "Failed to load shortcuts",
       "save": "Failed to save shortcut",
       "delete": "Failed to delete shortcut",
+      "reorder": "Failed to save shortcut order",
       "hostRequired": "Select a host environment"
     },
     "validation": {
@@ -274,6 +275,7 @@
     "fields": {
       "name": "Name",
       "command": "Command",
+      "commandLocked": "This shortcut is used by sessions, so its command cannot be changed",
       "host": "Host environment",
       "selectHost": "Select a host environment",
       "description": "Description"

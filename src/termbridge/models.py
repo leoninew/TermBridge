@@ -31,6 +31,10 @@ class ReorderSessionsRequest(BaseModel):
     session_ids: list[str]
 
 
+class ReorderShortcutsRequest(BaseModel):
+    shortcut_ids: list[str]
+
+
 class TtydCredential(BaseModel):
     mode: Literal["basic"] = "basic"
     username: str

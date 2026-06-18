@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ChevronDown, Loader2, Plus } from '@lucide/vue'
+import { ChevronDown, GripVertical, Loader2, Plus } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import {
   AlertDialogCancel,
@@ -23,6 +23,7 @@ import {
   SelectValue,
   SelectViewport,
 } from 'reka-ui'
+import { VueDraggable } from 'vue-draggable-plus'
 import CygwinLogo from './CygwinLogo.vue'
 import LinuxLogo from './LinuxLogo.vue'
 import WslLogo from './WslLogo.vue'
@@ -33,6 +34,7 @@ import {
   deleteShortcut,
   listEnvironments,
   listShortcuts,
+  reorderShortcuts,
   updateShortcut,
 } from '../api/sessions'
 import type {
@@ -43,8 +45,14 @@ import type {
   ShortcutHost,
 } from '../types/sessions'
 
+defineOptions({ inheritAttrs: false })
+
 const { t } = useI18n()
 type FieldName = 'name' | 'command' | 'host'
+type DragEndEvent = {
+  oldIndex?: number
+  newIndex?: number
+}
 
 const toast = useToastStore()
 const emit = defineEmits<{
@@ -55,6 +63,7 @@ const shortcutEnvironments = ref<ShortcutEnvironment[]>([])
 const environments = ref<EnvironmentSummary[]>([])
 const loading = ref(false)
 const saving = ref(false)
+const reorderingHost = ref<ShortcutHost>()
 const error = ref('')
 const submitted = ref(false)
 const editingId = ref<string>()
@@ -102,6 +111,16 @@ const fieldErrors = computed<Record<FieldName, string>>(() => {
   }
   return validationErrors.value
 })
+const editingShortcutInUse = computed(() => {
+  if (!editingId.value) {
+    return false
+  }
+  return shortcutEnvironments.value.some((environment) =>
+    environment.shortcuts.some(
+      (shortcut) => shortcut.id === editingId.value && shortcut.used_session_count > 0,
+    ),
+  )
+})
 
 onMounted(load)
 
@@ -119,6 +138,38 @@ async function load() {
     error.value = err instanceof Error ? err.message : t('shortcutManagement.errors.load')
   } finally {
     loading.value = false
+  }
+}
+
+function hasDragged(event: DragEndEvent) {
+  return (
+    event.oldIndex !== undefined &&
+    event.newIndex !== undefined &&
+    event.oldIndex !== event.newIndex
+  )
+}
+
+async function handleShortcutReorder(event: DragEndEvent, host: ShortcutHost, shortcuts: Shortcut[]) {
+  if (!hasDragged(event)) {
+    return
+  }
+  const currentHost = reorderingHost.value
+  if (currentHost === host) {
+    return
+  }
+  const shortcutIds = shortcuts.map((shortcut) => shortcut.id)
+  reorderingHost.value = host
+  try {
+    const response = await reorderShortcuts(host, { shortcut_ids: shortcutIds })
+    shortcutEnvironments.value = response.environments
+  } catch {
+    toast.show({
+      title: t('shortcutManagement.errors.reorder'),
+      variant: 'error',
+    })
+    await load()
+  } finally {
+    reorderingHost.value = undefined
   }
 }
 
@@ -164,12 +215,13 @@ async function saveShortcut() {
     const payload = normalizePayload()
     const updating = !!editingId.value
     if (editingId.value) {
-      await updateShortcut(editingId.value, payload)
+      const updated = await updateShortcut(editingId.value, payload)
+      replaceShortcut(updated)
     } else {
       await createShortcut(payload)
+      await load()
     }
     closeModal()
-    await load()
     toast.show({
       title: t(
         updating ? 'shortcutManagement.success.updated' : 'shortcutManagement.success.created',
@@ -183,6 +235,24 @@ async function saveShortcut() {
     })
   } finally {
     saving.value = false
+  }
+}
+
+function replaceShortcut(updated: Shortcut) {
+  for (const environment of shortcutEnvironments.value) {
+    const index = environment.shortcuts.findIndex((shortcut) => shortcut.id === updated.id)
+    if (index === -1) {
+      continue
+    }
+
+    if (environment.host === updated.host) {
+      environment.shortcuts[index] = updated
+    } else {
+      environment.shortcuts.splice(index, 1)
+      const targetEnvironment = shortcutEnvironments.value.find((item) => item.host === updated.host)
+      targetEnvironment?.shortcuts.push(updated)
+    }
+    return
   }
 }
 
@@ -305,16 +375,28 @@ function hostDisabledReason(host: ShortcutHost): string {
           </button>
         </div>
 
-        <div class="grid gap-2.5 md:grid-cols-3 xl:grid-cols-4">
+        <VueDraggable
+          v-model="group.shortcuts"
+          :group="{ name: `shortcuts:${group.host}`, pull: false, put: false }"
+          ghost-class="shortcut-card-ghost"
+          filter="button"
+          :prevent-on-filter="false"
+          :disabled="!!reorderingHost"
+          class="grid gap-2.5 md:grid-cols-3 xl:grid-cols-4"
+          @end="handleShortcutReorder($event, group.host, group.shortcuts)"
+        >
           <article
             v-for="shortcut in group.shortcuts"
             :key="shortcut.id"
-            class="group relative flex flex-col justify-between border border-slate-200 bg-white/35 p-2.5 pb-12 transition hover:border-blue-400 hover:bg-white/70 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-blue-500 dark:hover:bg-slate-900/50"
+            class="group relative flex cursor-grab flex-col justify-between border border-slate-200 bg-white/35 p-2.5 pb-12 transition hover:border-blue-400 hover:bg-white/70 active:cursor-grabbing dark:border-slate-800 dark:bg-slate-950 dark:hover:border-blue-500 dark:hover:bg-slate-900/50"
           >
             <div>
-              <p class="truncate text-sm font-semibold text-slate-950 dark:text-slate-100">
-                {{ shortcut.name }}
-              </p>
+              <div class="flex min-w-0 items-center gap-1.5">
+                <GripVertical class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+                <p class="truncate text-sm font-semibold text-slate-950 dark:text-slate-100">
+                  {{ shortcut.name }}
+                </p>
+              </div>
               <p
                 class="mt-1.5 truncate rounded-md border border-slate-300 bg-slate-200/80 px-2 py-1.5 font-mono text-xs text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
                 :title="shortcut.command"
@@ -352,7 +434,7 @@ function hostDisabledReason(host: ShortcutHost): string {
               </button>
             </div>
           </article>
-        </div>
+        </VueDraggable>
       </section>
     </div>
 
@@ -394,11 +476,16 @@ function hostDisabledReason(host: ShortcutHost): string {
               {{ t('shortcutManagement.fields.command') }}
               <input
                 v-model.trim="form.command"
-                class="rounded-md border border-slate-300 bg-white/60 px-3 py-2 font-mono text-xs outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
+                :disabled="editingShortcutInUse"
+                class="rounded-md border border-slate-300 bg-white/60 px-3 py-2 font-mono text-xs outline-none transition focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
                 :class="fieldErrors.command ? fieldErrorClass : ''"
                 :aria-invalid="!!fieldErrors.command"
                 :aria-describedby="fieldErrors.command ? 'shortcut-command-error' : undefined"
+                :title="editingShortcutInUse ? t('shortcutManagement.fields.commandLocked') : undefined"
               />
+              <span v-if="editingShortcutInUse" class="text-xs text-slate-500 dark:text-slate-400">
+                {{ t('shortcutManagement.fields.commandLocked') }}
+              </span>
               <span
                 v-if="fieldErrors.command"
                 id="shortcut-command-error"
@@ -516,3 +603,16 @@ function hostDisabledReason(host: ShortcutHost): string {
     </AlertDialogRoot>
   </section>
 </template>
+
+<style scoped>
+:deep(.shortcut-card-ghost) {
+  border-radius: 0.5rem;
+  border-color: rgb(96 165 250 / 0.55);
+  background-color: rgb(219 234 254 / 0.75);
+}
+
+:global(.dark) :deep(.shortcut-card-ghost) {
+  border-color: rgb(59 130 246 / 0.6);
+  background-color: rgb(30 58 138 / 0.55);
+}
+</style>

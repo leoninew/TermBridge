@@ -41,6 +41,7 @@ from termbridge.models import (
     LinuxCheckResponse,
     LinuxSettings,
     ReorderSessionsRequest,
+    ReorderShortcutsRequest,
     ReorderWorkspacesRequest,
     RuntimeCheckResponse,
     SessionEntryRecord,
@@ -258,16 +259,26 @@ class TerminalService:
             description=new_description,
         )
         self._validate_shortcut(updated)
-        if (updated.name != name or updated.host != host) and self._shortcut_usage_counts().get(shortcut_id, 0) > 0:
+        usage_count = self._shortcut_usage_counts().get(shortcut_id, 0)
+        if updated.command != definition.command and usage_count > 0:
             raise ShortcutInUseError()
         self._ensure_unique_shortcut_name(state, updated.host, updated.name, ignored_shortcut_id=shortcut_id)
-        if updated.name != name or updated.host != host:
-            del state.shortcuts[host][name]
-        state.shortcuts[updated.host][updated.name] = ShortcutDefinition(
+        updated_definition = ShortcutDefinition(
             id=updated.id,
             command=updated.command,
             description=updated.description,
         )
+        if updated.host == host:
+            updated_shortcuts = {}
+            for current_name, current_definition in state.shortcuts[host].items():
+                if current_name == name:
+                    updated_shortcuts[updated.name] = updated_definition
+                else:
+                    updated_shortcuts[current_name] = current_definition
+            state.shortcuts[host] = updated_shortcuts
+        else:
+            del state.shortcuts[host][name]
+            state.shortcuts[updated.host][updated.name] = updated_definition
         self._shortcut_repository.save_state(state)
         return self._shortcut_response(updated)
 
@@ -279,6 +290,21 @@ class TerminalService:
         host, name, _ = self._find_shortcut_entry(state, shortcut_id)
         del state.shortcuts[host][name]
         self._shortcut_repository.save_state(state)
+
+    def reorder_shortcuts(self, host: ShortcutHost, request: ReorderShortcutsRequest) -> ShortcutListResponse:
+        state = self._ensure_default_shortcuts(self._shortcut_repository.get_state())
+        current_shortcuts = state.shortcuts[host]
+        requested = set(request.shortcut_ids)
+        current_ids = [definition.id for definition in current_shortcuts.values()]
+        if requested != set(current_ids) or len(requested) != len(request.shortcut_ids):
+            raise InvalidTerminalConfigError("Shortcut order must include each shortcut in the environment exactly once")
+
+        shortcuts_by_id = {definition.id: (name, definition) for name, definition in current_shortcuts.items()}
+        state.shortcuts[host] = {
+            shortcuts_by_id[shortcut_id][0]: shortcuts_by_id[shortcut_id][1] for shortcut_id in request.shortcut_ids
+        }
+        self._shortcut_repository.save_state(state)
+        return self.list_shortcuts()
 
     def get_settings(self) -> TerminalSettings:
         return self._repository.get_state().settings

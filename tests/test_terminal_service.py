@@ -9,6 +9,7 @@ from termbridge.exceptions import InvalidTerminalConfigError, ShortcutInUseError
 from termbridge.models import (
     CreateShortcutRequest,
     LinuxSettings,
+    ReorderShortcutsRequest,
     RuntimeCheckResponse,
     SessionEntryRecord,
     SessionState,
@@ -135,6 +136,29 @@ def test_shortcut_service_updates_shortcut(tmp_path: Path) -> None:
     assert updated.command == "agent run --verbose"
 
 
+def test_shortcut_service_preserves_order_when_updating_shortcut_in_same_host(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    first = service.create_shortcut(CreateShortcutRequest(name="First", command="one", host="windows_cygwin"))
+    second = service.create_shortcut(CreateShortcutRequest(name="Second", command="two", host="windows_cygwin"))
+    current_ids = [shortcut.id for shortcut in service.list_shortcuts().environments[0].shortcuts]
+    reordered_ids = [second.id, first.id, *[shortcut_id for shortcut_id in current_ids if shortcut_id not in {first.id, second.id}]]
+    service.reorder_shortcuts("windows_cygwin", ReorderShortcutsRequest(shortcut_ids=reordered_ids))
+
+    service.update_shortcut(
+        first.id,
+        UpdateShortcutRequest(name="First renamed", command="one --verbose", description="Updated first"),
+    )
+
+    restored = next(
+        environment for environment in make_service(tmp_path).list_shortcuts().environments if environment.host == "windows_cygwin"
+    )
+    assert [shortcut.id for shortcut in restored.shortcuts] == reordered_ids
+    updated = next(shortcut for shortcut in restored.shortcuts if shortcut.id == first.id)
+    assert updated.name == "First renamed"
+    assert updated.command == "one --verbose"
+    assert updated.description == "Updated first"
+
+
 def test_shortcut_service_updates_name_and_host_for_unused_shortcut(tmp_path: Path) -> None:
     service = make_service(tmp_path)
     shortcut = service.create_shortcut(CreateShortcutRequest(name="Agent", command="agent run", host="windows_cygwin"))
@@ -178,20 +202,46 @@ def test_shortcut_service_deletes_default_shortcut(tmp_path: Path) -> None:
     assert "cygwin-codex" not in {shortcut.id for shortcut in flatten_shortcuts(service)}
 
 
-def test_shortcut_service_rejects_used_shortcut_delete_and_key_update(tmp_path: Path) -> None:
+def test_shortcut_service_rejects_used_shortcut_delete_and_command_update(tmp_path: Path) -> None:
     save_session_reference(tmp_path, "cygwin-bash")
     service = make_service(tmp_path)
 
     with pytest.raises(ShortcutInUseError):
         service.delete_shortcut("cygwin-bash")
     with pytest.raises(ShortcutInUseError):
-        service.update_shortcut("cygwin-bash", UpdateShortcutRequest(name="bash renamed"))
+        service.update_shortcut("cygwin-bash", UpdateShortcutRequest(command="bash -l"))
 
-    updated = service.update_shortcut("cygwin-bash", UpdateShortcutRequest(command="bash -l", description="Login bash"))
+    updated = service.update_shortcut("cygwin-bash", UpdateShortcutRequest(name="bash renamed", description="Login bash"))
 
-    assert updated.command == "bash -l"
+    assert updated.name == "bash renamed"
+    assert updated.command == "bash"
     assert updated.description == "Login bash"
     assert updated.used_session_count == 1
+
+
+def test_shortcut_service_reorders_shortcuts_within_host(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    first = service.create_shortcut(CreateShortcutRequest(name="First", command="one", host="windows_cygwin"))
+    second = service.create_shortcut(CreateShortcutRequest(name="Second", command="two", host="windows_cygwin"))
+    current_ids = [shortcut.id for shortcut in service.list_shortcuts().environments[0].shortcuts]
+    reordered_ids = [second.id, first.id, *[shortcut_id for shortcut_id in current_ids if shortcut_id not in {first.id, second.id}]]
+
+    response = service.reorder_shortcuts("windows_cygwin", ReorderShortcutsRequest(shortcut_ids=reordered_ids))
+
+    cygwin = next(environment for environment in response.environments if environment.host == "windows_cygwin")
+    assert [shortcut.id for shortcut in cygwin.shortcuts] == reordered_ids
+    restored = next(
+        environment for environment in make_service(tmp_path).list_shortcuts().environments if environment.host == "windows_cygwin"
+    )
+    assert [shortcut.id for shortcut in restored.shortcuts] == reordered_ids
+
+
+def test_shortcut_service_rejects_incomplete_shortcut_order(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    first = service.create_shortcut(CreateShortcutRequest(name="First", command="one", host="windows_cygwin"))
+
+    with pytest.raises(InvalidTerminalConfigError, match="Shortcut order"):
+        service.reorder_shortcuts("windows_cygwin", ReorderShortcutsRequest(shortcut_ids=[first.id]))
 
 
 def test_shortcut_service_rejects_blank_command(tmp_path: Path) -> None:

@@ -7,6 +7,7 @@ import type {
   HealthResponse,
   LinuxCheckResponse,
   ReorderSessionsPayload,
+  ReorderShortcutsPayload,
   ReorderWorkspacesPayload,
   RuntimeCheckResponse,
   Session,
@@ -176,6 +177,16 @@ export function createShortcut(payload: CreateShortcutPayload): Promise<Shortcut
 
 export function updateShortcut(id: string, payload: UpdateShortcutPayload): Promise<Shortcut> {
   return request<Shortcut>(`/api/shortcuts/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function reorderShortcuts(
+  host: string,
+  payload: ReorderShortcutsPayload,
+): Promise<ShortcutListResponse> {
+  return request<ShortcutListResponse>(`/api/shortcuts/environments/${encodeURIComponent(host)}/order`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   })

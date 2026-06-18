@@ -146,3 +146,25 @@ def test_shortcut_repository_invalid_schema_raises(tmp_path: Path) -> None:
 
     with pytest.raises(ShortcutRepositoryError, match="invalid shortcut data"):
         FileShortcutRepository(shortcuts_file).get_state()
+
+
+def test_shortcut_repository_preserves_environment_order(tmp_path: Path) -> None:
+    shortcuts_file = tmp_path / "shortcuts.json"
+    state = ShortcutState(
+        shortcuts={
+            "windows_cygwin": {
+                "first": ShortcutDefinition(id="shortcut-1", command="one"),
+                "second": ShortcutDefinition(id="shortcut-2", command="two"),
+            },
+            "windows_wsl": {
+                "third": ShortcutDefinition(id="shortcut-3", command="three"),
+            },
+            "linux": {},
+        }
+    )
+
+    FileShortcutRepository(shortcuts_file).save_state(state)
+
+    restored = FileShortcutRepository(shortcuts_file).get_state()
+    assert list(restored.shortcuts["windows_cygwin"]) == ["first", "second"]
+    assert list(restored.shortcuts["windows_wsl"]) == ["third"]
