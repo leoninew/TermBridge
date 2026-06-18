@@ -31,6 +31,10 @@ class ReorderSessionsRequest(BaseModel):
     session_ids: list[str]
 
 
+class UpdateSessionRequest(BaseModel):
+    name: str = Field(min_length=1)
+
+
 class ReorderShortcutsRequest(BaseModel):
     shortcut_ids: list[str]
 

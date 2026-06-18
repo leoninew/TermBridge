@@ -24,6 +24,7 @@ import {
   reorderWorkspaceSessions,
   startSession,
   stopSession,
+  updateSession as updateSessionRequest,
 } from '../api/sessions'
 import SessionCreateForm from './SessionCreateForm.vue'
 import SessionList from './SessionList.vue'
@@ -59,6 +60,7 @@ const stoppingSessionId = ref<string>()
 const createSessionContext = ref<{ host?: ShortcutHost; workspace?: string; shortcutId?: string }>(
   {},
 )
+const editingSessionId = ref<string>()
 const deletingSession = ref<Session>()
 const deletingSessionId = ref<string>()
 const deletingWorkspace = ref<{ id: string; path: string }>()
@@ -488,6 +490,30 @@ async function handleStop(session: Session) {
   }
 }
 
+async function handleUpdateSession(
+  session: Session,
+  payload: { name: string },
+  callbacks: { onSuccess: () => void; onError: (message: string) => void },
+) {
+  if (editingSessionId.value) {
+    return
+  }
+
+  editingSessionId.value = session.id
+  try {
+    const updated = await updateSessionRequest(session.id, payload)
+    updateSession(updated)
+    toast.show({ title: t('app.success.updateSession'), variant: 'success' })
+    callbacks.onSuccess()
+  } catch (err) {
+    const title = errorTitle(err, t('app.errors.updateSession'))
+    callbacks.onError(title)
+    toast.show({ title, variant: 'error' })
+  } finally {
+    editingSessionId.value = undefined
+  }
+}
+
 async function handleReorderWorkspaces(payload: { host: ShortcutHost; workspaceIds: string[] }) {
   try {
     applySessionTree(
@@ -602,12 +628,14 @@ onMounted(() => {
           :has-ready-environment="environmentStore.hasReadyEnvironment"
           :starting-session-id="startingSessionId"
           :stopping-session-id="stoppingSessionId"
+          :editing-session-id="editingSessionId"
           @create="showCreate"
           @collapse="sidebarCollapsed = true"
           @create-context="updateCreateSessionContext"
           @select="selectSession"
           @start="handleStart"
           @stop="handleStop"
+          @update-session="handleUpdateSession"
           @remove="askRemove"
           @remove-workspace="askRemoveWorkspace"
           @reorder-workspaces="handleReorderWorkspaces"

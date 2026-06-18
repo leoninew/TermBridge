@@ -59,6 +59,7 @@ from termbridge.models import (
     ShortcutState,
     TerminalSettings,
     TtydCredential,
+    UpdateSessionRequest,
     UpdateShortcutRequest,
     UpdateTerminalSettingsRequest,
     WindowsCygwinCheckResponse,
@@ -1237,6 +1238,17 @@ class SessionService:
         workspace, entry = self._repository.get_entry(session_id)
         entry = self._refresh_entry(workspace, entry)
         return SessionResponse.from_entry(workspace, entry)
+
+    def update(self, session_id: str, request: UpdateSessionRequest) -> SessionResponse:
+        workspace, entry = self._repository.get_entry(session_id)
+        name = request.name.strip()
+        if not name:
+            raise InvalidTerminalConfigError("Session name is required")
+        if name != entry.name and any(item.name == name for item in workspace.entries):
+            raise InvalidTerminalConfigError("Session name already exists in this workspace")
+        updated = entry.model_copy(update={"name": name, "updated_at": utc_now()})
+        self._repository.update_entry(updated)
+        return SessionResponse.from_entry(workspace, updated)
 
     def terminal_proxy_target(self, session_id: str) -> TerminalProxyTarget:
         workspace, entry = self._repository.get_entry(session_id)

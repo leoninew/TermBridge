@@ -51,6 +51,7 @@ from termbridge.models import (
     ShortcutListResponse,
     ShortcutResponse,
     TerminalSettings,
+    UpdateSessionRequest,
     UpdateShortcutRequest,
     UpdateTerminalSettingsRequest,
     WindowsCygwinCheckRequest,
@@ -333,6 +334,11 @@ def delete_session_workspace(workspace_id: str, service: SessionServiceDep) -> R
 @router.get("/api/sessions/{session_id}", response_model=SessionResponse)
 def get_session(session_id: str, service: SessionServiceDep) -> SessionResponse:
     return service.get(session_id)
+
+
+@router.patch("/api/sessions/{session_id}", response_model=SessionResponse)
+def update_session(session_id: str, request: UpdateSessionRequest, service: SessionServiceDep) -> SessionResponse:
+    return service.update(session_id, request)
 
 
 @router.post("/api/sessions/{session_id}/start", response_model=SessionResponse)

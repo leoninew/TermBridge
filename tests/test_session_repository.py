@@ -129,6 +129,22 @@ def test_session_repository_reorders_workspace_entries_with_json_object_order(tm
     assert list(raw["environments"]["windows_cygwin"][workspace_key]["sessions"]) == ["Two", "Agent"]
 
 
+def test_session_repository_update_entry_renames_session_key_and_name(tmp_path: Path) -> None:
+    sessions_file = tmp_path / "sessions.json"
+    workspace = make_workspace(tmp_path)
+    repository = FileSessionRepository(sessions_file)
+    repository.save_state(SessionState(workspaces={workspace.id: workspace}))
+    renamed = workspace.entries[0].model_copy(update={"name": "Renamed"})
+
+    repository.update_entry(renamed)
+
+    raw = json.loads(sessions_file.read_text(encoding="utf-8"))
+    workspace_key = str(workspace.path).replace("\\", "/").lower()
+    sessions = raw["environments"]["windows_cygwin"][workspace_key]["sessions"]
+    assert list(sessions) == ["Renamed"]
+    assert sessions["Renamed"]["name"] == "Renamed"
+
+
 def test_session_repository_rejects_incomplete_entry_order(tmp_path: Path) -> None:
     sessions_file = tmp_path / "sessions.json"
     first_entry = make_workspace(tmp_path).entries[0]

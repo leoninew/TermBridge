@@ -11,6 +11,7 @@ from termbridge.models import (
     ReorderWorkspacesRequest,
     SessionStatus,
     Shortcut,
+    UpdateSessionRequest,
 )
 from termbridge.ports import PortAllocator
 from termbridge.process import ProcessHandle
@@ -416,6 +417,27 @@ def test_service_rejects_duplicate_session_name_in_workspace(tmp_path: Path) -> 
 
     with pytest.raises(InvalidTerminalConfigError, match="Session name already exists"):
         service.create(CreateSessionRequest(name="Same", workspace=tmp_path, shortcut_id="claude-code"))
+
+
+def test_service_updates_session_name(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    response = service.create(CreateSessionRequest(name="Old", workspace=tmp_path, shortcut_id="claude-code"))
+
+    updated = service.update(response.id, UpdateSessionRequest(name="New"))
+    entry = service._repository.get_entry(response.id)[1]
+
+    assert updated.name == "New"
+    assert entry.name == "New"
+    assert entry.updated_at > response.updated_at
+
+
+def test_service_rejects_duplicate_session_name_update(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    first = service.create(CreateSessionRequest(name="One", workspace=tmp_path, shortcut_id="claude-code"))
+    service.create(CreateSessionRequest(name="Two", workspace=tmp_path, shortcut_id="claude-code"))
+
+    with pytest.raises(InvalidTerminalConfigError, match="Session name already exists"):
+        service.update(first.id, UpdateSessionRequest(name="Two"))
 
 
 def test_service_uses_different_workspace_for_different_paths(tmp_path: Path) -> None:

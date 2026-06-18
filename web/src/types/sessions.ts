@@ -60,6 +60,10 @@ export interface CreateSessionPayload {
   shortcut_id: string
 }
 
+export interface UpdateSessionPayload {
+  name: string
+}
+
 export interface HealthResponse {
   status?: string
   [key: string]: unknown

@@ -29,12 +29,14 @@
       "startSession": "启动会话失败",
       "stopSession": "停止会话失败",
       "deleteSession": "删除会话失败",
+      "updateSession": "保存会话失败",
       "deleteWorkspace": "删除目录失败",
       "closeAllSessions": "关闭所有会话失败"
     },
     "success": {
       "startSession": "会话已启动。",
       "stopSession": "会话已停止。",
+      "updateSession": "会话已保存。",
       "deleteSession": "会话已删除。",
       "deleteWorkspace": "目录已删除。",
       "closeAllSessions": "已关闭 {count} 个会话。"
@@ -124,8 +126,19 @@
       "startLabel": "启动会话",
       "reconnectLabel": "重连会话",
       "stopLabel": "停止会话",
+      "editLabel": "编辑会话",
       "deleteLabel": "删除会话",
       "shortcut": "快捷方式：{shortcut}"
+    },
+    "edit": {
+      "title": "编辑会话",
+      "description": "目录不可修改；保存后只更新当前会话节点，不会刷新完整会话列表。",
+      "workspace": "目录",
+      "name": "名称",
+      "save": "保存",
+      "validation": {
+        "nameRequired": "请输入名称"
+      }
     },
     "workspace": {
       "createLabel": "在此目录新建会话",

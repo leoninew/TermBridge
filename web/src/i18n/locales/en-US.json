@@ -29,12 +29,14 @@
       "startSession": "Failed to start session",
       "stopSession": "Failed to stop session",
       "deleteSession": "Failed to delete session",
+      "updateSession": "Failed to save session",
       "deleteWorkspace": "Failed to delete directory",
       "closeAllSessions": "Failed to close all sessions"
     },
     "success": {
       "startSession": "Session started.",
       "stopSession": "Session stopped.",
+      "updateSession": "Session saved.",
       "deleteSession": "Session deleted.",
       "deleteWorkspace": "Directory deleted.",
       "closeAllSessions": "Closed {count} sessions."
@@ -124,8 +126,19 @@
       "startLabel": "Start session",
       "reconnectLabel": "Reconnect session",
       "stopLabel": "Stop session",
+      "editLabel": "Edit session",
       "deleteLabel": "Delete session",
       "shortcut": "Shortcut: {shortcut}"
+    },
+    "edit": {
+      "title": "Edit session",
+      "description": "The directory is read-only. Saving only updates the current session node without refreshing the full session list.",
+      "workspace": "Directory",
+      "name": "Name",
+      "save": "Save",
+      "validation": {
+        "nameRequired": "Enter a name"
+      }
     },
     "workspace": {
       "createLabel": "New session in directory",

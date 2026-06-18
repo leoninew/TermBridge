@@ -10,9 +10,11 @@ import {
   Languages,
   LaptopMinimal,
   PanelLeftClose,
+  Pencil,
   Loader2,
   RefreshCw,
   Moon,
+  Play,
   Plus,
   Search,
   Settings,
@@ -25,6 +27,13 @@ import {
 } from '@lucide/vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import {
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogOverlay,
+  DialogPortal,
+  DialogRoot,
+  DialogTitle,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -85,6 +94,9 @@ const selectedTreeNodes = ref<SessionTreeNode[]>([])
 const expandedTreeKeys = ref<string[]>([])
 const displayTreeGroups = ref<SessionTreeGroup[]>([])
 const lastDefaultExpansionKey = ref('')
+const editingSession = ref<Session>()
+const editSessionName = ref('')
+const editSessionError = ref('')
 
 const props = defineProps<{
   sessions: Session[]
@@ -101,6 +113,7 @@ const props = defineProps<{
   hasReadyEnvironment: boolean
   startingSessionId?: string
   stoppingSessionId?: string
+  editingSessionId?: string
 }>()
 
 const emit = defineEmits<{
@@ -110,6 +123,11 @@ const emit = defineEmits<{
   select: [session: Session]
   start: [session: Session]
   stop: [session: Session]
+  updateSession: [
+    session: Session,
+    payload: { name: string },
+    callbacks: { onSuccess: () => void; onError: (message: string) => void },
+  ]
   remove: [session: Session]
   removeWorkspace: [workspace: { id: string; path: string }]
   reorderWorkspaces: [payload: { host: ShortcutHost; workspaceIds: string[] }]
@@ -484,6 +502,46 @@ function removeSession(event: globalThis.MouseEvent, session: Session) {
   emit('remove', session)
 }
 
+function openEditSession(event: globalThis.MouseEvent, session: Session) {
+  event.preventDefault()
+  event.stopPropagation()
+  editingSession.value = session
+  editSessionName.value = session.name
+  editSessionError.value = ''
+}
+
+function isEditingSession(session: Session | undefined): boolean {
+  return !!session && props.editingSessionId === session.id
+}
+
+function submitEditSession() {
+  const session = editingSession.value
+  if (!session || isEditingSession(session)) {
+    return
+  }
+  const name = editSessionName.value.trim()
+  if (!name) {
+    editSessionError.value = t('session.edit.validation.nameRequired')
+    return
+  }
+  editSessionError.value = ''
+  emit('updateSession', session, { name }, {
+    onSuccess: () => {
+      editingSession.value = undefined
+    },
+    onError: (message: string) => {
+      editSessionError.value = message
+    },
+  })
+}
+
+function setEditDialogOpen(open: boolean) {
+  if (!open && !props.editingSessionId) {
+    editingSession.value = undefined
+    editSessionError.value = ''
+  }
+}
+
 function createFromWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
   event.preventDefault()
   event.stopPropagation()
@@ -718,73 +776,108 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
                         {{ sessionNode.label }}
                       </span>
                       <span
-                        v-if="sessionNode.session && runtimeStateVerified"
-                        class="inline-flex shrink-0 items-center gap-1"
+                        v-if="sessionNode.session"
+                        class="inline-flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100"
                       >
                         <button
-                          v-if="sessionNode.session.status === 'running'"
-                          type="button"
-                          :disabled="isStoppingSession(sessionNode.session)"
-                          class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 disabled:cursor-wait disabled:opacity-60 dark:text-slate-400 dark:hover:bg-amber-950/70 dark:hover:text-amber-300"
-                          :aria-label="t('session.card.stopLabel')"
-                          :title="t('session.card.stopLabel')"
-                          @click="stopSession($event, sessionNode.session)"
-                        >
-                          <Loader2
-                            v-if="isStoppingSession(sessionNode.session)"
-                            class="h-4 w-4 animate-spin"
-                          />
-                          <Ban v-else class="h-4 w-4" />
-                        </button>
-                        <span
-                          v-if="
-                            sessionNode.session.status === 'disconnected' &&
-                            isStartingSession(sessionNode.session)
-                          "
-                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 dark:text-slate-400"
-                          :aria-label="startSessionLabel(sessionNode.session)"
-                          :title="startSessionLabel(sessionNode.session)"
-                        >
-                          <Loader2 class="h-4 w-4 animate-spin" />
-                        </span>
-                        <button
-                          v-if="
-                            sessionNode.session.status === 'disconnected' &&
-                            !isStartingSession(sessionNode.session)
-                          "
                           type="button"
                           class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-blue-100/60 hover:text-blue-600 dark:text-slate-400 dark:hover:bg-blue-950/70 dark:hover:text-blue-300"
-                          :aria-label="startSessionLabel(sessionNode.session)"
-                          :title="startSessionLabel(sessionNode.session)"
-                          @click="startSession($event, sessionNode.session)"
+                          :aria-label="t('session.card.editLabel')"
+                          :title="t('session.card.editLabel')"
+                          @click="openEditSession($event, sessionNode.session)"
                         >
-                          <RefreshCw class="h-4 w-4" />
+                          <Pencil class="h-4 w-4" />
                         </button>
-                        <button
-                          v-if="sessionNode.session.status === 'disconnected'"
-                          type="button"
-                          :disabled="isStoppingSession(sessionNode.session)"
-                          class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 disabled:cursor-wait disabled:opacity-60 dark:text-slate-400 dark:hover:bg-amber-950/70 dark:hover:text-amber-300"
-                          :aria-label="t('session.card.stopLabel')"
-                          :title="t('session.card.stopLabel')"
-                          @click="stopSession($event, sessionNode.session)"
-                        >
-                          <Loader2
-                            v-if="isStoppingSession(sessionNode.session)"
-                            class="h-4 w-4 animate-spin"
-                          />
-                          <Ban v-else class="h-4 w-4" />
-                        </button>
-                        <button
-                          v-if="sessionNode.session.status === 'stopped'"
-                          type="button"
-                          class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-red-100/60 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/70 dark:hover:text-red-300"
-                          :aria-label="t('session.card.deleteLabel')"
-                          :title="t('session.card.deleteLabel')"
-                          @click="removeSession($event, sessionNode.session)"
-                        >
-                          <Trash2 class="h-4 w-4" />
-                        </button>
+                        <template v-if="runtimeStateVerified">
+                          <button
+                            v-if="sessionNode.session.status === 'running'"
+                            type="button"
+                            :disabled="isStoppingSession(sessionNode.session)"
+                            class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 disabled:cursor-wait disabled:opacity-60 dark:text-slate-400 dark:hover:bg-amber-950/70 dark:hover:text-amber-300"
+                            :aria-label="t('session.card.stopLabel')"
+                            :title="t('session.card.stopLabel')"
+                            @click="stopSession($event, sessionNode.session)"
+                          >
+                            <Loader2
+                              v-if="isStoppingSession(sessionNode.session)"
+                              class="h-4 w-4 animate-spin"
+                            />
+                            <Ban v-else class="h-4 w-4" />
+                          </button>
+                          <span
+                            v-if="
+                              sessionNode.session.status === 'disconnected' &&
+                              isStartingSession(sessionNode.session)
+                            "
+                            class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 dark:text-slate-400"
+                            :aria-label="startSessionLabel(sessionNode.session)"
+                            :title="startSessionLabel(sessionNode.session)"
+                          >
+                            <Loader2 class="h-4 w-4 animate-spin" />
+                          </span>
+                          <button
+                            v-if="
+                              sessionNode.session.status === 'disconnected' &&
+                              !isStartingSession(sessionNode.session)
+                            "
+                            type="button"
+                            class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-blue-100/60 hover:text-blue-600 dark:text-slate-400 dark:hover:bg-blue-950/70 dark:hover:text-blue-300"
+                            :aria-label="startSessionLabel(sessionNode.session)"
+                            :title="startSessionLabel(sessionNode.session)"
+                            @click="startSession($event, sessionNode.session)"
+                          >
+                            <RefreshCw class="h-4 w-4" />
+                          </button>
+                          <button
+                            v-if="sessionNode.session.status === 'disconnected'"
+                            type="button"
+                            :disabled="isStoppingSession(sessionNode.session)"
+                            class="relative inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-amber-100/60 hover:text-amber-600 disabled:cursor-wait disabled:opacity-60 dark:text-slate-400 dark:hover:bg-amber-950/70 dark:hover:text-amber-300"
+                            :aria-label="t('session.card.stopLabel')"
+                            :title="t('session.card.stopLabel')"
+                            @click="stopSession($event, sessionNode.session)"
+                          >
+                            <Loader2
+                              v-if="isStoppingSession(sessionNode.session)"
+                              class="h-4 w-4 animate-spin"
+                            />
+                            <Ban v-else class="h-4 w-4" />
+                          </button>
+                          <span
+                            v-if="
+                              sessionNode.session.status === 'stopped' &&
+                              isStartingSession(sessionNode.session)
+                            "
+                            class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 dark:text-slate-400"
+                            :aria-label="startSessionLabel(sessionNode.session)"
+                            :title="startSessionLabel(sessionNode.session)"
+                          >
+                            <Loader2 class="h-4 w-4 animate-spin" />
+                          </span>
+                          <button
+                            v-if="
+                              sessionNode.session.status === 'stopped' &&
+                              !isStartingSession(sessionNode.session)
+                            "
+                            type="button"
+                            class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-blue-100/60 hover:text-blue-600 dark:text-slate-400 dark:hover:bg-blue-950/70 dark:hover:text-blue-300"
+                            :aria-label="startSessionLabel(sessionNode.session)"
+                            :title="startSessionLabel(sessionNode.session)"
+                            @click="startSession($event, sessionNode.session)"
+                          >
+                            <Play class="h-4 w-4" />
+                          </button>
+                          <button
+                            v-if="sessionNode.session.status === 'stopped'"
+                            type="button"
+                            class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-red-100/60 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/70 dark:hover:text-red-300"
+                            :aria-label="t('session.card.deleteLabel')"
+                            :title="t('session.card.deleteLabel')"
+                            @click="removeSession($event, sessionNode.session)"
+                          >
+                            <Trash2 class="h-4 w-4" />
+                          </button>
+                        </template>
                       </span>
                     </div>
                   </VueDraggable>
@@ -795,6 +888,72 @@ function removeWorkspace(event: globalThis.MouseEvent, node: SessionTreeNode) {
         </div>
       </div>
     </div>
+
+    <DialogRoot :open="!!editingSession" @update:open="setEditDialogOpen">
+      <DialogPortal>
+        <DialogOverlay class="fixed inset-0 z-50 bg-slate-950/40" />
+        <DialogContent
+          class="fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-slate-200 bg-white p-5 text-sm shadow-xl shadow-blue-900/10 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:shadow-none"
+        >
+          <div>
+            <DialogTitle class="text-lg font-semibold text-slate-950 dark:text-slate-100">
+              {{ t('session.edit.title') }}
+            </DialogTitle>
+            <DialogDescription class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              {{ t('session.edit.description') }}
+            </DialogDescription>
+          </div>
+
+          <form class="grid gap-3" @submit.prevent="submitEditSession">
+            <label class="grid gap-1.5 text-sm text-slate-700 dark:text-slate-300">
+              {{ t('session.edit.workspace') }}
+              <input
+                :value="editingSession?.workspace || ''"
+                readonly
+                class="cursor-default rounded-md border border-slate-300 bg-slate-100/80 px-3 py-2 font-mono text-xs text-slate-600 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              />
+            </label>
+            <label class="grid gap-1.5 text-sm text-slate-700 dark:text-slate-300">
+              {{ t('session.edit.name') }}
+              <input
+                v-model.trim="editSessionName"
+                class="rounded-md border border-slate-300 bg-white/60 px-3 py-2 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-blue-500"
+                :class="editSessionError ? 'border-red-400 focus:border-red-500 dark:border-red-700 dark:focus:border-red-500' : ''"
+                :disabled="isEditingSession(editingSession)"
+                :aria-invalid="!!editSessionError"
+                :aria-describedby="editSessionError ? 'session-edit-name-error' : undefined"
+              />
+              <span
+                v-if="editSessionError"
+                id="session-edit-name-error"
+                class="text-xs text-red-600 dark:text-red-300"
+              >
+                {{ editSessionError }}
+              </span>
+            </label>
+            <div class="mt-2 flex justify-end gap-2">
+              <DialogClose as-child>
+                <button
+                  type="button"
+                  :disabled="isEditingSession(editingSession)"
+                  class="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+                >
+                  {{ t('app.actions.cancel') }}
+                </button>
+              </DialogClose>
+              <button
+                type="submit"
+                :disabled="isEditingSession(editingSession)"
+                class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
+              >
+                <Loader2 v-if="isEditingSession(editingSession)" class="h-4 w-4 animate-spin" />
+                {{ t('session.edit.save') }}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </DialogPortal>
+    </DialogRoot>
 
     <div
       class="mt-auto flex h-7 items-center gap-2 border-t border-slate-200/70 bg-slate-100/80 px-2.5 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950"

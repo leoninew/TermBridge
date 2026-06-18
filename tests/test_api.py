@@ -33,6 +33,7 @@ from termbridge.models import (
     ShortcutResponse,
     TerminalSettings,
     TtydCredential,
+    UpdateSessionRequest,
     UpdateShortcutRequest,
     WindowsCygwinCheckResponse,
     WindowsCygwinSettings,
@@ -83,6 +84,9 @@ class FakeSessionService:
 
     def get(self, session_id: str) -> SessionResponse:
         return self.session.model_copy(update={"id": session_id})
+
+    def update(self, session_id: str, request: UpdateSessionRequest) -> SessionResponse:
+        return self.session.model_copy(update={"id": session_id, "name": request.name})
 
     def terminal_proxy_target(self, session_id: str) -> TerminalProxyTarget:
         return TerminalProxyTarget(
@@ -304,6 +308,7 @@ def test_session_api_routes(tmp_path: Path) -> None:
     )
     listed = client.get("/api/sessions")
     detail = client.get("/api/sessions/sess_2")
+    updated = client.patch("/api/sessions/sess_2", json={"name": "Renamed"})
     tree = client.get("/api/session-tree")
     quick_tree = client.get("/api/session-tree?refresh=false")
     started = client.post("/api/sessions/sess_2/start")
@@ -329,6 +334,9 @@ def test_session_api_routes(tmp_path: Path) -> None:
     assert detail.json()["id"] == "sess_2"
     assert detail.json()["shortcut_name"] == "Claude Code"
     assert detail.json()["session_persistence"] == "tmux"
+    assert updated.status_code == 200
+    assert updated.json()["id"] == "sess_2"
+    assert updated.json()["name"] == "Renamed"
     assert tree.status_code == 200
     assert tree.json()["environments"][0]["workspaces"][0]["entries"][0]["id"] == "sess_1"
     assert quick_tree.status_code == 200

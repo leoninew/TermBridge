@@ -15,6 +15,7 @@ import type {
   Shortcut,
   ShortcutListResponse,
   TerminalSettings,
+  UpdateSessionPayload,
   UpdateShortcutPayload,
   WindowsCygwinCheckResponse,
   WindowsCygwinSettings,
@@ -124,6 +125,13 @@ export function createSession(payload: CreateSessionPayload): Promise<Session> {
 
 export function getSession(id: string): Promise<Session> {
   return request<Session>(`/api/sessions/${encodeURIComponent(id)}`)
+}
+
+export function updateSession(id: string, payload: UpdateSessionPayload): Promise<Session> {
+  return request<Session>(`/api/sessions/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
 }
 
 export function startSession(id: string): Promise<Session> {
