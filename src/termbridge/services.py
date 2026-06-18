@@ -1527,7 +1527,22 @@ class SessionService:
             workspace.path,
             tmux_window_id=entry.tmux_window_id,
         )
-        return self._refresh_entry_with_window_state(entry, tmux_window_exists=tmux_window_exists)
+        recovered_tmux_window_id = None
+        if not tmux_window_exists:
+            recovered_tmux_window_id = terminal_service.find_tmux_window_by_name(
+                workspace.host,
+                workspace.path,
+                tmux_session_name=workspace.tmux_session_name,
+                window_name=entry.name,
+            )
+            if recovered_tmux_window_id is not None:
+                entry = entry.model_copy(update={"tmux_window_id": recovered_tmux_window_id})
+                tmux_window_exists = True
+        return self._refresh_entry_with_window_state(
+            entry,
+            tmux_window_exists=tmux_window_exists,
+            persist=recovered_tmux_window_id is not None,
+        )
 
     def _refresh_entry_from_tmux_listing(
         self,
@@ -1545,7 +1560,7 @@ class SessionService:
         return self._refresh_entry_with_window_state(entry, tmux_window_exists=entry.name in window_names)
 
     def _refresh_entry_with_window_state(
-        self, entry: SessionEntryRecord, *, tmux_window_exists: bool
+        self, entry: SessionEntryRecord, *, tmux_window_exists: bool, persist: bool = False
     ) -> SessionEntryRecord:
         ttyd_available = tmux_window_exists and entry.port > 0 and self._ttyd_port_checker(entry.port)
 
@@ -1556,7 +1571,7 @@ class SessionService:
         else:
             status = SessionStatus.STOPPED
 
-        if entry.status == status:
+        if entry.status == status and not persist:
             return entry
 
         updated = entry.model_copy(update={"status": status, "updated_at": utc_now()})

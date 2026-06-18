@@ -130,7 +130,12 @@ class FakeShortcutService:
     def find_tmux_window_by_name(
         self, host: str, workspace: Path, *, tmux_session_name: str, window_name: str
     ) -> str | None:
-        return self.window_by_name
+        if self.window_by_name is not None:
+            return self.window_by_name
+        for tmux_window_id, listing in self.tmux_window_by_id.items():
+            if listing.tmux_session_name == tmux_session_name and listing.window_name == window_name:
+                return tmux_window_id
+        return None
 
     def resolve_ttyd_executable(self, host: str, cygwin_bash_path: str | None = None) -> str:
         return self.ttyd_executable
@@ -596,11 +601,30 @@ def test_service_refresh_keeps_running_when_ttyd_port_is_open_without_process_ca
     assert refreshed.url == ""
 
 
+def test_service_refresh_recovers_stale_tmux_window_id_by_name(tmp_path: Path) -> None:
+    process = FakeProcessAdapter()
+    shortcuts = FakeShortcutService()
+    service = make_service(tmp_path, process, shortcut_service=shortcuts)
+    response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    listing = shortcuts.tmux_window_by_id.pop("@1")
+    shortcuts.tmux_window_by_id["@7"] = listing
+    shortcuts.window_exists = False
+
+    target = service.terminal_proxy_target(response.id)
+    entry = service._repository.get_entry(response.id)[1]
+
+    assert target.base_url == "http://127.0.0.1:9201"
+    assert entry.status == SessionStatus.RUNNING
+    assert entry.tmux_window_id == "@7"
+
+
 def test_service_refresh_stops_entry_when_tmux_window_disappears(tmp_path: Path) -> None:
     process = FakeProcessAdapter()
     shortcuts = FakeShortcutService()
     service = make_service(tmp_path, process, shortcut_service=shortcuts)
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
+    shortcuts.tmux_windows["windows_cygwin"] = []
+    shortcuts.tmux_window_by_id = {}
     shortcuts.window_exists = False
 
     refreshed = service.get(response.id)
@@ -635,6 +659,8 @@ def test_service_refresh_stops_disconnected_entry_when_tmux_window_disappears(tm
     service._repository.update_entry(
         entry.model_copy(update={"status": SessionStatus.DISCONNECTED, "pid": None, "url": ""})
     )
+    shortcuts.tmux_windows["windows_cygwin"] = []
+    shortcuts.tmux_window_by_id = {}
     shortcuts.window_exists = False
 
     refreshed = service.get(response.id)
@@ -694,6 +720,8 @@ def test_service_starts_stopped_entry_with_new_window_when_existing_window_is_mi
     response = service.create(CreateSessionRequest(name="Test", workspace=tmp_path, shortcut_id="claude-code"))
     service._ttyd_port_checker = lambda _port: False
     stopped = service.get(response.id)
+    shortcuts.tmux_windows["windows_cygwin"] = []
+    shortcuts.tmux_window_by_id = {}
     shortcuts.window_exists = False
 
     started = service.start(stopped.id)
