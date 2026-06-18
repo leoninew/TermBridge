@@ -3,7 +3,6 @@ from __future__ import annotations
 import ctypes
 import hashlib
 import logging
-import ntpath
 import os
 import platform
 import re
@@ -298,7 +297,9 @@ class TerminalService:
         requested = set(request.shortcut_ids)
         current_ids = [definition.id for definition in current_shortcuts.values()]
         if requested != set(current_ids) or len(requested) != len(request.shortcut_ids):
-            raise InvalidTerminalConfigError("Shortcut order must include each shortcut in the environment exactly once")
+            raise InvalidTerminalConfigError(
+                "Shortcut order must include each shortcut in the environment exactly once"
+            )
 
         shortcuts_by_id = {definition.id: (name, definition) for name, definition in current_shortcuts.items()}
         state.shortcuts[host] = {
@@ -798,8 +799,8 @@ class TerminalService:
         return path
 
     def _cygpath_executable_path(self, bash_path: str) -> str:
-        cygwin_bin = ntpath.dirname(bash_path)
-        return ntpath.join(cygwin_bin, "cygpath.exe") if cygwin_bin else "cygpath.exe"
+        bash = Path(bash_path)
+        return str(bash.parent / "cygpath.exe") if bash.parent.name else "cygpath.exe"
 
     def _find_shortcut(self, shortcut_id: str) -> Shortcut:
         state = self._ensure_default_shortcuts(self._shortcut_repository.get_state())
@@ -1134,7 +1135,7 @@ class TerminalService:
 
     def _cygwin_process_env(self, bash_path: str) -> Mapping[str, str]:
         env = os.environ.copy()
-        cygwin_bin = ntpath.dirname(bash_path)
+        cygwin_bin = str(Path(bash_path).parent)
         current_path = env.get("PATH", "")
         env["PATH"] = f"{cygwin_bin};{current_path}" if current_path else cygwin_bin
         return env

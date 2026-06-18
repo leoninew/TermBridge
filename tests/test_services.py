@@ -124,9 +124,7 @@ class FakeShortcutService:
             return
         renamed = replace(listing, window_name=new_name)
         self.tmux_window_by_id[tmux_window_id] = renamed
-        self.tmux_windows[host] = [
-            renamed if item is listing else item for item in self.tmux_windows.get(host, [])
-        ]
+        self.tmux_windows[host] = [renamed if item is listing else item for item in self.tmux_windows.get(host, [])]
 
     def kill_tmux_window(self, host: str, workspace: Path, *, tmux_window_id: str | None) -> None:
         self.killed_windows.append((host, workspace, tmux_window_id))
