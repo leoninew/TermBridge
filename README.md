@@ -41,7 +41,7 @@ Development:
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/)
 - Node.js and Yarn
-- [`just`](https://github.com/casey/just)
+- Make
 
 Runtime:
 
@@ -54,25 +54,25 @@ Runtime:
 Install dependencies:
 
 ```bash
-just install
+make install
 ```
 
 Start both development servers:
 
 ```bash
-just dev
+make run
 ```
 
 To run them separately, start the fastapi API:
 
 ```bash
-just dev-backend
+make dev-backend
 ```
 
 Then start the web dev server in another terminal:
 
 ```bash
-just dev-frontend
+make dev-frontend
 ```
 
 The fastapi runs on `127.0.0.1:9008` by default. The web runs on `127.0.0.1:9007` and proxies `/api` and `/health` to the fastapi.

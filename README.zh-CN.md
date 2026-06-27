@@ -41,7 +41,7 @@ TermBridge 按运行环境和工作目录组织会话。内部实现上，一个
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/)
 - Node.js 和 Yarn
-- [`just`](https://github.com/casey/just)
+- Make
 
 运行时：
 
@@ -54,25 +54,25 @@ TermBridge 按运行环境和工作目录组织会话。内部实现上，一个
 安装依赖：
 
 ```bash
-just install
+make install
 ```
 
 同时启动两个开发服务器：
 
 ```bash
-just dev
+make run
 ```
 
 如果需要分别启动，先启动后端 API：
 
 ```bash
-just dev-backend
+make dev-backend
 ```
 
 再在另一个终端启动前端开发服务器：
 
 ```bash
-just dev-frontend
+make dev-frontend
 ```
 
 后端默认运行在 `127.0.0.1:9008`。前端运行在 `127.0.0.1:9007`，并将 `/api` 和 `/health` 代理到后端。
