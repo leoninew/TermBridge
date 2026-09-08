@@ -2,50 +2,65 @@ SHELL := bash
 .SHELLFLAGS := -eu -o pipefail -c
 .DEFAULT_GOAL := help
 
+UV ?= uv
+UV_RUN ?= $(UV) run --locked --no-sync
+CHECK_FIX := $(filter 1 true yes,$(fix))
+RUFF_FORMAT_ARGS := --check
+RUFF_CHECK_ARGS :=
+
+ifneq ($(CHECK_FIX),)
+RUFF_FORMAT_ARGS :=
+RUFF_CHECK_ARGS := --fix
+endif
+
 ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 RELEASE_VERSION := $(if $(VERSION),$(VERSION),$(firstword $(ARGS)))
 
-.PHONY: help install run dev-backend dev-frontend check test build release clean
+.PHONY: help deps install run dev-backend dev-frontend check test build release clean
 
 help:
 	@printf "Available targets:\n"
+	@printf "  deps          Sync locked Python dependencies\n"
 	@printf "  install       Install web and Python dependencies\n"
 	@printf "  run           Start both development servers\n"
 	@printf "  dev-backend   Start the FastAPI backend with reload\n"
 	@printf "  dev-frontend  Start the web dev server\n"
-	@printf "  check         Run Python checks\n"
+	@printf "  check         Check format, lint, and types; use fix=1 to apply fixes\n"
 	@printf "  test          Run pytest\n"
 	@printf "  build         Build web assets and Python distributions\n"
 	@printf "  release       Upload dist artifacts, with VERSION=<version> or positional version\n"
 	@printf "  clean         Remove local build and cache artifacts\n"
 
+deps:
+	$(UV) sync --all-groups --locked
+
 install:
 	cd web && yarn install
-	uv sync --group dev
+	$(UV) sync --group dev
 
 run:
 	rm -rf src/termbridge/static
-	uv run python scripts/run.py
+	$(UV) run python scripts/run.py
 
 dev-backend:
-	uv run python -m termbridge.main --host 127.0.0.1 --port 9008 --reload
+	$(UV) run python -m termbridge.main --host 127.0.0.1 --port 9008 --reload
 
 dev-frontend:
 	cd web && yarn dev
 
 check:
-	uv run ruff check --fix src tests
-	uv run ruff format src tests
-	uv run mypy src
+	$(UV_RUN) ruff format $(RUFF_FORMAT_ARGS) src tests
+	$(UV_RUN) ruff check $(RUFF_CHECK_ARGS) src tests
+	$(UV_RUN) mypy src
 
 test:
-	uv run pytest
+	$(UV_RUN) pytest
 
 build:
 	cd web && yarn build
 	rm -rf src/termbridge/static
 	cp -R web/dist src/termbridge/static
-	uv build
+	$(UV) build
 
 release:
 	if [ -z "$(RELEASE_VERSION)" ]; then echo "VERSION is required"; exit 1; fi
